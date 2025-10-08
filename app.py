@@ -7,11 +7,28 @@ from datetime import timedelta
 app = Flask(__name__)
 app.secret_key = "dev-secret"   
 app.permanent_session_lifetime = timedelta(days=7)
-# === 修改成你的数据库信息（注意：密码务必只用 ASCII 字符，避免中文/表情）===
+# === 可以改成其他人的数据库信息（注意：密码务必只用 ASCII 字符，避免中文/表情）===
 DB_HOST = "localhost"
 DB_USER = "root"            # 或你新建的 demo 用户
-DB_PASS = "928109"       # 👈 例子：只含英文字母/数字/符号
+DB_PASS = "928109"       # 例子：只含英文字母/数字/符号
 DB_NAME = "ai_learning_coach"
+
+
+SEMESTER_CODE = "2025T1"   # 简化：先写死；后续可以做配置/自动计算
+
+WEEK_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+
+def days_to_bitmask(selected_days):  # ['Mon','Sun'] -> int
+    bit = 0
+    for i, name in enumerate(WEEK_LABELS):
+        if name in selected_days:
+            bit |= (1 << i)
+    return bit
+
+def bitmask_to_days(bit):            # int -> ['Mon','Sun']
+    return [WEEK_LABELS[i] for i in range(7) if (bit & (1 << i))]
+
+
 
 def get_conn():
     """
@@ -28,6 +45,158 @@ def get_conn():
         autocommit=True,
         cursorclass=pymysql.cursors.DictCursor
     )
+
+
+@app.route("/welcome")
+def welcome():
+    if "student_id" not in session:
+        return redirect(url_for("index"))
+    sid = session["student_id"]
+
+    # 取该学生已选课程；LEFT JOIN 是为了即便 courses 表没名字也能展示 code
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT sc.course_code, COALESCE(c.course_name, '') AS course_name
+            FROM student_courses sc
+            LEFT JOIN courses c ON c.course_code = sc.course_code
+            WHERE sc.student_id = %s
+            ORDER BY sc.course_code
+        """, (sid,))
+        courses = cur.fetchall()
+        cur.execute("""
+                SELECT week_no, daily_hours, weekly_study_days, avoid_days_bitmask, mode, derived_from_week_no
+                FROM student_weekly_preferences
+                WHERE student_id=%s AND semester_code=%s
+                ORDER BY week_no DESC
+                LIMIT 1
+            """, (sid, SEMESTER_CODE))
+        pref = cur.fetchone()
+        cur.execute("""
+            SELECT MAX(week_no) AS maxw
+            FROM student_weekly_preferences
+            WHERE student_id=%s AND semester_code=%s
+        """, (sid, SEMESTER_CODE))
+        r = cur.fetchone()
+
+    conn.close()
+
+    current_week = 1 if not r or not r["maxw"] else min(10, int(r["maxw"]) + 1)
+    if pref:
+        pref["avoid_days_list"] = bitmask_to_days(pref["avoid_days_bitmask"])
+
+    return render_template(
+        "welcome.html",
+        identifier=sid,
+        courses=courses,
+        pref=pref,
+        semester=SEMESTER_CODE,
+        current_week=current_week
+    )
+@app.route("/api/prefs/prev")
+def api_prefs_prev():
+    if "student_id" not in session:
+        return {"ok": False, "error": "unauthorized"}, 401
+
+    try:
+        week_no = int(request.args.get("week_no", "2"))
+    except Exception:
+        week_no = 2
+    if week_no <= 1:
+        return {"ok": False, "error": "no previous week"}, 400
+
+    sid = session["student_id"]
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT daily_hours, weekly_study_days, avoid_days_bitmask
+            FROM student_weekly_preferences
+            WHERE student_id=%s AND semester_code=%s AND week_no=%s
+        """, (sid, SEMESTER_CODE, week_no - 1))
+        row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return {"ok": False, "error": "prev not found"}, 404
+    return {"ok": True, "data": row}
+
+# ========= 偏好：保存（Confirm） =========
+@app.route("/api/prefs/save", methods=["POST"])
+def save_prefs():
+    if "student_id" not in session:
+        return redirect(url_for("index"))
+    sid = session["student_id"]
+
+    # 读表单
+    try:
+        week_no = int(request.form.get("week_no", "1"))
+    except Exception:
+        week_no = 1
+    mode = (request.form.get("mode") or "manual").lower()
+    if week_no <= 1:
+        mode = "manual"  # 第1周强制手动
+
+    try:
+        conn = get_conn()
+        with conn.cursor() as cur:
+            if mode == "default":
+                # 后端直接用上一周的值，确保可信
+                cur.execute("""
+                    SELECT daily_hours, weekly_study_days, avoid_days_bitmask
+                    FROM student_weekly_preferences
+                    WHERE student_id=%s AND semester_code=%s AND week_no=%s
+                """, (sid, SEMESTER_CODE, week_no - 1))
+                prev = cur.fetchone()
+                if not prev:
+                    conn.close()
+                    return redirect(url_for("welcome"))
+
+                cur.execute("""
+                    INSERT INTO student_weekly_preferences
+                    (student_id, semester_code, week_no, daily_hours, weekly_study_days, avoid_days_bitmask, mode, derived_from_week_no)
+                    VALUES (%s,%s,%s,%s,%s,%s,'default',%s)
+                    ON DUPLICATE KEY UPDATE
+                      daily_hours=VALUES(daily_hours),
+                      weekly_study_days=VALUES(weekly_study_days),
+                      avoid_days_bitmask=VALUES(avoid_days_bitmask),
+                      mode='default',
+                      derived_from_week_no=VALUES(derived_from_week_no)
+                """, (sid, SEMESTER_CODE, week_no,
+                      prev["daily_hours"], prev["weekly_study_days"], prev["avoid_days_bitmask"], week_no - 1))
+            else:
+                # manual：使用表单值
+                try:
+                    dh = float(request.form.get("daily_hours", "0"))
+                    wsd = int(request.form.get("weekly_study_days", "0"))
+                except Exception:
+                    dh, wsd = 0.0, 0
+                days_selected = request.form.getlist("avoid_days")
+                mask = days_to_bitmask(days_selected)
+
+                cur.execute("""
+                    INSERT INTO student_weekly_preferences
+                    (student_id, semester_code, week_no, daily_hours, weekly_study_days, avoid_days_bitmask, mode, derived_from_week_no)
+                    VALUES (%s,%s,%s,%s,%s,%s,'manual',NULL)
+                    ON DUPLICATE KEY UPDATE
+                      daily_hours=VALUES(daily_hours),
+                      weekly_study_days=VALUES(weekly_study_days),
+                      avoid_days_bitmask=VALUES(avoid_days_bitmask),
+                      mode='manual',
+                      derived_from_week_no=NULL
+                """, (sid, SEMESTER_CODE, week_no, dh, wsd, mask))
+        conn.close()
+        return redirect(url_for("welcome"))
+    except Exception as e:
+        print("[SAVE_PREFS ERROR]", repr(e))
+        try:
+            conn.close()
+        except:
+            pass
+        return redirect(url_for("welcome"))   
+@app.route("/logout")
+def logout():
+    session.clear()                 # 清掉登录状态
+    return redirect(url_for("index"))  # 回到登录页/首页
 
 @app.route("/")
 def index():
@@ -142,6 +311,13 @@ def materials_of_course(course_code):
     # 这里现在不查资料，先显示空页面
     return render_template("materials.html", code=code)
 
+@app.route("/show_my_material/<course_code>")
+def show_my_material(course_code):
+    if "student_id" not in session:
+        return redirect(url_for("index"))
+    code = (course_code or "").upper()
+    return render_template("show_my_material.html", code=code)
+
 @app.route("/login", methods=["POST"])
 def login():
     identifier = (request.form.get("identifier") or "").strip()
@@ -166,13 +342,14 @@ def login():
 
         ok = bcrypt.checkpw(password.encode("utf-8"), row["password_hash"].encode("utf-8"))
         if ok:
-            # ✅ 关键：写入 session，后续受保护页面才能识别已登录
+            #  关键：写入 session，后续受保护页面才能识别已登录
             session.permanent = True
             session["student_id"] = row["student_id"]
 
             # 两种选一：
             # 1) 若你已在 welcome.html 放了“请选择课程”按钮，就跳到 welcome：
-            return render_template("welcome.html", identifier=row["student_id"] or row["email"])
+            return redirect(url_for("welcome"))           
+            #return render_template("welcome.html", identifier=row["student_id"] or row["email"])
             # 2) 或者直接去选课页（更顺畅）：
             # return redirect(url_for("choose_courses"))
         else:
