@@ -7,15 +7,14 @@ from datetime import timedelta
 app = Flask(__name__)
 app.secret_key = "dev-secret"   
 app.permanent_session_lifetime = timedelta(days=7)
-# === 可以改成其他人的数据库信息（注意：密码务必只用 ASCII 字符，避免中文/表情）===
+#可以改成其他人的数据库信息（注意：密码务必只用 ASCII 字符，避免中文/表情）===
 DB_HOST = "localhost"
-DB_USER = "root"            # 或你新建的 demo 用户
-DB_PASS = "928109"       # 例子：只含英文字母/数字/符号
+DB_USER = "root"            # demo account
+DB_PASS = "928109"       
 DB_NAME = "ai_learning_coach"
 
 
-SEMESTER_CODE = "2025T1"   # 简化：先写死；后续可以做配置/自动计算
-
+SEMESTER_CODE = "2025T1"   # todo: not a fixed value for term
 WEEK_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
 
 def days_to_bitmask(selected_days):  # ['Mon','Sun'] -> int
@@ -32,9 +31,9 @@ def bitmask_to_days(bit):            # int -> ['Mon','Sun']
 
 def get_conn():
     """
-    建立到 MySQL 的连接：
-    - autocommit=True 省去手动 commit
-    - charset='utf8mb4' 确保中文学号/邮箱可写
+    connect to Mysql
+    - autocommit=True  ignoring commit
+    - charset='utf8mb4' zid/email
     """
     return pymysql.connect(
         host=DB_HOST,
@@ -195,12 +194,12 @@ def save_prefs():
         return redirect(url_for("welcome"))   
 @app.route("/logout")
 def logout():
-    session.clear()                 # 清掉登录状态
-    return redirect(url_for("index"))  # 回到登录页/首页
+    session.clear()                 # clear the status 
+    return redirect(url_for("index"))  # back to first page(login/register)
 
 @app.route("/")
 def index():
-    # 确保有 templates/index.html
+    #  templates/index.html
     return render_template("index.html")
 
 @app.route("/register", methods=["POST"])
@@ -210,7 +209,7 @@ def register():
     password   = (request.form.get("password") or "")
 
     if not student_id or not email or not password:
-        return render_template("index.html", message="请填写学号、邮箱和密码。")
+        return render_template("index.html", message="Please enter your zid, email and password")
 
     try:
         # bcrypt 哈希
@@ -255,7 +254,7 @@ def choose_courses():
     if request.method == "GET":
         return render_template("choose_courses.html")
 
-    # --- POST: 单课程增量添加（必须存在于 courses 表中） ---
+    # POST: 单课程增量添加（必须存在于 courses 表中）
     code = (request.form.get("course_code") or "").strip().upper()
     if not code:
         return render_template("choose_courses.html", message="请输入课程代码。")
@@ -263,7 +262,7 @@ def choose_courses():
     try:
         conn = get_conn()
         with conn.cursor() as cur:
-            # ① 检查 courses 表中是否存在该课程
+            # 检查 courses 表中是否存在该课程
             cur.execute("SELECT 1 FROM courses WHERE course_code=%s LIMIT 1", (code,))
             if not cur.fetchone():
                 conn.close()
@@ -285,7 +284,7 @@ def choose_courses():
                 #     message=f"已存在：{code}（无需重复添加）"
                 # )
 
-            # ③ 插入新选课记录
+            # 插入新选课记录
             cur.execute(
                 "INSERT INTO student_courses (student_id, course_code) VALUES (%s, %s)",
                 (sid, code)
@@ -299,7 +298,7 @@ def choose_courses():
         print("[CHOOSE COURSE ERROR]", repr(e))
         return render_template(
             "choose_courses.html",
-            message="保存失败：服务器内部错误。"
+            message="fail! Server Error!"
         )
 
 @app.route("/materials/<course_code>")
@@ -353,16 +352,16 @@ def login():
             # 2) 或者直接去选课页（更顺畅）：
             # return redirect(url_for("choose_courses"))
         else:
-            return render_template("index.html", message="密码错误。")
+            return render_template("index.html", message="Wrong Password!")
 
     except UnicodeEncodeError:
         return render_template(
             "index.html",
-            message="数据库连接失败：请将 MySQL 登录密码改为仅包含 ASCII 的字符（英⽂/数字/常见符号）。"
+            message="Fail to make connection to Database!"
         )
     except Exception as e:
         print("[LOGIN ERROR]", repr(e))
-        return render_template("index.html", message="登录失败：服务器内部错误，请检查后端日志。")
+        return render_template("index.html", message="Fail to log in! Please check the log!")
 
 if __name__ == "__main__":
     # 生产环境不要用 debug=True；本地开发可以开

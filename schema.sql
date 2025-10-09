@@ -40,13 +40,13 @@ CREATE TABLE IF NOT EXISTS materials (
 
 CREATE TABLE IF NOT EXISTS student_weekly_preferences (
   student_id           VARCHAR(32)  NOT NULL,
-  semester_code        VARCHAR(20)  NOT NULL,             -- 如 '2025T1'
+  semester_code        VARCHAR(20)  NOT NULL,             -- term : '2025T1'
   week_no              TINYINT      NOT NULL,             -- 1..10
-  daily_hours          DECIMAL(4,2) NOT NULL,             -- 每天学几小时
-  weekly_study_days    TINYINT      NOT NULL,             -- 一周学几天(0..7)
-  avoid_days_bitmask   TINYINT UNSIGNED NOT NULL DEFAULT 0,  -- 周一=1, 周二=2, …, 周日=64
+  daily_hours          DECIMAL(4,2) NOT NULL,             -- how many hours one will study per day
+  weekly_study_days    TINYINT      NOT NULL,             -- how many days one will study per week
+  avoid_days_bitmask   TINYINT UNSIGNED NOT NULL DEFAULT 0,  -- Mon=1, Tue=2, …, Sun=64
   mode                 ENUM('manual','default') NOT NULL DEFAULT 'manual',
-  derived_from_week_no TINYINT NULL,                      -- default 时=week_no-1；manual 时 NULL
+  derived_from_week_no TINYINT NULL,                      -- default : =week_no-1；manual : NULL
   created_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at           TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
