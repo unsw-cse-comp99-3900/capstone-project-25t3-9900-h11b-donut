@@ -4,18 +4,48 @@ import bcrypt
 import os
 from datetime import timedelta
 
+# app = Flask(__name__)
+# app.secret_key = "dev-secret"   
+# app.permanent_session_lifetime = timedelta(days=7)
+# #可以改成其他人的数据库信息（注意：密码务必只用 ASCII 字符，避免中文/表情）===
+# DB_HOST = "localhost"
+# DB_USER = "root"            # demo account
+# DB_PASS = "928109"       
+# DB_NAME = "ai_learning_coach"
+
+
+# SEMESTER_CODE = "2025T1"   # todo: not a fixed value for term
+# WEEK_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+
 app = Flask(__name__)
-app.secret_key = "dev-secret"   
-app.permanent_session_lifetime = timedelta(days=7)
-#可以改成其他人的数据库信息（注意：密码务必只用 ASCII 字符，避免中文/表情）===
-DB_HOST = "localhost"
-DB_USER = "root"            # demo account
-DB_PASS = "928109"       
-DB_NAME = "ai_learning_coach"
 
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret")
+app.permanent_session_lifetime = timedelta(days=int(os.getenv("SESSION_DAYS", "7")))
+DB_HOST = os.getenv("DB_HOST", "db")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
+DB_USER = os.getenv("DB_USER", "demo")           
+DB_PASS = os.getenv("DB_PASS", "demo")
+DB_NAME = os.getenv("DB_NAME", "ai_learning_coach")
+DB_CHARSET = os.getenv("DB_CHARSET", "utf8mb4")
+SEMESTER_CODE = os.getenv("SEMESTER_CODE", "2025T1")
 
-SEMESTER_CODE = "2025T1"   # todo: not a fixed value for term
 WEEK_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+
+def get_conn():
+    # 统一的连接方式，autocommit 方便增删改；cursor 返回 dict
+    return pymysql.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASS,
+        database=DB_NAME,
+        charset=DB_CHARSET,
+        autocommit=True,
+        cursorclass=pymysql.cursors.DictCursor,
+        connect_timeout=5,
+    )
+
+
 
 def days_to_bitmask(selected_days):  # ['Mon','Sun'] -> int
     bit = 0
@@ -346,10 +376,10 @@ def login():
             session["student_id"] = row["student_id"]
 
             # 两种选一：
-            # 1) 若你已在 welcome.html 放了“请选择课程”按钮，就跳到 welcome：
+            # 1) 若已在 welcome.html 放了“请选择课程”按钮，就跳到 welcome：
             return redirect(url_for("welcome"))           
             #return render_template("welcome.html", identifier=row["student_id"] or row["email"])
-            # 2) 或者直接去选课页（更顺畅）：
+            # 2) 或者直接去选课页：
             # return redirect(url_for("choose_courses"))
         else:
             return render_template("index.html", message="Wrong Password!")
@@ -365,4 +395,5 @@ def login():
 
 if __name__ == "__main__":
     # 生产环境不要用 debug=True；本地开发可以开
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    port = int(os.getenv("BACKEND_PORT", "9900"))
+    app.run(host="0.0.0.0", port=port, debug=True)
