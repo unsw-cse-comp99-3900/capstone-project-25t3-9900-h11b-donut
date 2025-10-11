@@ -30,13 +30,133 @@
     <ul>
       <li>Daily studying hours：{{ pref.daily_hours }}</li>
       <li>Weekly studying days：{{ pref.weekly_study_days }}</li>
-      <li>Avoid studying days：{% if pref.avoid_days_list %}{{ pref.avoid_days_list|join(', ') }}{% else %}None:{% endif %}</li>
+      <li>Avoid studying days：{% if pref.avoid_days_list %}{{ pref.avoid_days_list|join(', ') }}{% else %}None{% endif %}</li>
     </ul>
   {% else %}
     <p>No preference set</p>
   {% endif %}
 
-  <!-- Generate Plan -->
+  <!-- ================= 上传与查看资料 ================= -->
+  <h2>Materials Management</h2>
+
+  <p>
+    <button type="button" id="btn-upload-toggle">Upload Material (PDF)</button>
+    <button type="button" id="btn-view-toggle">View My Materials</button>
+  </p>
+
+  <!-- 上传表单 -->
+  <form id="upload-panel" method="POST" action="/materials/upload"
+        enctype="multipart/form-data"
+        style="display:none; padding:10px; border:1px solid #ccc; max-width:520px;">
+    <div style="margin-bottom:10px;">
+      <label>Select file (PDF only):</label><br>
+      <input type="file" name="file" id="file" accept="application/pdf" required>
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <label>Description (optional):</label><br>
+      <input type="text" name="description" id="desc" placeholder="e.g. Week 1 notes" style="width:100%; max-width:480px;">
+    </div>
+
+    <div>
+      <button type="button" id="btn-upload">Upload</button>
+      <button type="button" id="btn-upload-cancel">Cancel</button>
+    </div>
+    <p id="upload-msg" style="font-size:12px;color:#666;margin-top:8px;"></p>
+  </form>
+
+  <!-- 查看资料区域 -->
+  <div id="view-panel" style="display:none; padding:10px; border:1px solid #ccc; max-width:720px; margin-top:16px;">
+    <h3>My Uploaded Files</h3>
+    <div id="list-panel"><p style="color:#666;">Click “View My Materials” to load your files.</p></div>
+  </div>
+
+  <script>
+    // ----------- 面板显示/隐藏 ----------
+    const hidePanel = (id) => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+    const togglePanel = (id) => {
+      const el = document.getElementById(id);
+      el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+    };
+
+    document.getElementById('btn-upload-toggle').addEventListener('click', () => {
+      togglePanel('upload-panel'); hidePanel('view-panel');
+    });
+    document.getElementById('btn-view-toggle').addEventListener('click', () => {
+      togglePanel('view-panel'); hidePanel('upload-panel');
+      if (document.getElementById('view-panel').style.display === 'block') loadMaterials();
+    });
+    document.getElementById('btn-upload-cancel').addEventListener('click', () => hidePanel('upload-panel'));
+
+    // ----------- 上传 ----------
+    async function doUpload() {
+      const file = document.getElementById('file').files[0];
+      const desc = document.getElementById('desc').value.trim();
+      const msg = document.getElementById('upload-msg');
+      if (!file) { msg.textContent = 'Please choose a file.'; return; }
+      if (!/\.pdf$/i.test(file.name)) { msg.textContent = 'Only PDF allowed.'; return; }
+
+      const fd = new FormData();
+      fd.append('file', file);
+      if (desc) fd.append('description', desc);
+
+      msg.textContent = 'Uploading...';
+      try {
+        const res = await fetch('/materials/upload', { method: 'POST', body: fd });
+        if (!res.ok) { msg.textContent = 'Upload failed.'; return; }
+        msg.textContent = 'Uploaded successfully!';
+        document.getElementById('file').value = '';
+        document.getElementById('desc').value = '';
+        loadMaterials();
+      } catch (e) {
+        console.error(e);
+        msg.textContent = 'Error during upload.';
+      }
+    }
+    document.getElementById('btn-upload').addEventListener('click', doUpload);
+
+    // ----------- 加载列表 ----------
+    async function loadMaterials() {
+      const panel = document.getElementById('list-panel');
+      panel.innerHTML = '<p style="color:#666;">Loading...</p>';
+      try {
+        const res = await fetch('/materials/list');
+        const json = await res.json();
+        if (!json.ok) { panel.innerHTML = '<p style="color:red;">Load failed.</p>'; return; }
+
+        const list = json.data || [];
+        if (list.length === 0) { panel.innerHTML = '<p style="color:#666;">No materials yet.</p>'; return; }
+
+        const ul = document.createElement('ul');
+        list.forEach(it => {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = it.url; a.target = '_blank'; a.textContent = it.filename;
+          li.appendChild(a);
+          if (it.uploaded_at) {
+            const span = document.createElement('span');
+            span.style.cssText = 'color:#666;font-size:12px;margin-left:6px;';
+            span.textContent = ' — ' + it.uploaded_at;
+            li.appendChild(span);
+          }
+          if (it.description) {
+            const d = document.createElement('div');
+            d.style.cssText = 'font-size:12px;color:#333;';
+            d.textContent = it.description;
+            li.appendChild(d);
+          }
+          ul.appendChild(li);
+        });
+        panel.innerHTML = '';
+        panel.appendChild(ul);
+      } catch (e) {
+        console.error(e);
+        panel.innerHTML = '<p style="color:red;">Network error.</p>';
+      }
+    }
+  </script>
+
+  <!-- ================ Generate Plan（原逻辑不变） ================= -->
   <h2>Generate Plan</h2>
   <p>Semester: {{ semester }} | Week: <strong id="week-no">{{ current_week }}</strong></p>
   <p><button type="button" id="btn-gen">Generate Plan</button></p>
@@ -90,7 +210,7 @@
   </form>
 
   <script>
-    // 展开/收起
+    // Generate Plan 原 JS 保持不变
     document.getElementById('btn-gen').addEventListener('click', function() {
       const panel = document.getElementById('gen-panel');
       panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';

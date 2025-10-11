@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>My Materials</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; color: #222; }
+    h1 { margin: 0 0 16px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; max-width: 720px; margin-bottom: 18px; }
+    .row { margin-bottom: 12px; }
+    label { display: inline-block; min-width: 150px; }
+    input[type="file"] { max-width: 380px; }
+    input[type="text"] { width: 100%; max-width: 520px; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
+    button { padding: 8px 14px; border: 1px solid #ccc; border-radius: 10px; background: #f7f7f7; cursor: pointer; }
+    button:hover { background: #f0f0f0; }
+    .muted { color: #666; font-size: 12px; }
+    #msg { margin-top: 8px; min-height: 20px; }
+    ul { padding-left: 18px; }
+    li { margin: 6px 0; }
+    .desc { font-size: 12px; color: #333; }
+    .time { font-size: 12px; color: #666; margin-left: 6px; }
+    .toolbar { display: flex; gap: 8px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h1>My Materials</h1>
+
+  <!-- 上传区 -->
+  <div class="card">
+    <h2 style="margin-top:0">Upload PDF</h2>
+    <div class="row">
+      <label for="file">Select file (PDF only):</label>
+      <input type="file" id="file" accept="application/pdf" />
+    </div>
+    <div class="row">
+      <label for="desc">Description (optional):</label>
+      <input type="text" id="desc" placeholder="e.g. Week 1 notes" />
+    </div>
+    <div class="toolbar">
+      <button id="btn-upload">Upload</button>
+      <span class="muted">Max size is defined by your server (e.g. 16MB).</span>
+    </div>
+    <div id="msg" class="muted"></div>
+  </div>
+
+  <!-- 列表区 -->
+  <div class="card">
+    <div style="display:flex; align-items:center; justify-content:space-between;">
+      <h2 style="margin:0">My files</h2>
+      <div class="toolbar">
+        <button id="btn-refresh">View materials</button>
+      </div>
+    </div>
+    <div id="list-panel" class="row">
+      <p class="muted">Click “View materials” to load your files.</p>
+    </div>
+  </div>
+
+<script>
+  const $ = (sel) => document.querySelector(sel);
+  const msg = (text, isError=false) => {
+    const el = $('#msg');
+    el.textContent = text || '';
+    el.style.color = isError ? '#b00020' : '#666';
+  };
+
+  // 上传
+  async function doUpload() {
+    const fileInput = $('#file');
+    const descInput = $('#desc');
+    const file = fileInput.files && fileInput.files[0];
+
+    if (!file) { msg('Please choose a PDF file.', true); return; }
+    if (!/\.pdf$/i.test(file.name)) { msg('Only PDF is allowed.', true); return; }
+
+    const fd = new FormData();
+    fd.append('file', file);
+    if (descInput.value.trim()) fd.append('description', descInput.value.trim());
+
+    msg('Uploading...');
+    try {
+      // 注意：为避免服务器看到 Referer 后重定向，这里设置 referrerPolicy: 'no-referrer'
+      const res = await fetch('/materials/upload', {
+        method: 'POST',
+        body: fd,
+        referrerPolicy: 'no-referrer'
+      });
+
+      // 兼容：如果后端返回的是 redirect（非 JSON），这里不抛错
+      let ok = res.ok;
+      let text = 'Uploaded';
+      try {
+        const data = await res.json();
+        ok = ok && data.ok !== false;
+        text = data.msg || text;
+      } catch(_) { /* ignore non-JSON (e.g. HTML redirect) */ }
+
+      if (!ok) { msg(text || 'Upload failed', true); return; }
+      msg(text || 'Uploaded');
+
+      // 清空表单
+      fileInput.value = '';
+      descInput.value = '';
+
+      // 刷新列表
+      await loadList();
+    } catch (e) {
+      console.error(e);
+      msg('Network error during upload', true);
+    }
+  }
+
+  // 加载列表
+  async function loadList() {
+    const panel = $('#list-panel');
+    panel.innerHTML = '<p class="muted">Loading...</p>';
+
+    try {
+      const res = await fetch('/materials/list', { method: 'GET' });
+      if (!res.ok) { panel.innerHTML = '<p class="muted">Load failed.</p>'; return; }
+      const json = await res.json();
+      if (!json.ok) { panel.innerHTML = `<p class="muted">${json.msg || 'Load failed.'}</p>`; return; }
+
+      const list = json.data || [];
+      if (list.length === 0) { panel.innerHTML = '<p class="muted">No materials yet.</p>'; return; }
+
+      const ul = document.createElement('ul');
+      list.forEach(it => {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = it.url; a.target = '_blank'; a.rel = 'noopener';
+        a.textContent = it.filename || it.saved || 'file.pdf';
+        li.appendChild(a);
+
+        if (it.uploaded_at) {
+          const t = document.createElement('span');
+          t.className = 'time';
+          t.textContent = ' — ' + it.uploaded_at;
+          li.appendChild(t);
+        }
+        if (it.description) {
+          const d = document.createElement('div');
+          d.className = 'desc';
+          d.textContent = it.description;
+          li.appendChild(d);
+        }
+        ul.appendChild(li);
+      });
+      panel.innerHTML = '';
+      panel.appendChild(ul);
+    } catch (e) {
+      console.error(e);
+      panel.innerHTML = '<p class="muted">Network error.</p>';
+    }
+  }
+
+  // 事件绑定
+  $('#btn-upload').addEventListener('click', doUpload);
+  $('#btn-refresh').addEventListener('click', loadList);
+
+  // 可选：页面加载时自动拉一次列表
+  // loadList();
+</script>
+</body>
+</html>

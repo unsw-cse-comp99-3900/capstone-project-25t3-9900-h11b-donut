@@ -1,9 +1,12 @@
-from flask import Flask, request, render_template, session,redirect,url_for
+from flask import Flask, request, render_template, session,redirect,url_for,jsonify,send_from_directory
 import pymysql
 import bcrypt
 import os,certifi
 from datetime import timedelta
+from pathlib import Path
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
+import time
 load_dotenv()
 
 
@@ -23,6 +26,143 @@ DB_CHARSET = os.getenv("DB_CHARSET", "utf8mb4")
 SEMESTER_CODE = os.getenv("SEMESTER_CODE", "2025T1")
 
 WEEK_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+
+ALLOWED_EXTS = {"pdf"}
+app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "16")) * 1024 * 1024  # 16MB
+# 上传根目录（可用 .env 配置 UPLOAD_ROOT；Docker 下建议挂载为卷）
+UPLOAD_ROOT = os.getenv("UPLOAD_ROOT", "/app/uploads") # 会上传到C盘，测试时
+Path(UPLOAD_ROOT).mkdir(parents=True, exist_ok=True)
+def _allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTS
+@app.get("/upload_material")
+def upload_material_page():
+    if "student_id" not in session:
+        return redirect(url_for("index"))
+    return render_template("upload_material.html")
+@app.post("/materials/upload")
+def upload_material():
+    # 1) 校验登录
+    uid = session.get("student_id")
+    if not uid:
+        return jsonify({"ok": False, "msg": "Not logged in"}), 401
+
+    # 2) 取文件
+    if "file" not in request.files:
+        return jsonify({"ok": False, "msg": "No file part"}), 400
+    f = request.files["file"]
+    if not f or f.filename == "":
+        return jsonify({"ok": False, "msg": "No selected file"}), 400
+    if not _allowed_file(f.filename):
+        return jsonify({"ok": False, "msg": "Only PDF is allowed"}), 400
+
+    # 3) 保存到磁盘：uploads/<uid>/<毫秒时间戳>_原文件名.pdf
+    user_dir = Path(UPLOAD_ROOT) / str(uid)
+    user_dir.mkdir(parents=True, exist_ok=True)
+
+    original = secure_filename(f.filename)
+    saved_name = f"{int(time.time() * 1000)}_{original}"
+    save_path = user_dir / saved_name
+
+    try:
+        f.save(save_path)
+    except Exception as e:
+        print("[UPLOAD SAVE ERROR]", repr(e))
+        return jsonify({"ok": False, "msg": "Save failed"}), 500
+
+    # 4) 写入数据库
+    desc = (request.form.get("description") or "").strip() or None
+    try:
+        conn = get_conn()  # 复用你现有的连接函数
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO user_materials
+                  (owner_id, filename_original, filename_saved, description)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (uid, original, saved_name, desc)
+            )
+        # 如果你的 get_conn() 没开 autocommit，这里确保提交：
+        try:
+            conn.commit()
+        except Exception:
+            pass
+        conn.close()
+    except Exception as e:
+        print("[UPLOAD DB ERROR]", repr(e))
+        # DB 失败时，删除刚保存的文件，避免磁盘留下脏文件
+        try:
+            if save_path.exists():
+                save_path.unlink()
+        except Exception:
+            pass
+        return jsonify({"ok": False, "msg": "DB error"}), 500
+
+    # 5) 表单来源：从页面提交则回跳，否则返回 JSON
+    ref = request.headers.get("Referer")
+    return redirect(ref) if ref else jsonify({"ok": True, "msg": "Uploaded", "filename": original})
+
+@app.get("/materials/list")
+def list_materials():
+    uid = session.get("student_id")
+    if not uid:
+        return jsonify({"ok": False, "msg": "Not logged in"}), 401
+
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, filename_original, filename_saved, description, uploaded_at
+            FROM user_materials
+            WHERE owner_id=%s
+            ORDER BY uploaded_at DESC, id DESC
+            """,
+            (uid,)
+        )
+        rows = cur.fetchall() or []
+    conn.close()
+
+    data = [{
+        "id": r["id"],
+        "filename": r["filename_original"],
+        "url": url_for("download_material_by_id", material_id=r["id"]),
+        "description": r.get("description"),
+        "uploaded_at": str(r.get("uploaded_at")),
+    } for r in rows]
+
+    return jsonify({"ok": True, "data": data})
+
+@app.get("/materials/file/id/<int:material_id>")
+def download_material_by_id(material_id: int):
+    uid = session.get("student_id")
+    if not uid:
+        return redirect(url_for("index"))
+
+    conn = get_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT filename_original, filename_saved FROM user_materials WHERE id=%s AND owner_id=%s",
+            (material_id, uid)
+        )
+        row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return "File not found", 404
+
+    user_dir = Path(UPLOAD_ROOT) / str(uid)
+    file_path = user_dir / row["filename_saved"]
+    if not file_path.exists():
+        return "File missing on disk", 404
+
+    return send_from_directory(
+        directory=str(user_dir),
+        path=row["filename_saved"],
+        as_attachment=True,
+        download_name=row["filename_original"],
+        mimetype="application/pdf"
+    )
+
 
 def get_conn():
     # 统一的连接方式，autocommit 方便增删改；cursor 返回 dict
@@ -54,15 +194,7 @@ def bitmask_to_days(bit):            # int -> ['Mon','Sun']
 
 
 def get_conn():
-    # return pymysql.connect(
-    #     host=DB_HOST,
-    #     user=DB_USER,
-    #     password=DB_PASS,
-    #     database=DB_NAME,
-    #     charset="utf8mb4",
-    #     autocommit=True,
-    #     cursorclass=pymysql.cursors.DictCursor
-    # )
+    
     return pymysql.connect(
         host=DB_HOST,
         port=int(DB_PORT) if DB_PORT else 4000,  # ⭐ TiDB 默认端口 4000

@@ -63,3 +63,22 @@ CREATE TABLE IF NOT EXISTS student_weekly_preferences (
     (mode = 'default' AND derived_from_week_no = week_no - 1)
   )
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS user_materials (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,          -- 自增主键
+  owner_id VARCHAR(32) NOT NULL,                 -- 上传者ID（外键 -> student_accounts.student_id）
+  filename_original VARCHAR(255) NOT NULL,       -- 原始文件名（展示用）
+  filename_saved VARCHAR(255) NOT NULL,          -- 实际保存名（存磁盘）
+  description TEXT NULL,                         -- 文件描述（可选）
+  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,  -- 上传时间
+
+  -- 外键约束：绑定到学生表，删除学生则自动删除其资料
+  CONSTRAINT fk_user_materials_student
+    FOREIGN KEY (owner_id)
+    REFERENCES student_accounts(student_id)
+    ON DELETE CASCADE
+    ON UPDATE CASCADE,
+
+  UNIQUE KEY uk_owner_saved (owner_id, filename_saved),
+  KEY idx_owner_time (owner_id, uploaded_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
