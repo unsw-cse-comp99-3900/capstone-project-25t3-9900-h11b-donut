@@ -1,50 +1,19 @@
+version: "3.9"
+
 services:
-  # MySQL 数据库容器
-  db:
-    image: mysql:8.0
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    ports:
-      - "3307:3306"   
-    volumes:
-      - dbdata:/var/lib/mysql
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD}"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
-
-  # Flask 后端容器
   backend:
     build: .
+    container_name: ai-learning-coach
     #restart: unless-stopped
-    environment:
-      # ---- 数据库连接配置 ----
-      DB_HOST: db
-      DB_USER: ${MYSQL_USER}
-      DB_PASS: ${MYSQL_PASSWORD}
-      DB_NAME: ${MYSQL_DATABASE}
 
-      # ---- 应用运行配置 ----
-      BACKEND_PORT: ${BACKEND_PORT}
-      SEMESTER_CODE: ${SEMESTER_CODE}
-      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY}
-
-    depends_on:
-      db:
-        condition: service_healthy
+    # 读取 .env 文件中所有配置（包括 TiDB Cloud 的连接信息）
+    env_file:
+      - .env
 
     ports:
-      - "${BACKEND_PORT}:${BACKEND_PORT}"
+      - "${BACKEND_PORT-9900}:${BACKEND_PORT-9900}"
 
+    # 启动命令（默认 Flask）
     command: >
       sh -c "python app.py"
 
-volumes:
-  dbdata:

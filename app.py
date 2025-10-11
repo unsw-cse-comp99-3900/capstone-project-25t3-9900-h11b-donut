@@ -1,31 +1,24 @@
 from flask import Flask, request, render_template, session,redirect,url_for
 import pymysql
 import bcrypt
-import os
+import os,certifi
 from datetime import timedelta
+from dotenv import load_dotenv
+load_dotenv()
 
-# app = Flask(__name__)
-# app.secret_key = "dev-secret"   
-# app.permanent_session_lifetime = timedelta(days=7)
-# #可以改成其他人的数据库信息（注意：密码务必只用 ASCII 字符，避免中文/表情）===
-# DB_HOST = "localhost"
-# DB_USER = "root"            # demo account
-# DB_PASS = "928109"       
-# DB_NAME = "ai_learning_coach"
-
-
-# SEMESTER_CODE = "2025T1"   # todo: not a fixed value for term
-# WEEK_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
 
 app = Flask(__name__)
 
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret")
 app.permanent_session_lifetime = timedelta(days=int(os.getenv("SESSION_DAYS", "7")))
-DB_HOST = os.getenv("DB_HOST", "db")
-DB_PORT = int(os.getenv("DB_PORT", "3306"))
-DB_USER = os.getenv("DB_USER", "demo")           
-DB_PASS = os.getenv("DB_PASS", "demo")
-DB_NAME = os.getenv("DB_NAME", "ai_learning_coach")
+
+
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", "4000"))  # TiDB Cloud 默认 4000
+DB_USER = os.getenv("DB_USER") or os.getenv("DB_USERNAME", "demo")
+DB_PASS = os.getenv("DB_PASS") or os.getenv("DB_PASSWORD", "demo")
+DB_NAME = os.getenv("DB_NAME") or os.getenv("DB_DATABASE", "ai_learning_coach")
+
 DB_CHARSET = os.getenv("DB_CHARSET", "utf8mb4")
 SEMESTER_CODE = os.getenv("SEMESTER_CODE", "2025T1")
 
@@ -43,6 +36,7 @@ def get_conn():
         autocommit=True,
         cursorclass=pymysql.cursors.DictCursor,
         connect_timeout=5,
+        ssl={"ca": certifi.where()},
     )
 
 
@@ -60,19 +54,26 @@ def bitmask_to_days(bit):            # int -> ['Mon','Sun']
 
 
 def get_conn():
-    """
-    connect to Mysql
-    - autocommit=True  ignoring commit
-    - charset='utf8mb4' zid/email
-    """
+    # return pymysql.connect(
+    #     host=DB_HOST,
+    #     user=DB_USER,
+    #     password=DB_PASS,
+    #     database=DB_NAME,
+    #     charset="utf8mb4",
+    #     autocommit=True,
+    #     cursorclass=pymysql.cursors.DictCursor
+    # )
     return pymysql.connect(
         host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASS,
-        database=DB_NAME,
+        port=int(DB_PORT) if DB_PORT else 4000,  # ⭐ TiDB 默认端口 4000
+        user=DB_USER or os.getenv("DB_USERNAME"),
+        password=DB_PASS or os.getenv("DB_PASSWORD"),
+        database=DB_NAME or os.getenv("DB_DATABASE"),
         charset="utf8mb4",
         autocommit=True,
-        cursorclass=pymysql.cursors.DictCursor
+        cursorclass=pymysql.cursors.DictCursor,
+        ssl={"ca": certifi.where()},  # ⭐ 必须加，启用 TLS 连接
+        connect_timeout=5,
     )
 
 
