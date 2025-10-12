@@ -31,6 +31,9 @@ ALLOWED_EXTS = {"pdf"}
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "16")) * 1024 * 1024  # 16MB
 # 上传根目录（可用 .env 配置 UPLOAD_ROOT；Docker 下建议挂载为卷）
 UPLOAD_ROOT = os.getenv("UPLOAD_ROOT", "/app/uploads") # 会上传到C盘，测试时
+
+
+
 Path(UPLOAD_ROOT).mkdir(parents=True, exist_ok=True)
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTS
@@ -528,6 +531,6 @@ def login():
 
 if __name__ == "__main__":
     # 生产环境不要用 debug=True；本地开发可以开
-    #port = int(os.getenv("BACKEND_PORT", "9900"))
-    #app.run(host="0.0.0.0", port=port, debug=True)
-    app.run(host="0.0.0.0", port=80)
+    port = int(os.getenv("BACKEND_PORT", "9900"))
+    app.run(host="0.0.0.0", port=port, debug=True)
+    #app.run(host="0.0.0.0", port=80)
