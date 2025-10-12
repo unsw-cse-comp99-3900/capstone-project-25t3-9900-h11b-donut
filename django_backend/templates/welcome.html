@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Welcome</title>
+</head>
+<body>
+  <h1>Welcome, {{ identifier }} 🎉</h1>
+  <p>学期：{{ semester }} | 当前第 {{ current_week }} 周</p>
+
+  <h2>已选课程：</h2>
+  {% if courses %}
+    <ul>
+      {% for sc in courses %}
+        <li>{{ sc.course.course_code }} - {{ sc.course.course_name }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>你还没有选择任何课程。</p>
+  {% endif %}
+
+  <h2>最近偏好：</h2>
+  {% if pref %}
+    <p>📅 周次：{{ pref.week_no }}</p>
+    <p>⏰ 每日学习时长：{{ pref.daily_hours }} 小时</p>
+    <p>📆 每周学习天数：{{ pref.weekly_study_days }} 天</p>
+    <p>🚫 避免日：{{ pref.avoid_days_list|join:', ' }}</p>
+    <p>⚙️ 模式：{{ pref.mode }}</p>
+  {% else %}
+    <p>暂无偏好数据。</p>
+  {% endif %}
+
+
+
+  <hr>
+  <h2>填写学习偏好：</h2>
+  <form action="/api/prefs/save/" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="week_no" value="{{ current_week }}">
+
+    <label>每日学习时长：</label>
+    <input type="number" step="0.5" min="0" max="24" name="daily_hours" required><br><br>
+
+    <label>每周学习天数：</label>
+    <input type="number" min="0" max="7" name="weekly_study_days" required><br><br>
+
+    <label>选择要避免的日子：</label><br>
+    <input type="checkbox" name="avoid_days" value="Mon">Mon
+    <input type="checkbox" name="avoid_days" value="Tue">Tue
+    <input type="checkbox" name="avoid_days" value="Wed">Wed
+    <input type="checkbox" name="avoid_days" value="Thu">Thu
+    <input type="checkbox" name="avoid_days" value="Fri">Fri
+    <input type="checkbox" name="avoid_days" value="Sat">Sat
+    <input type="checkbox" name="avoid_days" value="Sun">Sun
+    <br><br>
+
+    <label>模式：</label>
+    <select name="mode">
+      <option value="manual" selected>manual（手动输入）</option>
+      <option value="default">default（使用上一周设置）</option>
+    </select>
+    <br><br>
+
+    <button type="submit">保存偏好</button>
+  </form>
+
+  <hr>
+
+  <p>
+    <a href="{% url 'choose_courses' %}">➡️ 进入课程选择</a>
+  </p>
+  <a href="{% url 'logout' %}">登出</a>
+</body>
+</html>
