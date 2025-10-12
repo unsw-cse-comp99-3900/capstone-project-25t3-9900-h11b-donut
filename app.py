@@ -528,5 +528,6 @@ def login():
 
 if __name__ == "__main__":
     # 生产环境不要用 debug=True；本地开发可以开
-    port = int(os.getenv("BACKEND_PORT", "9900"))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    #port = int(os.getenv("BACKEND_PORT", "9900"))
+    #app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=80)
