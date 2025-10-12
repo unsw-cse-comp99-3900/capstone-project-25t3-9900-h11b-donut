@@ -30,18 +30,22 @@ WEEK_LABELS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
 ALLOWED_EXTS = {"pdf"}
 app.config["MAX_CONTENT_LENGTH"] = int(os.getenv("MAX_UPLOAD_MB", "16")) * 1024 * 1024  # 16MB
 # 上传根目录（可用 .env 配置 UPLOAD_ROOT；Docker 下建议挂载为卷）
-UPLOAD_ROOT = os.getenv("UPLOAD_ROOT", "/app/uploads") # 会上传到C盘，测试时
+# UPLOAD_ROOT = os.getenv("UPLOAD_ROOT", "/app/uploads") # 会上传到C盘，测试时
+# Path(UPLOAD_ROOT).mkdir(parents=True, exist_ok=True)
 
-
-
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_ROOT = str((BASE_DIR / "uploads").resolve())
 Path(UPLOAD_ROOT).mkdir(parents=True, exist_ok=True)
+
 def _allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTS
+
 @app.get("/upload_material")
 def upload_material_page():
     if "student_id" not in session:
         return redirect(url_for("index"))
     return render_template("upload_material.html")
+
 @app.post("/materials/upload")
 def upload_material():
     # 1) 校验登录
@@ -167,20 +171,6 @@ def download_material_by_id(material_id: int):
     )
 
 
-def get_conn():
-    # 统一的连接方式，autocommit 方便增删改；cursor 返回 dict
-    return pymysql.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASS,
-        database=DB_NAME,
-        charset=DB_CHARSET,
-        autocommit=True,
-        cursorclass=pymysql.cursors.DictCursor,
-        connect_timeout=5,
-        ssl={"ca": certifi.where()},
-    )
 
 
 
