@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Choose Courses</title></head>
+<body>
+  <h1>选课页面</h1>
+  {% if message %}
+    <p style="color:red">{{ message }}</p>
+  {% endif %}
+
+  <form method="post" action="{% url 'choose_courses' %}">
+    {% csrf_token %}
+    <label>课程代码: <input name="course_code" required></label>
+    <button type="submit">添加课程</button>
+  </form>
+</body>
+</html>
