@@ -1,6 +1,7 @@
 // API服务层 - 后端集成接口
 //const API_BASE = 'http://localhost:3001/api';
 const API_BASE = '/api';
+
 export interface ApiResponse<T> {
   data: T;
   message?: string;
@@ -137,13 +138,17 @@ async register(student_id: string,email: string, password: string) {
 
   // 课程管理
   async getAvailableCourses(): Promise<ApiCourse[]> {
-    const result = await this.request<ApiResponse<ApiCourse[]>>('/courses/available');
-    return result.data || [];
+    // const result = await this.request<ApiResponse<ApiCourse[]>>('/courses/available');
+    // return result.data || [];
+    const res = await this.request<ApiCourse[]>('/courses/available');
+    return res.data ?? [];
   }
 
   async getUserCourses(): Promise<ApiCourse[]> {
-    const result = await this.request<ApiResponse<ApiCourse[]>>('/courses/my');
-    return result.data || [];
+    // const result = await this.request<ApiResponse<ApiCourse[]>>('/courses/my');
+    // return result.data || [];
+    const res = await this.request<ApiCourse[]>('/courses/my');
+  return res.data ?? [];
   }
 
   async addCourse(courseId: string): Promise<void> {
@@ -161,8 +166,10 @@ async register(student_id: string,email: string, password: string) {
 
   // 任务管理
   async getCourseTasks(courseId: string): Promise<ApiTask[]> {
-    const result = await this.request<ApiResponse<ApiTask[]>>(`/courses/${courseId}/tasks`);
-    return result.data || [];
+    // const result = await this.request<ApiResponse<ApiTask[]>>(`/courses/${courseId}/tasks`);
+    // return result.data || [];
+    const res = await this.request<ApiTask[]>(`/courses/${courseId}/tasks`);
+    return res.data ?? [];
   }
 
   async updateTaskProgress(taskId: string, progress: number): Promise<void> {
@@ -174,13 +181,21 @@ async register(student_id: string,email: string, password: string) {
 
   // 用户偏好
   async getPreferences(): Promise<ApiPreferences> {
-    const result = await this.request<ApiResponse<ApiPreferences>>('/preferences');
-    return result.data || {
+    // const result = await this.request<ApiResponse<ApiPreferences>>('/preferences');
+    // return result.data || {
+    //   dailyHours: 2,
+    //   weeklyStudyDays: 5,
+    //   avoidDays: [],
+    //   saveAsDefault: false,
+    //   description: ''
+    // };
+    const res = await this.request<ApiPreferences>('/preferences');
+    return res.data ?? {
       dailyHours: 2,
       weeklyStudyDays: 5,
       avoidDays: [],
       saveAsDefault: false,
-      description: ''
+      description: '',
     };
   }
 
@@ -193,8 +208,10 @@ async register(student_id: string,email: string, password: string) {
 
   // 学习计划
   async getWeeklyPlan(weekOffset: number): Promise<ApiPlanItem[]> {
-    const result = await this.request<ApiResponse<ApiPlanItem[]>>(`/plans/weekly/${weekOffset}`);
-    return result.data || [];
+    // const result = await this.request<ApiResponse<ApiPlanItem[]>>(`/plans/weekly/${weekOffset}`);
+    // return result.data || [];
+    const res = await this.request<ApiPlanItem[]>(`/plans/weekly/${weekOffset}`);
+    return res.data ?? [];
   }
 
   async saveWeeklyPlan(weekOffset: number, plan: ApiPlanItem[]): Promise<void> {
@@ -228,16 +245,25 @@ async register(student_id: string,email: string, password: string) {
     description: string;
     uploadDate: string;
   }>> {
-    const result = await this.request<ApiResponse<Array<{
+    // const result = await this.request<ApiResponse<Array<{
+    //   id: string;
+    //   title: string;
+    //   fileType: string;
+    //   fileSize: string;
+    //   description: string;
+    //   uploadDate: string;
+    // }>>>(`/courses/${courseId}/materials`);
+    
+    // return result.data || [];
+      const res = await this.request<Array<{
       id: string;
       title: string;
       fileType: string;
       fileSize: string;
       description: string;
       uploadDate: string;
-    }>>>(`/courses/${courseId}/materials`);
-    
-    return result.data || [];
+    }>>(`/courses/${courseId}/materials`);
+    return res.data ?? [];
   }
 
   // 检查认证状态
