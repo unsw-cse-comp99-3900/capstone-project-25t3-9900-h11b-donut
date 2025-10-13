@@ -89,7 +89,7 @@ export function StudentProfile() {
           <button className="sp-edit-btn" type="button" aria-label="Edit profile">Edit</button>
 
           <div className="sp-name">{user.name}</div>
-          <div className="sp-email">{user.email}</div>
+          <div className="sp-studentId">{user.studentId}</div>
           <div className="sp-bonus">My bonus : 3.65</div>
 
           <section className="sp-settings">

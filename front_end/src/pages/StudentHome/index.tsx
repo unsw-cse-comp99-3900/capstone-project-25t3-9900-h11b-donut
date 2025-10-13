@@ -136,8 +136,8 @@ export function StudentHome() {
   />
   </div>
           <div className="info">
-            <div className="name">{user.studentId}</div>
-            <div className="email">{user.email}</div>
+            <div className="name">{user.name}</div>
+            <div className="studentId">{user.studentId}</div>
           </div>
           <button className="chevron" aria-label="Profile">
             <img src={ArrowRight} width={16} height={16} alt="" />
