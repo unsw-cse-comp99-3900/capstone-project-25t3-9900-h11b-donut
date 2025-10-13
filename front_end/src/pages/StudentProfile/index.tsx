@@ -10,7 +10,7 @@ import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 export function StudentProfile() {
   const [showForm, setShowForm] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   return (
     <div className="student-profile-layout">
       {/* 左侧沿用 StudentHome 侧栏 */}
@@ -24,8 +24,8 @@ export function StudentProfile() {
         >
           <div className="avatar"><img src={AvatarIcon} width={48} height={48} alt="" /></div>
           <div className="info">
-            <div className="name">John Smith</div>
-            <div className="email">johnsmith@gmail.com</div>
+            <div className="name">{user.studentId}</div>
+            <div className="email">{user.email}</div>
           </div>
           <button className="chevron" aria-label="Profile">
             <img src={ArrowRight} width={16} height={16} alt="" />
@@ -74,8 +74,8 @@ export function StudentProfile() {
           </div>
           <button className="sp-edit-btn" type="button" aria-label="Edit profile">Edit</button>
 
-          <div className="sp-name">John Smith</div>
-          <div className="sp-email">johnsmith@gmail.com</div>
+          <div className="sp-name">{user.studentId}</div>
+          <div className="sp-email">{user.email}</div>
           <div className="sp-bonus">My bonus : 3.65</div>
 
           <section className="sp-settings">

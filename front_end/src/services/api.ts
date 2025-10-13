@@ -85,24 +85,11 @@ class ApiService {
     // 只有网络级错误才抛（例如断网/跨域被拦截）
     throw error;
   }
-    // try {
-    //   const response = await fetch(url, config);
-      
-    //   if (!response.ok) {
-    //     throw new Error(`HTTP error! status: ${response.status}`);
-    //   }
-      
-    //   return await response.json();
-    // } catch (error) {
-    //   console.error('API request failed:', error);
-    //   throw error;
-    // }
-
   }
 
   // 用户认证
 
-async register(student_id: string,email: string, password: string) {
+  async register(student_id: string,email: string, password: string) {
   const result = await this.request<ApiResponse<any>>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ student_id,email, password }),
@@ -123,17 +110,22 @@ async register(student_id: string,email: string, password: string) {
   if (result.success && result.data?.token) {
     this.token = result.data.token;
     localStorage.setItem('auth_token', this.token);
+    localStorage.setItem('login_time', Date.now().toString());
+    if (result.data.user) {
+      localStorage.setItem('user', JSON.stringify(result.data.user));
+    }
     return result.data;
   }
 
   // 把后端返回的 message 暴露给 UI
-  throw new Error(result.message || '邮箱或密码不正确');
+  throw new Error(result.message || 'wrong password/email');
 }
 
   async logout(): Promise<void> {
     await this.request('/auth/logout', { method: 'POST' });
     this.token = null;
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
   }
 
   // 课程管理

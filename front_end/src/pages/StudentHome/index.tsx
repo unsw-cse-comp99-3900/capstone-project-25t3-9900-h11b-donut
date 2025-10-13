@@ -29,7 +29,7 @@ export function StudentHome() {
   const [courses, setCourses] = useState(coursesStore.myCourses)
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [lessons, setLessons] = useState<Deadline[]>(coursesStore.getDeadlines())
-  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   useEffect(() => {
     const unsubCourses = coursesStore.subscribe(() => {
       setCourses([...coursesStore.myCourses])
@@ -127,8 +127,8 @@ export function StudentHome() {
         <div className="sh-profile-card" onClick={() => (window.location.hash = '#/student-profile')} role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
           <div className="avatar"><img src={AvatarIcon} width={48} height={48} alt="" /></div>
           <div className="info">
-            <div className="name">John Smith</div>
-            <div className="email">johnsmith@gmail.com</div>
+            <div className="name">{user.studentId}</div>
+            <div className="email">{user.email}</div>
           </div>
           <button className="chevron" aria-label="Profile">
             <img src={ArrowRight} width={16} height={16} alt="" />
@@ -165,7 +165,7 @@ export function StudentHome() {
         <header className="sh-header">
           <div className="left">
             <div className="hello">Hello,</div>
-            <h1 className="title">John Smith <span className="wave" aria-hidden>👋</span></h1>
+            <h1 className="title">{user.studentId} <span className="wave" aria-hidden>👋</span></h1>
           </div>
           <div className="right global-actions">
             <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
