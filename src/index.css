@@ -1,0 +1,352 @@
+:root {
+  --color-bg: #FFFFFF;
+  --color-text-dark: #172239;
+  --color-text-muted: #6D6D78;
+  --color-border: #EAEAEA;
+  --color-accent: #52C3FF;
+  --color-primary: #BB87AC; /* button background from figma token fill_QWKXR4 */
+  --radius-lg: 32px;
+  --radius-xl: 64px;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--color-text-dark);
+  background: var(--color-bg);
+}
+
+.h2 {
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.3333;
+}
+.p2 {
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.625;
+  color: var(--color-text-muted);
+}
+.p3 {
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.7143;
+  color: var(--color-text-muted);
+}
+
+/* Page layout for 1440x1024 desktop */
+.signup-container {
+  max-width: 1440px;
+  min-height: 1024px; /* match figma artboard height */
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 637px 768px; /* exact from figma sections */
+  column-gap: 35px; /* 1440 - (637 + 768) = 35 */
+  align-items: start;
+  padding: 0 12px 11px; /* from figma layout_0MM6F0 */
+  position: relative;
+}
+
+/* Illustration panel */
+.illustration-panel {
+  width: 637px;
+  height: 959px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.illustration-bg {
+  position: absolute;
+  left: 13px;
+  top: 40.5px;
+  width: 624px;
+  height: 919px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg);
+}
+.illustration-image {
+  position: absolute;
+  /* 缩小尺寸并保持中心不变（相对原365x317） */
+  left: 171px;   /* 原153 + (365-330)/2 ≈ 18px */
+  top: 289px;    /* 原273.5 + (317-286)/2 ≈ 15.5px */
+  width: 330px;  /* 缩小约 9.6% */
+  height: 286px;
+  object-fit: cover; /* per figma fill mode */
+  border-radius: 0; /* no rounding on image itself */
+}
+.illustration-text {
+  position: absolute;
+  left: 168px;
+  top: 590px;
+  width: 336px;
+  text-align: center;
+}
+.illustration-text .title {
+  margin: 0 0 8px;
+}
+.illustration-text .body {
+  margin: 0;
+}
+
+/* Right section */
+.role-section {
+  width: 768px;
+}
+.header {
+  width: 672px;
+  margin: 48px auto 0; /* 居中到列内 */
+  text-align: center;
+}
+.header .title { margin: 0 0 6px; }
+.header .sub {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.13;
+  color: var(--color-text-muted);
+}
+
+.role-section-inner {
+  margin-left: 48px;
+  width: 672px;
+}
+
+.select-grid {
+  margin-left: 0;
+  margin-top: 96px; /* 让标题与卡片留白更小 */
+  width: 100%;
+  display: grid;
+  grid-template-rows: 235px 235px;
+  row-gap: 64px;
+}
+
+.role-card {
+  width: 672px;
+  height: 235px;
+  border-radius: var(--radius-lg); /* 32px */
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  transition: border-color .15s ease, box-shadow .2s ease, transform .05s ease;
+  cursor: pointer;
+}
+.role-card.selected {
+  border-color: var(--color-accent);
+  border-width: 2px; /* Figma 2px 选中描边 */
+  box-shadow: none;  /* 取消内阴影，更贴近设计 */
+}
+.role-card .icon {
+  position: absolute;
+  top: 32px;
+  left: 50%; transform: translateX(-50%); /* 居中徽标 */
+  width: 56px; height: 56px;
+  border-radius: 14px;
+  background: #FFF1E8;
+  display: grid; place-items: center;
+  color: var(--color-text-dark);
+  font-weight: 600;
+  overflow: hidden;
+  border: 1px solid #F1E1D7;
+}
+.role-card .text {
+  position: absolute;
+  top: 120px;
+  left: 50%; transform: translateX(-50%); /* 文案块横向居中 */
+  width: 362px;
+  text-align: center;
+}
+.role-card .text .title {
+  margin: 0 0 8px;
+  font-weight: 600;
+  font-size: 20px; line-height: 1.6;
+  color: var(--color-text-dark);
+}
+.role-card .text .body {
+  margin: 0;
+}
+
+.primary-btn {
+  margin-left: 0;
+  margin-top: 24px;
+  width: 100%; height: 64px;
+  border-radius: 20px;
+  background: var(--color-primary);     /* #BB87AC */
+  color: var(--color-text-dark);
+  font-weight: 600;
+  font-size: 20px;
+  border: none;
+  display: grid;
+  grid-template-columns: 1fr 16px;
+  align-items: center;
+  padding: 0 24px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04); /* 细微立体感 */
+}
+.primary-btn .arrow {
+  justify-self: end;
+  width: 16px; height: 16px;
+}
+
+.pagination {
+  width: 52px; height: 6px;
+  margin: 24px auto 0;
+  display: flex; gap: 6px; align-items: center; justify-content: center;
+}
+.pagination span {
+  display: inline-block;
+  width: 16px; height: 6px;
+  background: #D9D9D9;
+  border-radius: 999px;
+}
+.pagination .active { background: var(--color-text-dark); }
+
+/* Forms & Cards */
+.card {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  padding: 32px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.03);
+}
+.login-card { padding: 32px 32px 28px; }
+.form-row { margin-top: 16px; }
+.form-row:first-child { margin-top: 0; }
+.form-row-inline {
+  margin-top: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.input {
+  width: 100%;
+  height: 48px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(82, 195, 255, 0.15);
+}
+
+.link {
+  color: var(--color-text-dark);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+.link:hover { text-decoration: underline; }
+
+/* C. Hover/Active states */
+.role-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.06); }
+.role-card:active { transform: scale(0.997); }
+.primary-btn:hover { filter: brightness(0.98); }
+.primary-btn:active { transform: translateY(1px); }
+
+/* D. Responsive */
+@media (max-width: 1280px) {
+  .signup-container {
+    grid-template-columns: 1fr;
+    row-gap: 32px;
+    min-height: auto;
+  }
+  .illustration-panel { margin: 0 auto; }
+  .role-section { width: auto; margin: 0 12px; }
+  .header { margin: 32px auto 0; }
+  .role-section-inner { margin-left: 0; width: 100%; }
+  .select-grid, .primary-btn { margin-left: 0; width: 100%; }
+}
+@media (max-width: 1024px) {
+  .illustration-panel { transform: scale(0.9); transform-origin: top center; }
+}
+@media (max-width: 768px) {
+  .illustration-panel { transform: scale(0.8); }
+  .select-grid { row-gap: 24px; }
+}
+
+.actions { margin-top: 96px; }
+
+/* E. Font rendering improvements */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Student theme scope: override primary color to orange */
+.theme-student { --color-primary: #FFA87A; }
+
+/* Admin theme scope: use teacher color */
+.theme-admin { --color-primary: #BB87AC; }
+
+/* Outlined secondary button for Sign Up (matches Figma structure) */
+.secondary-btn {
+  width: 100%; height: 64px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text-dark);
+  font-weight: 600;
+  font-size: 20px;
+  display: grid; align-items: center;
+  padding: 0 24px;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.secondary-btn:hover { filter: brightness(0.99); }
+.secondary-btn:active { transform: translateY(1px); }
+
+/* SignUp 头像圆形占位 */
+.avatar-uploader {
+  width: 96px; height: 96px;
+  border-radius: 50%;
+  background: #EFF1F5;
+  color: var(--color-text-muted);
+  display: grid; place-items: center;
+  text-align: center;
+}
+
+/* Ghost buttons: 默认白底描边，悬停橙色（学生主题） */
+.ghost-btn {
+  width: 100%; height: 64px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text-dark);
+  font-weight: 600;
+  font-size: 20px;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr 16px;
+  align-items: center;
+  padding: 0 24px;
+}
+.ghost-btn:hover {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+/* 统一箭头对齐到按钮右侧 */
+.ghost-btn .arrow { justify-self: end; width: 16px; height: 16px; }
+
+/* Header 放回退按钮 */
+.header { position: relative; }
+.back-btn {
+  position: absolute;
+  left: 0; top: -8px;
+  width: 48px; height: 48px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  display: grid; place-items: center;
+  cursor: pointer;
+}
+.back-btn:hover {
+  background: #FFF3E9; /* 轻微橙色提示 */
+  border-color: var(--color-primary);
+}
