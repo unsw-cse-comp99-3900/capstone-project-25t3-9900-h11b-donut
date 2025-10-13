@@ -30,6 +30,7 @@ export function StudentHome() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [lessons, setLessons] = useState<Deadline[]>(coursesStore.getDeadlines())
   const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   useEffect(() => {
     const unsubCourses = coursesStore.subscribe(() => {
       setCourses([...coursesStore.myCourses])
@@ -108,7 +109,7 @@ export function StudentHome() {
     // 调用后端 /api/auth/logout
     await apiService.logout();
 
-    // 清除本地 token（如果你想更安全）
+    // 清除本地 token
     localStorage.removeItem('auth_token');
 
     console.log('User logged out');
@@ -125,7 +126,15 @@ export function StudentHome() {
     <div className="student-home-layout">
       <aside className="sh-sidebar">
         <div className="sh-profile-card" onClick={() => (window.location.hash = '#/student-profile')} role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
-          <div className="avatar"><img src={AvatarIcon} width={48} height={48} alt="" /></div>
+          <div className="avatar"><img
+    src={user?.avatarUrl || AvatarIcon}
+    width={48}
+    height={48}
+    alt="avatar"
+    style={{ borderRadius: '50%', objectFit: 'cover' }}
+    onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
+  />
+  </div>
           <div className="info">
             <div className="name">{user.studentId}</div>
             <div className="email">{user.email}</div>

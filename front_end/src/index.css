@@ -303,14 +303,26 @@ body {
 .secondary-btn:active { transform: translateY(1px); }
 
 /* SignUp 头像圆形占位 */
-.avatar-uploader {
+/* .avatar-uploader {
   width: 96px; height: 96px;
   border-radius: 50%;
   background: #EFF1F5;
   color: var(--color-text-muted);
   display: grid; place-items: center;
   text-align: center;
+} */
+.avatar-uploader {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb; /* #ddd */
+  background: #fafafa;
+  overflow: hidden;
+  display: inline-block;
+  cursor: pointer;
+  padding: 0;
 }
+
 
 /* Ghost buttons: 默认白底描边，悬停橙色（学生主题） */
 .ghost-btn {

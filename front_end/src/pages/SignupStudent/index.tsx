@@ -5,13 +5,14 @@ import { PrimaryButton } from '../../components/PrimaryButton'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import illustration from '../../assets/images/illustration-student.png'
 import apiService from '../../services/api'
-
+import AvatarPicker from "../../components/AvatarPicker"; 
 export function SignupStudent() {
   const [email, setEmail] = useState('')
   const [studentId, setStudentId] = useState('') 
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string>('')       // 错误消息
   const [loading, setLoading] = useState<boolean>(false) // 加载状态
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const handleRegister = async (): Promise<void> => {
     setError('')
@@ -22,7 +23,7 @@ export function SignupStudent() {
 
     try {
       setLoading(true)
-      await apiService.register(studentId,email, password)
+      await apiService.register(studentId,email, password,avatarFile || undefined)
       alert('注册成功！')
       window.location.hash = '/login-student'
     } catch (e: any) {
@@ -57,13 +58,9 @@ export function SignupStudent() {
           <div className="card login-card">
             {/* Avatar upload placeholder (optional) */}
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-              <div className="avatar-uploader">
-                <span className="p3" style={{ textAlign: 'center' }}>
-                  Upload Profile<br />Picture<br />(Optional)
-                </span>
-              </div>
+              <AvatarPicker value={avatarFile} onChange={setAvatarFile} />
             </div>
-
+            
             <div className="form-row">
               <TextInput
                 label="Email Address"

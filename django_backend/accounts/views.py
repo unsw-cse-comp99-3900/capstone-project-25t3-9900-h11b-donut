@@ -9,7 +9,11 @@ from preferences.models import StudentWeeklyPreference
 from django.http import JsonResponse, HttpRequest
 import json
 from django.views.decorators.csrf import csrf_exempt
+import os
+from django.utils.crypto import get_random_string
 
+ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
+MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
 def api_ok(data=None, message="OK", status=200):
     return JsonResponse({"success": True, "message": message, "data": data}, status=status)
 
@@ -29,23 +33,82 @@ def register_api(request):
         return JsonResponse({"success": False, "message": "Method Not Allowed"}, status=405)
 
     try:
-        data = json.loads(request.body.decode("utf-8"))
-        student_id = (data.get("student_id") or "").strip()
-        email = (data.get("email") or "").strip()
-        password = data.get("password") or ""
+        # --- 1) 同时兼容 JSON 与 FormData ---
+        content_type = (request.META.get("CONTENT_TYPE") or "").lower()
+
+        if content_type.startswith("application/json"):
+            # 纯 JSON：不支持文件
+            data = json.loads(request.body.decode("utf-8") or "{}")
+            student_id = (data.get("student_id") or "").strip()
+            email = (data.get("email") or "").strip()
+            password = data.get("password") or ""
+            avatar_file = None
+        else:
+            # FormData（multipart）：文本从 POST 取，文件从 FILES 取
+            student_id = (request.POST.get("student_id") or "").strip()
+            email = (request.POST.get("email") or "").strip()
+            password = request.POST.get("password") or ""
+            avatar_file = request.FILES.get("avatar")
 
         if not student_id or not email or not password:
             return JsonResponse({"success": False, "message": "Please enter zid, email and password"}, status=400)
 
+        # --- 2) 重复检查（更友好地返回409） ---
+        if StudentAccount.objects.filter(student_id=student_id).exists():
+            return JsonResponse({"success": False, "message": "Student ID already exists"}, status=409)
+        if StudentAccount.objects.filter(email=email).exists():
+            return JsonResponse({"success": False, "message": "Email already exists"}, status=409)
+
+        # --- 3) 处理头像（可选，仅当是 FormData 且有文件） ---
+        avatar_url = None
+        if avatar_file:
+            # 大小校验
+            if avatar_file.size > MAX_AVATAR_BYTES:
+                return JsonResponse({"success": False, "message": "Avatar too large (max 2MB)"}, status=400)
+
+            # 后缀校验
+            ext = os.path.splitext(avatar_file.name)[1].lower()
+            if ext not in ALLOWED_IMAGE_EXTS:
+                return JsonResponse({"success": False, "message": "Only .jpg/.jpeg/.png allowed"}, status=400)
+
+            # 保存到 media/<student_id>/ 目录
+            student_dir = os.path.join(settings.MEDIA_ROOT, student_id)
+            os.makedirs(student_dir, exist_ok=True)
+
+            filename = f"{student_id}_{get_random_string(8)}{ext}"
+            save_path = os.path.join(student_dir, filename)
+
+            with open(save_path, "wb") as f:
+                for chunk in avatar_file.chunks():
+                    f.write(chunk)
+
+            # 返回给前端的访问URL：/media/<student_id>/<文件名>
+            avatar_url = f"{settings.MEDIA_URL}{student_id}/{filename}"
+
+        # --- 4) 写入数据库（哈希密码 + 可选 avatar_url） ---
         hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-        StudentAccount.objects.create(
+        create_kwargs = dict(
             student_id=student_id,
             email=email,
-            password_hash=hashed
+            password_hash=hashed,
         )
+        # 仅当模型里存在 avatar_url 字段时才写入（避免你还没迁移时报错）
+        if hasattr(StudentAccount, "avatar_url"):
+            create_kwargs["avatar_url"] = avatar_url
 
-        return JsonResponse({"success": True, "message": "Registered successfully"}, status=201)
+        StudentAccount.objects.create(**create_kwargs)
+
+        # --- 5) 返回 ---
+        return JsonResponse({
+            "success": True,
+            "message": "Registered successfully",
+            "data": {
+                "student_id": student_id,
+                "email": email,
+                "avatar_url": avatar_url,  # 前端可直接显示；如果没上传则为 None
+            }
+        }, status=201)
 
     except IntegrityError:
         return JsonResponse({"success": False, "message": "Student ID or email already exists"}, status=409)
@@ -67,9 +130,13 @@ def login_api(request: HttpRequest):
         return api_err("email and password are required")
 
     try:
-        row = StudentAccount.objects.filter(email=email).values(
-            "student_id", "email", "password_hash"
-        ).first()
+        
+        row = (
+            StudentAccount.objects
+            .filter(email=email)
+            .values("student_id", "email", "password_hash", "avatar_url")
+            .first()
+        )
         if not row:
             return api_err("Invalid email or password", 401)
 
@@ -77,12 +144,13 @@ def login_api(request: HttpRequest):
         if not ok:
             return api_err("Invalid email or password", 401)
 
-        # 登录成功：先用一个固定 token（后续我们再改成数据库存的真 token）
-        token = "dev-token"
+        token = "dev-token"  # 占位
 
+        # 在 user 里带上 avatarUrl
         user_payload = {
             "studentId": row["student_id"],
             "email": row["email"],
+            "avatarUrl": row.get("avatar_url"),  # 可能为 None
         }
 
         return api_ok({"token": token, "user": user_payload})
@@ -90,6 +158,7 @@ def login_api(request: HttpRequest):
     except Exception as e:
         print("[API LOGIN ERROR]", repr(e))
         return api_err("Server Error", 500)
+
 
 @csrf_exempt
 def logout_api(request: HttpRequest):

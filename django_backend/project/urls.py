@@ -14,7 +14,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 
@@ -26,5 +27,10 @@ urlpatterns = [
     path('courses/', include('courses.urls')),
     path('api/prefs/', include('preferences.urls')),
     path('api/', include('accounts.urls')),
-]
+] 
+if settings.DEBUG:
+    # 已有的 /media/ 映射
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # 新增 /api/media/ 映射，用于兼容前端拼了 /api 的情况
+    urlpatterns += static('/api/media/', document_root=settings.MEDIA_ROOT)
 

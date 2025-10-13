@@ -48,54 +48,81 @@ class ApiService {
   private token: string | null = null;
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const url = `${API_BASE}${endpoint}`;
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
-        ...options.headers,
-      },
-      ...options,
-    };
-    try {
-    const response = await fetch(url, config);
+  const url = `${API_BASE}${endpoint}`;
 
-    // 尝试解析 JSON；有些错误响应可能不是 JSON，兜底
+  // 先把调用方传入的 headers 标准化
+  const headers = new Headers(options.headers as HeadersInit | undefined);
+
+  // 补充鉴权头（如果有）
+  if (this.token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${this.token}`);
+  }
+
+  // 根据 body 类型**有条件地**设置 Content-Type
+  const body = options.body as any;
+  if (body === undefined || body === null) {
+    // 没有 body：不要设置 Content-Type
+    headers.delete('Content-Type');
+  } else if (body instanceof FormData || body instanceof Blob || body instanceof File) {
+    // 二进制/表单：不要设置 Content-Type（浏览器会自动加 multipart/form-data 或相应类型）
+    headers.delete('Content-Type');
+  } else if (typeof body === 'string') {
+    // 字符串（通常是 JSON.stringify 后的文本）
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+  } else {
+    // 其它情况（比如直接传对象）不建议；如果要支持，可在这里 JSON 化
+    // 为保持当前调用方式，这里不做处理。
+  }
+
+  const config: RequestInit = {
+    ...options,
+    headers,                 // 用整理过的 headers
+    // 如果走 Cookie/Session，需要携带 cookie：
+    // credentials: 'include',
+  };
+
+  try {
+    const response = await fetch(url, config);
+    // 兜底解析：先拿文本再尝试 JSON
     const text = await response.text();
     let payload: ApiResponse<T> | null = null;
-    try {
-      payload = text ? JSON.parse(text) : null;
-    } catch {
-      payload = null;
-    }
+    try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
 
-    // 如果能解析成我们的标准返回结构，就直接返回（无论 200 还是 401）
     if (payload && typeof payload.success === 'boolean') {
-    return payload;
+      return payload; 
     }
 
-    // 否则构造一个通用的失败返回
     return {
       success: response.ok,
-      message: response.ok ? 'OK' : `HTTP ${response.status}`,
+      message: response.ok ? 'OK' : 'HTTP ${response.status}',
       data: null as unknown as T,
     };
   } catch (error) {
     console.error('API request failed:', error);
-    // 只有网络级错误才抛（例如断网/跨域被拦截）
-    throw error;
+    throw error; // 网络级错误保留抛出
   }
-  }
+}
 
   // 用户认证
+  async register(student_id: string, email: string, password: string, avatarFile?: File) {
+  const formData = new FormData();
+  formData.append("student_id", student_id);
+  formData.append("email", email);
+  formData.append("password", password);
+  if (avatarFile) {
+    formData.append("avatar", avatarFile); // 后端用 request.FILES.get("avatar")
+  }
 
-  async register(student_id: string,email: string, password: string) {
-  const result = await this.request<ApiResponse<any>>('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({ student_id,email, password }),
+  const result = await this.request<ApiResponse<any>>("/auth/register", {
+    method: "POST",
+    body: formData, //  不再用 JSON.stringify
+   
   });
+
   if (!result.success) {
-    throw new Error(result.message || 'fail to register');
+    throw new Error(result.message || "fail to register");
   }
   return result;
 }
@@ -112,11 +139,14 @@ class ApiService {
     localStorage.setItem('auth_token', this.token);
     localStorage.setItem('login_time', Date.now().toString());
     if (result.data.user) {
-      localStorage.setItem('user', JSON.stringify(result.data.user));
+      const user = result.data.user;
+      if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
+        user.avatarUrl = `${API_BASE}${user.avatarUrl}`;
+      }
+      localStorage.setItem('user', JSON.stringify(user));
     }
     return result.data;
   }
-
   // 把后端返回的 message 暴露给 UI
   throw new Error(result.message || 'wrong password/email');
 }
