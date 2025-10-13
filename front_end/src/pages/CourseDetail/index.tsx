@@ -46,7 +46,7 @@ export function CourseDetail() {
   const [detailData, setDetailData] = useState<CourseDetailData | null>(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [courseProgress, setCourseProgress] = useState(0)
-
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const handleDownload = async (materialId: string) => {
     try {
       const blob = await apiService.downloadMaterial(materialId)
@@ -123,10 +123,17 @@ export function CourseDetail() {
           aria-label="Open profile"
           style={{ cursor: 'pointer' }}
         >
-          <div className="avatar"><img src={AvatarIcon} width={48} height={48} alt="" /></div>
+          <div className="avatar"><img
+    src={user?.avatarUrl || AvatarIcon}
+    width={48}
+    height={48}
+    alt="avatar"
+    style={{ borderRadius: '50%', objectFit: 'cover' }}
+    onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
+  /></div>
           <div className="info">
-            <div className="name">John Smith</div>
-            <div className="email">johnsmith@gmail.com</div>
+            <div className="name">{user.studentId}</div>
+            <div className="email">{user.email}</div>
           </div>
           <button className="chevron" aria-label="Profile">
             <img src={ArrowRight} width={16} height={16} alt="" />

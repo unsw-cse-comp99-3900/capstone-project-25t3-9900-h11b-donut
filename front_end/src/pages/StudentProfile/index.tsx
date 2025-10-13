@@ -22,7 +22,14 @@ export function StudentProfile() {
           aria-label="Open profile"
           style={{ cursor: 'pointer' }}
         >
-          <div className="avatar"><img src={AvatarIcon} width={48} height={48} alt="" /></div>
+          <div className="avatar"><img
+    src={user?.avatarUrl || AvatarIcon}
+    width={48}
+    height={48}
+    alt="avatar"
+    style={{ borderRadius: '50%', objectFit: 'cover' }}
+    onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
+  /></div>
           <div className="info">
             <div className="name">{user.studentId}</div>
             <div className="email">{user.email}</div>
@@ -68,7 +75,14 @@ export function StudentProfile() {
           <div className="sp-avatar-wrap">
             <div className="ring"></div>
             <div className="avatar-circle">
-              <img src={AvatarIcon} width={96} height={96} alt="" />
+              <img
+    src={user?.avatarUrl || AvatarIcon}
+    width={100}
+    height={100}
+    alt="avatar"
+    style={{ borderRadius: '50%', objectFit: 'cover' }}
+    onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
+  />
             </div>
             <span className="badge">Student</span>
           </div>
