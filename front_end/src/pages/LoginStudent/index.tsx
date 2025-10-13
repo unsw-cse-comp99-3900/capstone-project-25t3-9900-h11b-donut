@@ -6,23 +6,24 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import apiService from '../../services/api'
 
 export function LoginStudent() {
-  const [email, setEmail] = useState('')
+  //const [email,] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')     // ✅ 补上错误状态
+  const [studentId, setID] = useState('')
+  const [error, setError] = useState('')     //  补上错误状态
   const [loading, setLoading] = useState(false) // 可选：加载中状态
 
-  const handleLogin = async () => {           // ✅ 绑定到按钮
+  const handleLogin = async () => {           //  绑定到按钮
     setError('')
-    if (!email || !password) {
-      setError('请输入邮箱和密码')
+    if (!studentId || !password) {
+      setError('PLEASE ENTER YOUR ID OR PASSWORD!')
       return
     }
     try {
       setLoading(true)
-      await apiService.login(email, password)
+      await apiService.login(studentId, password)
       window.location.hash = '/student-home'
     } catch (e: any) {
-      setError(e?.message || '登录失败')
+      setError(e?.message || 'FAIL TO SIGNIN')
     } finally {
       setLoading(false)
     }
@@ -52,14 +53,15 @@ export function LoginStudent() {
           <div className="card login-card">
             <div className="form-row">
               <TextInput
-                label="Email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                label="Student_ID"
+                type="id"
+                placeholder="z123456"
+                value={studentId}
+                onChange={(e) => setID(e.target.value)}
                 required
               />
             </div>
+          
 
             <div className="form-row">
               <TextInput

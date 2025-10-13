@@ -31,7 +31,7 @@ export function StudentProfile() {
     onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
   /></div>
           <div className="info">
-            <div className="name">{user.studentId}</div>
+            <div className="name">{user.name}</div>
             <div className="email">{user.email}</div>
           </div>
           <button className="chevron" aria-label="Profile">
@@ -88,7 +88,7 @@ export function StudentProfile() {
           </div>
           <button className="sp-edit-btn" type="button" aria-label="Edit profile">Edit</button>
 
-          <div className="sp-name">{user.studentId}</div>
+          <div className="sp-name">{user.name}</div>
           <div className="sp-email">{user.email}</div>
           <div className="sp-bonus">My bonus : 3.65</div>
 

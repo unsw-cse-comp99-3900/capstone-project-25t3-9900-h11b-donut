@@ -106,10 +106,11 @@ class ApiService {
 }
 
   // 用户认证
-  async register(student_id: string, email: string, password: string, avatarFile?: File) {
+  async register(student_id: string, name: string,email: string, password: string, avatarFile?: File) {
   const formData = new FormData();
   formData.append("student_id", student_id);
   formData.append("email", email);
+  formData.append("name", name);     
   formData.append("password", password);
   if (avatarFile) {
     formData.append("avatar", avatarFile); // 后端用 request.FILES.get("avatar")
@@ -118,7 +119,6 @@ class ApiService {
   const result = await this.request<ApiResponse<any>>("/auth/register", {
     method: "POST",
     body: formData, //  不再用 JSON.stringify
-   
   });
 
   if (!result.success) {
@@ -128,10 +128,10 @@ class ApiService {
 }
 
 
-  async login(email: string, password: string): Promise<{ token: string; user: any }> {
+  async login(studentId: string, password: string): Promise<{ token: string; user: any }> {
   const result = await this.request<{ token: string; user: any }>('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ student_id:studentId, password }),
   });
 
   if (result.success && result.data?.token) {
@@ -148,7 +148,7 @@ class ApiService {
     return result.data;
   }
   // 把后端返回的 message 暴露给 UI
-  throw new Error(result.message || 'wrong password/email');
+  throw new Error(result.message || 'wrong password/id');
 }
 
   async logout(): Promise<void> {

@@ -72,7 +72,7 @@ export function StudentCourses() {
     onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
   /></div>
           <div className="info">
-            <div className="name">{user.studentId}</div>
+            <div className="name">{user.name}</div>
             <div className="email">{user.email}</div>
           </div>
           <button className="chevron" aria-label="Profile">

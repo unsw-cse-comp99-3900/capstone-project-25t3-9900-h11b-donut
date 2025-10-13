@@ -13,21 +13,21 @@ export function SignupStudent() {
   const [error, setError] = useState<string>('')       // 错误消息
   const [loading, setLoading] = useState<boolean>(false) // 加载状态
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-
+  const [studentName,setStudentName] = useState('');
   const handleRegister = async (): Promise<void> => {
     setError('')
-    if (!email || !password) {
-      setError('请输入邮箱和密码')
+    if (!email || !password||!studentName||!studentId) {
+      setError('PLEASE ENTER YOUR INFORMATION!')
       return
     }
 
     try {
       setLoading(true)
-      await apiService.register(studentId,email, password,avatarFile || undefined)
-      alert('注册成功！')
+      await apiService.register(studentId,studentName,email, password,avatarFile|| undefined)
+      alert('Successful!')
       window.location.hash = '/login-student'
     } catch (e: any) {
-      setError(e?.message || '注册失败')
+      setError(e?.message || 'failed to register!')
     } finally {
       setLoading(false)
     }
@@ -71,7 +71,16 @@ export function SignupStudent() {
                 required
               />
             </div>
-
+            <div className="form-row">
+              <TextInput
+                label="Name"
+                type="name"
+                placeholder="Jerry"
+                value={studentName}
+                onChange={e => setStudentName(e.target.value)}
+                required
+              />
+            </div>
             <div className="form-row">
               <TextInput
                 label="Student ID (zid)"

@@ -174,7 +174,7 @@ export function StudentHome() {
         <header className="sh-header">
           <div className="left">
             <div className="hello">Hello,</div>
-            <h1 className="title">{user.studentId} <span className="wave" aria-hidden>👋</span></h1>
+            <h1 className="title">{user.name} <span className="wave" aria-hidden>👋</span></h1>
           </div>
           <div className="right global-actions">
             <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>

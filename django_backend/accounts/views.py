@@ -41,16 +41,18 @@ def register_api(request):
             data = json.loads(request.body.decode("utf-8") or "{}")
             student_id = (data.get("student_id") or "").strip()
             email = (data.get("email") or "").strip()
+            name = (data.get("name") or "").strip() 
             password = data.get("password") or ""
             avatar_file = None
         else:
             # FormData（multipart）：文本从 POST 取，文件从 FILES 取
             student_id = (request.POST.get("student_id") or "").strip()
             email = (request.POST.get("email") or "").strip()
+            name = (request.POST.get("name") or "").strip()  
             password = request.POST.get("password") or ""
             avatar_file = request.FILES.get("avatar")
 
-        if not student_id or not email or not password:
+        if not student_id or not email or not password or not name:
             return JsonResponse({"success": False, "message": "Please enter zid, email and password"}, status=400)
 
         # --- 2) 重复检查（更友好地返回409） ---
@@ -91,6 +93,7 @@ def register_api(request):
         create_kwargs = dict(
             student_id=student_id,
             email=email,
+            name=name,
             password_hash=hashed,
         )
         # 仅当模型里存在 avatar_url 字段时才写入（避免你还没迁移时报错）
@@ -106,6 +109,7 @@ def register_api(request):
             "data": {
                 "student_id": student_id,
                 "email": email,
+                "name": name, 
                 "avatar_url": avatar_url,  # 前端可直接显示；如果没上传则为 None
             }
         }, status=201)
@@ -123,18 +127,18 @@ def login_api(request: HttpRequest):
         return api_err("Method Not Allowed", 405)
 
     body = _json_body(request)
-    email = (body.get("email") or "").strip()
+    student_id = (body.get("student_id") or "").strip()
     password = body.get("password") or ""
 
-    if not email or not password:
-        return api_err("email and password are required")
+    if not student_id or not password:
+        return api_err("id and password are required")
 
     try:
         
         row = (
             StudentAccount.objects
-            .filter(email=email)
-            .values("student_id", "email", "password_hash", "avatar_url")
+            .filter(student_id=student_id)
+            .values("student_id", "email","name","password_hash", "avatar_url")
             .first()
         )
         if not row:
@@ -142,13 +146,14 @@ def login_api(request: HttpRequest):
 
         ok = bcrypt.checkpw(password.encode("utf-8"), row["password_hash"].encode("utf-8"))
         if not ok:
-            return api_err("Invalid email or password", 401)
+            return api_err("Invalid id or password", 401)
 
         token = "dev-token"  # 占位
 
         # 在 user 里带上 avatarUrl
         user_payload = {
             "studentId": row["student_id"],
+            "name": row["name"],
             "email": row["email"],
             "avatarUrl": row.get("avatar_url"),  # 可能为 None
         }
@@ -175,49 +180,14 @@ def logout_api(request: HttpRequest):
 
 
 
-def index(request):
-    return render(request, 'index.html')
 
 
 
 
 
 
-def welcome(request):
-    if "student_id" not in request.session:
-        return redirect("index")
 
-    sid = request.session["student_id"]
 
-    # 查询学生的所有课程
-    courses = StudentCourse.objects.filter(student__student_id=sid).select_related('course')
-
-    # 查询最近一周的学习偏好
-    pref = StudentWeeklyPreference.objects.filter(
-        student__student_id=sid, semester_code="2025T1"
-    ).order_by("-week_no").first()
-
-    # 计算当前周
-    if pref:
-        current_week = min(10, pref.week_no + 1)
-    else:
-        current_week = 1
-
-    # ✅ 新增：如果有偏好记录，就把 bitmask 转成 ['Sat','Sun']
-    WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    if pref:
-        pref.avoid_days_list = [
-            day for i, day in enumerate(WEEK_LABELS)
-            if pref.avoid_days_bitmask & (1 << i)
-        ]
-
-    return render(request, "welcome.html", {
-        "identifier": sid,
-        "courses": courses,
-        "pref": pref,
-        "semester": "2025T1",
-        "current_week": current_week
-    })
 
 
 
