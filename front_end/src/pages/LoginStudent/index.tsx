@@ -3,14 +3,34 @@ import { Header } from '../../components/Header'
 import { TextInput } from '../../components/TextInput'
 import illustration from '../../assets/images/illustration-student.png'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
+import apiService from '../../services/api'
 
 export function LoginStudent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState('')     // ✅ 补上错误状态
+  const [loading, setLoading] = useState(false) // 可选：加载中状态
+
+  const handleLogin = async () => {           // ✅ 绑定到按钮
+    setError('')
+    if (!email || !password) {
+      setError('请输入邮箱和密码')
+      return
+    }
+    try {
+      setLoading(true)
+      await apiService.login(email, password)
+      window.location.hash = '/student-home'
+    } catch (e: any) {
+      setError(e?.message || '登录失败')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="signup-container theme-student">
-      {/* Left illustration panel reuses styles, replace with dedicated illustration if needed */}
+      {/* 左侧插画 */}
       <section className="illustration-panel">
         <div className="illustration-bg" />
         <img className="illustration-image" src={illustration} alt="" />
@@ -52,6 +72,13 @@ export function LoginStudent() {
               />
             </div>
 
+            {/* 错误提示 */}
+            {error && (
+              <div className="form-row">
+                <p style={{ color: 'red', margin: 0 }}>{error}</p>
+              </div>
+            )}
+
             <div className="form-row" style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <a className="link" href="#" onClick={(e) => e.preventDefault()}>Forgot password?</a>
             </div>
@@ -61,12 +88,15 @@ export function LoginStudent() {
                 <span>Sign Up</span>
                 <img className="arrow" src={ArrowRight} width={16} height={16} alt="" aria-hidden />
               </button>
+
+              {/* ✅ 登录按钮调用 handleLogin，而不是直接跳转 */}
               <button
                 className="ghost-btn"
-                style={{ marginTop: 16 }}
-                onClick={() => { window.location.hash = '/student-home' }}
+                style={{ marginTop: 16, opacity: loading ? 0.7 : 1 }}
+                onClick={handleLogin}
+                disabled={loading}
               >
-                <span>Login</span>
+                <span>{loading ? 'Logging in...' : 'Login'}</span>
                 <img className="arrow" src={ArrowRight} width={16} height={16} alt="" aria-hidden />
               </button>
             </div>

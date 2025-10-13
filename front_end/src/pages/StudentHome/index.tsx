@@ -8,13 +8,13 @@ import IconCourses from '../../assets/icons/courses-24.svg'
 import IconSettings from '../../assets/icons/settings-24.svg'
 import IconHelp from '../../assets/icons/help-24.svg'
 import IconBell from '../../assets/icons/bell-24.svg'
-
+import apiService from '../../services/api'
 import UserWhite from '../../assets/icons/user-24-white.svg'
 import illoOrange from '../../assets/images/illustration-orange.png'
 import illoStudent from '../../assets/images/illustration-student.png'
 import illoAdmin from '../../assets/images/illustration-admin.png'
 import { coursesStore, type Deadline, type Course } from '../../store/coursesStore'
-
+import {ProtectedRoute} from '../../components/ProtectedRoute';
 
 
 
@@ -103,13 +103,25 @@ export function StudentHome() {
     setLogoutModalOpen(true)
   }
 
-  const confirmLogout = () => {
-    console.log('User logged out')
-    window.location.hash = '#/login-student' // 跳转到学生登录页面
-    setLogoutModalOpen(false)
+  const confirmLogout = async () => {
+  try {
+    // 调用后端 /api/auth/logout
+    await apiService.logout();
+
+    // 清除本地 token（如果你想更安全）
+    localStorage.removeItem('auth_token');
+
+    console.log('User logged out');
+    window.location.hash = '#/login-student'; // 跳回登录页
+  } catch (e) {
+    console.error('Logout failed:', e);
+  } finally {
+    setLogoutModalOpen(false); // 关闭弹窗
   }
+};
 
   return (
+  <ProtectedRoute>
     <div className="student-home-layout">
       <aside className="sh-sidebar">
         <div className="sh-profile-card" onClick={() => (window.location.hash = '#/student-profile')} role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
@@ -228,6 +240,7 @@ export function StudentHome() {
         cancelText="Cancel"
       />
     </div>
+  </ProtectedRoute>
   )
 }
 

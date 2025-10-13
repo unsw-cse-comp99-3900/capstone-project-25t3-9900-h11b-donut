@@ -4,11 +4,33 @@ import { TextInput } from '../../components/TextInput'
 import { PrimaryButton } from '../../components/PrimaryButton'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import illustration from '../../assets/images/illustration-student.png'
+import apiService from '../../services/api'
 
 export function SignupStudent() {
   const [email, setEmail] = useState('')
-  const [fullName, setFullName] = useState('')
+  const [studentId, setStudentId] = useState('') 
   const [password, setPassword] = useState('')
+  const [error, setError] = useState<string>('')       // 错误消息
+  const [loading, setLoading] = useState<boolean>(false) // 加载状态
+
+  const handleRegister = async (): Promise<void> => {
+    setError('')
+    if (!email || !password) {
+      setError('请输入邮箱和密码')
+      return
+    }
+
+    try {
+      setLoading(true)
+      await apiService.register(studentId,email, password)
+      alert('注册成功！')
+      window.location.hash = '/login-student'
+    } catch (e: any) {
+      setError(e?.message || '注册失败')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="signup-container theme-student">
@@ -55,10 +77,10 @@ export function SignupStudent() {
 
             <div className="form-row">
               <TextInput
-                label="Full Name"
-                placeholder="Your full name"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
+                label="Student ID (zid)"
+                placeholder="z1234567"
+                 value={studentId}
+                onChange={e => setStudentId(e.target.value)}
                 required
               />
             </div>
@@ -74,10 +96,18 @@ export function SignupStudent() {
               />
             </div>
 
+            {/* ✅ 错误信息显示 */}
+            {error && (
+              <div className="form-row">
+                <p style={{ color: 'red', margin: 0 }}>{error}</p>
+              </div>
+            )}
+
             <div className="form-row" style={{ marginTop: 32 }}>
               <PrimaryButton
-                text="Create Account"
-                onClick={() => { window.location.hash = '/login-student' }}
+                text={loading ? 'Creating…' : 'Create Account'}  // ✅ 使用 loading
+                onClick={handleRegister}                          // ✅ 使用 handleRegister
+                //disabled={loading}
               />
             </div>
           </div>

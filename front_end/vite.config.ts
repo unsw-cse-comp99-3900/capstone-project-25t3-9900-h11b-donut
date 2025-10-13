@@ -8,5 +8,11 @@ export default defineConfig({
     hmr: {
       overlay: false, // disable error overlay to avoid webview script conflicts
     },
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000', // Django 后端
+        changeOrigin: true,
+      }
+    }
   },
 })

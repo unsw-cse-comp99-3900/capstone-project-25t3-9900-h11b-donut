@@ -25,6 +25,6 @@ urlpatterns = [
     path('', include('accounts.urls')),
     path('courses/', include('courses.urls')),
     path('api/prefs/', include('preferences.urls')),
-
+    path('api/', include('accounts.urls')),
 ]
 
