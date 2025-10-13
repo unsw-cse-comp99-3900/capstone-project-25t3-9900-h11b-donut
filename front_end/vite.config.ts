@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    allowedHosts: ['9900donut.me', 'www.9900donut.me'],
     hmr: {
       overlay: false, // disable error overlay to avoid webview script conflicts
     },
