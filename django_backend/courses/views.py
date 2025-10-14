@@ -189,7 +189,7 @@ def download_material(request, material_id):
 # 内存模拟数据与辅助方法（Sprint1）
 # =====================================
 
-COURSE_CATALOG: List[Dict] = [
+""" COURSE_CATALOG: List[Dict] = [
     { "code": "COMP9900", "title": "Info Tech Project", "description": "Capstone industry project", "illustration": "admin" },
     { "code": "COMP9417", "title": "Machine Learning", "description": "ML foundations and practice", "illustration": "student" },
     { "code": "COMP6080", "title": "Web Front-End", "description": "Modern web development", "illustration": "orange" },
@@ -217,7 +217,7 @@ MATERIALS_BY_COURSE: Dict[str, List[Dict]] = {
     ],
     "COMP9417": [],
     "COMP6080": []
-}
+} """
 
 # 学生选课与任务进度（内存）
 ENROLLMENTS_BY_STUDENT: Dict[str, set] = {}
