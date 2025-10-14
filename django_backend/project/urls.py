@@ -31,4 +31,6 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     # 新增 /api/media/ 映射，用于兼容前端拼了 /api 的情况(用于登录头像)
     urlpatterns += static('/api/media/', document_root=settings.MEDIA_ROOT)
-
+    # 映射task 可选：兼容前端拼了 /api/task/ 的情况
+    urlpatterns += static(settings.TASK_URL, document_root=settings.TASK_ROOT)
+    urlpatterns += static('/api/task/', document_root=settings.TASK_ROOT)
