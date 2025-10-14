@@ -11,9 +11,11 @@ import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import { preferencesStore, type Preferences, type PlanItem } from '../../store/preferencesStore'
 import { coursesStore } from '../../store/coursesStore'
 
+
 export function StudentPlan() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
+  
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   // Initialize local form state from global preferences
   const init = preferencesStore.getPreferences()
@@ -111,7 +113,7 @@ export function StudentPlan() {
     setAvoidDays(prev => prev.includes(d) ? prev.filter(i => i !== d) : [...prev, d])
   }
 
-  const applyPreferences = () => {
+  const applyPreferences =async ()=> {
     const toSave: Partial<Preferences> = {
       dailyHours: Math.max(1, Math.min(12, Number(dailyHours) || 1)),
       weeklyStudyDays: Math.max(1, Math.min(7, Number(weeklyStudyDays) || 1)),

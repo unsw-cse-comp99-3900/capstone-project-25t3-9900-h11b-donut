@@ -1,16 +1,13 @@
-from django.shortcuts import render, redirect
 from django.db import IntegrityError
 import bcrypt
-from .models import StudentAccount
-from django.db import models  
+from .models import StudentAccount 
 from django.conf import settings
-from courses.models import StudentCourse, Course
-from preferences.models import StudentWeeklyPreference
 from django.http import JsonResponse, HttpRequest
 import json
 from django.views.decorators.csrf import csrf_exempt
 import os
 from django.utils.crypto import get_random_string
+from utils.auth import make_token
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
@@ -142,13 +139,13 @@ def login_api(request: HttpRequest):
             .first()
         )
         if not row:
-            return api_err("Invalid email or password", 401)
+            return api_err("Invalid id or password", 401)
 
         ok = bcrypt.checkpw(password.encode("utf-8"), row["password_hash"].encode("utf-8"))
         if not ok:
             return api_err("Invalid id or password", 401)
 
-        token = "dev-token"  # 占位
+        token = make_token(row["student_id"])#取消占位假token
 
         # 在 user 里带上 avatarUrl
         user_payload = {

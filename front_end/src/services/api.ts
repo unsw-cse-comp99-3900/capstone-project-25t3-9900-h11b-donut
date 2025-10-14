@@ -96,7 +96,7 @@ class ApiService {
 
     return {
       success: response.ok,
-      message: response.ok ? 'OK' : 'HTTP ${response.status}',
+      message: response.ok ? 'OK' :  `HTTP ${response.status}`,
       data: null as unknown as T,
     };
   } catch (error) {

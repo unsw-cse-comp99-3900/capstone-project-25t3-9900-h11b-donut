@@ -1,6 +1,7 @@
+# preferences/urls.py
 from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('save/', views.save_prefs, name='save_prefs'),
+    path("", views.preferences_entry, name='api_preference'),  # /api/preferences
 ]
