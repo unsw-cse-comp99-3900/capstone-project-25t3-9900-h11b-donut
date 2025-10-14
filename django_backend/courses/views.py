@@ -89,7 +89,9 @@ def available_courses(request):
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
-    data = list(CourseCatalog.objects.values("code", "title", "description", "illustration"))
+    rows = list(CourseCatalog.objects.values("code", "title", "description", "illustration"))
+    # 映射为前端期望结构（包含 id）
+    data = [{"id": r["code"], "title": r["title"], "description": r["description"], "illustration": r["illustration"]} for r in rows]
     return JsonResponse({"success": True, "data": data})
 
 def search_courses(request):
@@ -136,7 +138,8 @@ def my_courses(request):
         return JsonResponse({"error": "Auth required"}, status=401)
 
     codes = list(StudentEnrollment.objects.filter(student_id=sid).values_list("course_code", flat=True))
-    data = list(CourseCatalog.objects.filter(code__in=codes).values("code", "title", "description", "illustration"))
+    rows = list(CourseCatalog.objects.filter(code__in=codes).values("code", "title", "description", "illustration"))
+    data = [{"id": r["code"], "title": r["title"], "description": r["description"], "illustration": r["illustration"]} for r in rows]
     return JsonResponse({"success": True, "data": data})
 
 def remove_course(request, course_code):
@@ -165,8 +168,27 @@ def course_materials(request, course_code):
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
     code = (course_code or "").upper()
-    qs = Material.objects.filter(course_code=code).values("title", "url")
-    data = list(qs)
+    rows = list(Material.objects.filter(course_code=code).values("title", "url"))
+    # 视图层补齐前端期望的字段结构
+    data = []
+    for r in rows:
+        url: str = r["url"] or ""
+        # 推断 fileType：扩展名或默认 pdf
+        ext = "pdf"
+        if "." in url:
+            ext = url.split(".")[-1].lower() or "pdf"
+        # 生成 id：优先根据文件名，无则基于标题派生
+        base_name = url.split("/")[-1] if "/" in url else url
+        base_name = base_name.split(".")[0] if "." in base_name else base_name
+        mat_id = base_name or r["title"].lower().replace(" ", "-")
+        data.append({
+            "id": mat_id,
+            "title": r["title"],
+            "fileType": ext,
+            "fileSize": "unknown",
+            "description": "Course material",
+            "uploadDate": "unknown",
+        })
     return JsonResponse({"success": True, "data": data})
 
 def task_progress(request, task_id):
