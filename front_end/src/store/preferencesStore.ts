@@ -270,7 +270,7 @@ class PreferencesStore {
     
     // 获取用户的所有课程和任务
     const myCourses = await apiService.getUserCourses();
-    console.log('🎓 课程信息列表:', myCourses);
+    console.log('课程信息列表:', myCourses);
 
     //const myCourses = coursesStore.myCourses;
     const planItems: PlanItem[] = [];
@@ -294,6 +294,7 @@ class PreferencesStore {
     
     myCourses.forEach(course => {
       const tasks = coursesStore.getCourseTasks(course.id);
+      console.log('tasks:',tasks)
       tasks.forEach(task => {
         // 计算任务优先级（基于截止日期）
         const deadline = new Date(task.deadline);

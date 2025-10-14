@@ -90,7 +90,7 @@ export function StudentPlan() {
 
   const generateWeeklyPlan = (offset = weekOffset): Record<number, PlanItem[]> => {
     // 使用 preferencesStore 生成计划数据
-    const planItems = preferencesStore.generateWeeklyPlan();
+    const planItems =  preferencesStore.generateWeeklyPlan();
     
     // 按天分组
     const result: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};

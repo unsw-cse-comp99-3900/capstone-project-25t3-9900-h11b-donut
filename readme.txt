@@ -47,3 +47,11 @@ f12访问结果如下：
 
 10.15:
 1.course部分已经完成
+2.对于对接生成计划： generate 中的apply 按钮点下 会触发 preferenceStore.ts里258行的方法，我分别在268，273,297列出了
+pre，course，task的信息；可以在网页上f12 打开控制台查看
+要注意：最初前端捏的数据中task有5个属性值，所以数据库中有5个属性值。并且coursesStore.getCourseTasks(course.id) 
+只能获取一门课的task
+所以：想要对齐text_run.py里的结构 我的建议是：用循环遍历当前student_id下所有course_id，对于每一个course_id执行
+getCourseTasks,并用map筛选出你要的4个属性，我看了下应该是不要percentcontribution，然后放进数组。
+url就是pdf的路径，我已经存放好了，也写入数据库了，就在后端的task文件夹下，和原本的内容一样只不过改了个名字
+
