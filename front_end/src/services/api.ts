@@ -47,6 +47,18 @@ export interface ApiPlanItem {
 class ApiService {
   private token: string | null = null;
 
+  async searchCourses(q: string): Promise<ApiCourse[]> {
+    const res = await this.request<ApiCourse[]>('/courses/search?q=' + encodeURIComponent(q));
+    // 后端返回的是 {code,title,description,illustration}
+    const raw = (res.data ?? []) as any[];
+    return raw.map(r => ({
+      id: r.code,
+      title: r.title,
+      description: r.description,
+      illustration: r.illustration as 'orange'|'student'|'admin',
+    }));
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const url = `${API_BASE}${endpoint}`;
 

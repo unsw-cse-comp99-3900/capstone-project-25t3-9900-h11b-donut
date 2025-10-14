@@ -21,10 +21,10 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # 把所有“根路径”交给 accounts 模块去处理
-    #path('courses/', include('courses.urls')),
     path('api/preferences', include('preferences.urls')),
     path('api/', include('accounts.urls')),
+    path('api/courses', include('courses.urls')),
+   # path('api/', include('plans.urls')),
 ] 
 if settings.DEBUG:
     # 已有的 /media/ 映射

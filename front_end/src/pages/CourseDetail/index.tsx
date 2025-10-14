@@ -81,7 +81,7 @@ export function CourseDetail() {
         try {
           const materials = await apiService.getCourseMaterials(id)
           const data = { 
-            tasks: coursesStore.getCourseTasks(id), 
+            tasks: await coursesStore.getCourseTasksAsync(id), 
             materials 
           }
           setDetailData(data)
@@ -89,7 +89,7 @@ export function CourseDetail() {
           console.error('Failed to load materials:', error)
           // 如果API失败，使用空材料列表
           const data = { 
-            tasks: coursesStore.getCourseTasks(id), 
+            tasks: await coursesStore.getCourseTasksAsync(id), 
             materials: [] 
           }
           setDetailData(data)
@@ -214,6 +214,10 @@ export function CourseDetail() {
                             <div className="task-info">
                               <h3>{task.title}</h3>
                               <p>{task.brief}</p>
+                              <div className="task-meta">
+                                <span className="meta-chip">Course ID: {course.id}</span>
+                                <span className="meta-chip">Task ID: {task.id}</span>
+                              </div>
                               <span className="deadline">Deadline: {task.deadline}</span>
                             </div>
                           </div>
@@ -627,6 +631,8 @@ const css = `
   margin-bottom:12px;
   line-height:1.5;
 }
+.task-meta{display:flex;gap:8px;margin:8px 0}
+.meta-chip{font-size:12px;color:#6D6D78;background:#F8F8FA;border:1px solid #EFEFF2;padding:2px 8px;border-radius:999px;font-weight:700}
 .deadline{
   color:#E53E3E;
   font-size:13px;
