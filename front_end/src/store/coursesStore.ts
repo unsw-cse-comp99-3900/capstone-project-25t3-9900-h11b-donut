@@ -52,6 +52,10 @@ class CoursesStore {
 
   private notify() { this.listeners.forEach(l => l()); }
 
+  getCourseTasks(courseId: string): Task[] {
+      return this.tasksByCourse[courseId] ?? [];
+    }
+    
   private async loadAvailableCourses() {
     try {
       const apiCourses = await apiService.getAvailableCourses();

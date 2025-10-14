@@ -46,7 +46,7 @@ def preferences_entry(request: HttpRequest):
     """
     - GET  /api/preferences      读取：优先 default，再用 current；无则返回 data=None
     - PUT  /api/preferences      保存：saveAsDefault 为真存入 Default 表，否则存入 Current 表
-      前端字段（驼峰）：
+      
         dailyHours: number (0.25~24)
         weeklyStudyDays: number (1~7)
         avoidDays: string[] in ["Sun","Mon",...,"Sat"]  (也兼容数字 0..6)

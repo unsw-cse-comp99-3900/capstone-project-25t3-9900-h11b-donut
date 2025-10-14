@@ -100,7 +100,7 @@ class PreferencesStore {
 
 
 
-  // 保存偏好设置到localStorage
+  // 保存偏好设置到localStorage,暂时没用上可能后面会用上？
   private savePreferences() {
     try {
       localStorage.setItem('ai-web-preferences', JSON.stringify(this.prefs));
@@ -255,7 +255,7 @@ class PreferencesStore {
   }
 
   // 生成学习计划（使用AI功能）
-  generateWeeklyPlan(): PlanItem[] {
+  async generateWeeklyPlan(): Promise<PlanItem[]> {
     const preferences = this.getPreferences();
     
     // 验证偏好设置
@@ -264,9 +264,15 @@ class PreferencesStore {
       console.error('偏好设置验证失败:', validation.errors);
       return [];
     }
+    else{
+      console.log('偏好设置验证通过:', preferences);
+    }
     
     // 获取用户的所有课程和任务
-    const myCourses = coursesStore.myCourses;
+    const myCourses = await apiService.getUserCourses();
+    console.log('🎓 课程信息列表:', myCourses);
+
+    //const myCourses = coursesStore.myCourses;
     const planItems: PlanItem[] = [];
     
     // 如果没有课程，返回空计划
