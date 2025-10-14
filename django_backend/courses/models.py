@@ -22,7 +22,7 @@ class CourseTask(models.Model):
     deadline = models.DateField()
     brief = models.TextField(blank=True)
     percent_contribution = models.PositiveIntegerField(default=0)
-
+    url = models.CharField(max_length=512, blank=True, null=True)
     class Meta:
         db_table = "course_task"
 
