@@ -109,7 +109,7 @@ def search_courses(request):
     ).values("code", "title", "description", "illustration")
     data = list(qs)
     return JsonResponse({"success": True, "data": data})
-
+@csrf_exempt
 def add_course(request):
     sid = _require_student(request)
     if sid is None:
@@ -142,7 +142,7 @@ def my_courses(request):
     rows = list(CourseCatalog.objects.filter(code__in=codes).values("code", "title", "description", "illustration"))
     data = [{"id": r["code"], "title": r["title"], "description": r["description"], "illustration": r["illustration"]} for r in rows]
     return JsonResponse({"success": True, "data": data})
-
+@csrf_exempt
 def remove_course(request, course_code):
     sid = _require_student(request)
     if sid is None:
@@ -191,7 +191,7 @@ def course_materials(request, course_code):
             "uploadDate": "unknown",
         })
     return JsonResponse({"success": True, "data": data})
-
+@csrf_exempt
 def task_progress(request, task_id):
     sid = _require_student(request)
     if sid is None:
