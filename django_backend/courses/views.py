@@ -4,6 +4,7 @@ from django.db import models, IntegrityError
 from django.conf import settings
 from pathlib import Path
 from typing import Optional
+from django.views.decorators.csrf import csrf_exempt
 from utils.auth import get_student_id_from_request  # 支持 Bearer Token
 from .models import (
     CourseCatalog,
