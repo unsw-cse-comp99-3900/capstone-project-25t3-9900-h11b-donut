@@ -94,9 +94,36 @@ class CoursesStore {
   }
 
   async addCourse(courseId: string) {
-    // 后端添加后刷新我的课程
-    await apiService.addCourse(courseId);
-    await this.loadMyCoursesFromAPI();
+    // 若已存在则不重复添加
+    const exists = this.myCourses.find(c => c.id.toLowerCase() === courseId.toLowerCase());
+    if (exists) return;
+    const found = this.availableCourses.find(c => c.id.toLowerCase() === courseId.toLowerCase());
+    if (!found) return;
+
+    // 乐观更新：立即加入 UI 并通知渲染
+    this.myCourses = [...this.myCourses, found];
+    this.notify();
+
+    // 后台并行：添加到后端并刷新“我的课程”再校准 deadlines
+    (async () => {
+      try {
+        await apiService.addCourse(courseId);
+        const apiCourses = await apiService.getUserCourses();
+        this.myCourses = apiCourses.map(c => ({
+          id: c.id,
+          title: c.title,
+          desc: c.description,
+          illustration: c.illustration
+        }));
+        await this.syncDeadlinesFromCourses();
+        this.notify();
+      } catch (error) {
+        console.warn('Failed to add course via API:', error);
+        // 后端失败时保留乐观结果（可按需提示用户）
+        await this.syncDeadlinesFromCourses();
+        this.notify();
+      }
+    })();
   }
 
   async removeCourse(courseId: string) {
