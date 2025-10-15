@@ -39,7 +39,6 @@ export function StudentHome() {
     }
   }
   useEffect(() => {
-    
     preferencesStore.loadWeeklyPlans?.();
     const unsubCourses = coursesStore.subscribe(() => {
       setCourses([...coursesStore.myCourses])
@@ -136,7 +135,7 @@ export function StudentHome() {
 };
 
   return (
-  <ProtectedRoute>
+  
     <div className="student-home-layout">
       <aside className="sh-sidebar">
         <div className="sh-profile-card" onClick={() => (window.location.hash = '#/student-profile')} role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
@@ -263,7 +262,7 @@ export function StudentHome() {
         cancelText="Cancel"
       />
     </div>
-  </ProtectedRoute>
+ 
   )
 }
 
