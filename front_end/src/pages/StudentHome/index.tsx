@@ -25,68 +25,68 @@ const illoMap: Record<string, string> = {
 }
 
 export function StudentHome() {
-  // mock 数据：可替换为 REST API
+  
   const [courses, setCourses] = useState(coursesStore.myCourses)
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [lessons, setLessons] = useState<Deadline[]>(coursesStore.getDeadlines())
-  const uid = localStorage.getItem('current_user_id');
-  let user = null;
+  const uid = localStorage.getItem('current_user_id') || '';
+const [user, setUser] = useState<any>(() => {
+  if (!uid) return null;
+  try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
+  catch { return null; }
+});
+  useEffect(() => {
+  // ★ 切换账号后重读 user
   if (uid) {
     try {
-      user = JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null');
+      setUser(JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'));
     } catch {
-      user = null;
+      setUser(null);
     }
+  } else {
+    setUser(null);
   }
-  useEffect(() => {
-    preferencesStore.loadWeeklyPlans?.();
-    const unsubCourses = coursesStore.subscribe(() => {
-      setCourses([...coursesStore.myCourses])
-      // 当课程变化时，重新获取并排序deadlines
-      const sortedDeadlines = [...coursesStore.getDeadlines()].sort((a, b) => {
-        const parseTime = (dueIn: string) => {
-          const isNegative = dueIn.startsWith('-');
-          const cleanDueIn = isNegative ? dueIn.substring(2) : dueIn;
-          const match = cleanDueIn.match(/(\d+)d\s+(\d+)h\s+(\d+)m/);
-          if (match) {
-            const [, days, hours, minutes] = match;
-            const totalMinutes = parseInt(days) * 1440 + parseInt(hours) * 60 + parseInt(minutes);
-            // 过期任务排在最后
-            return isNegative ? Number.POSITIVE_INFINITY : totalMinutes;
-          }
-          return Number.POSITIVE_INFINITY;
-        };
-        return parseTime(a.dueIn) - parseTime(b.dueIn);
-      });
-      setLessons(sortedDeadlines);
-    })
-    
-    const unsubDeadlines = coursesStore.subscribe(() => {
-      // 按倒计时排序deadlines，离deadline最近的排在最上面
-      const sortedDeadlines = [...coursesStore.getDeadlines()].sort((a, b) => {
-        const parseTime = (dueIn: string) => {
-          const isNegative = dueIn.startsWith('-');
-          const cleanDueIn = isNegative ? dueIn.substring(2) : dueIn;
-          const match = cleanDueIn.match(/(\d+)d\s+(\d+)h\s+(\d+)m/);
-          if (match) {
-            const [, days, hours, minutes] = match;
-            const totalMinutes = parseInt(days) * 1440 + parseInt(hours) * 60 + parseInt(minutes);
-            // 过期任务排在最后
-            return isNegative ? Number.POSITIVE_INFINITY : totalMinutes;
-          }
-          return Number.POSITIVE_INFINITY;
-        };
-        return parseTime(a.dueIn) - parseTime(b.dueIn);
-      });
-      setLessons(sortedDeadlines);
-    })
-    
-    return () => {
-      unsubCourses()
-      unsubDeadlines()
-    }
-  }, [])
 
+  preferencesStore.loadWeeklyPlans?.();
+
+  const unsubCourses = coursesStore.subscribe(() => {
+    setCourses([...coursesStore.myCourses]);
+    const sortedDeadlines = [...coursesStore.getDeadlines()].sort((a, b) => {
+      const parseTime = (dueIn: string) => {
+        const isNegative = dueIn.startsWith('-');
+        const cleanDueIn = isNegative ? dueIn.substring(2) : dueIn;
+        const match = cleanDueIn.match(/(\d+)d\s+(\d+)h\s+(\d+)m/);
+        if (match) {
+          const [, days, hours, minutes] = match;
+          const totalMinutes = parseInt(days) * 1440 + parseInt(hours) * 60 + parseInt(minutes);
+          return isNegative ? Number.POSITIVE_INFINITY : totalMinutes;
+        }
+        return Number.POSITIVE_INFINITY;
+      };
+      return parseTime(a.dueIn) - parseTime(b.dueIn);
+    });
+    setLessons(sortedDeadlines);
+  });
+
+  const unsubDeadlines = coursesStore.subscribe(() => {
+    const parseTime = (dueIn: string) => {
+      const isNegative = dueIn.startsWith('-');
+      const cleanDueIn = isNegative ? dueIn.substring(2) : dueIn;
+      const match = cleanDueIn.match(/(\d+)d\s+(\d+)h\s+(\d+)m/);
+      if (!match) return Number.POSITIVE_INFINITY;
+      const [, d, h, m] = match;
+      const total = parseInt(d) * 1440 + parseInt(h) * 60 + parseInt(m);
+      return isNegative ? Number.POSITIVE_INFINITY : total;
+    };
+    const sortedDeadlines = [...coursesStore.getDeadlines()].sort((a, b) => parseTime(a.dueIn) - parseTime(b.dueIn));
+    setLessons(sortedDeadlines);
+  });
+
+  return () => {
+    unsubCourses();
+    unsubDeadlines();
+  };
+}, [uid]); // ★ 关键：依赖 uid
   // 每分钟刷新一次，保证倒计时实时更新并按倒计时升序展示
   useEffect(() => {
     const parseTime = (dueIn: string) => {
@@ -135,8 +135,8 @@ export function StudentHome() {
 };
 
   return (
-  
-    <div className="student-home-layout">
+  <ProtectedRoute>
+    <div key={uid} className="student-home-layout">
       <aside className="sh-sidebar">
         <div className="sh-profile-card" onClick={() => (window.location.hash = '#/student-profile')} role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
           <div className="avatar"><img
@@ -187,7 +187,7 @@ export function StudentHome() {
         <header className="sh-header">
           <div className="left">
             <div className="hello">Hello,</div>
-            <h1 className="title">{user.name} <span className="wave" aria-hidden>👋</span></h1>
+            <h1 className="title">{user?.name ?? ''} <span className="wave" aria-hidden>👋</span></h1>
           </div>
           <div className="right global-actions">
             <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
@@ -262,7 +262,7 @@ export function StudentHome() {
         cancelText="Cancel"
       />
     </div>
- 
+  </ProtectedRoute>
   )
 }
 
