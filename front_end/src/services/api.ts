@@ -158,18 +158,7 @@ class ApiService {
       const uid: string = user.studentId ?? user.id ?? user.student_id ?? String(studentId);
       localStorage.setItem('current_user_id', uid);
       localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
-      try {
-      const [avail, mine, prefs] = await Promise.all([
-      this.request('/courses/available'),
-      this.request('/courses/my'),
-      this.request('/preferences'),
-    ]);
-
-   
-
-  } catch (e) {
-    console.error('刷新用户数据失败：', e);
-  }
+      window.location.reload();
     }
     return result.data;
   }
