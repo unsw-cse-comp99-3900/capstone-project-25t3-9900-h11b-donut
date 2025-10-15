@@ -11,7 +11,7 @@ import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import { preferencesStore, type Preferences, type PlanItem } from '../../store/preferencesStore'
 import { coursesStore } from '../../store/coursesStore'
 import { apiService } from '../../services/api';
-
+import { fetchAndMapAiPlan } from '../../services/aiPlanService';
 
 export function StudentPlan() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -123,31 +123,52 @@ export function StudentPlan() {
       description
     }
     preferencesStore.setPreferences(toSave)
-    
-   // 尝试从后端 AI 获取真实计划
-try {
-  const aiPlan = await apiService.generateAIPlan();
-  if (aiPlan && aiPlan.ok) {
-    console.log("✅ AI计划返回成功，使用后端生成的数据:", aiPlan);
+     try {
+    // 一个函数搞定：内部会调 apiService.generateAIPlan()
+    const weeklyPlan = await fetchAndMapAiPlan();
 
-    // TODO: 未来这里可以把 aiPlan.days 映射成前端 PlanItem[] 格式
-    // 暂时只打印结果确认连通性
-  } else {
-    console.warn("⚠️ AI计划请求失败或无数据，回退到本地生成");
+    // 如果只渲染本周
+    preferencesStore.setWeeklyPlan(0, weeklyPlan[0] || []);
+
+    // 如果后端可能返回多周，顺手一并写入
+    for (const [offsetStr, items] of Object.entries(weeklyPlan)) {
+      preferencesStore.setWeeklyPlan(Number(offsetStr), items);
+    }
+    // 3) 切换界面
+    setShowPlan(true);
+    setShowPrefs(false);
+    console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
+
+  } catch (err) {
+    console.error('❌ AI 计划失败，使用本地兜底:', err);
+    return; 
   }
-} catch (err) {
-  console.error("❌ 调用 AI 计划接口失败:", err);
-}
+   // 尝试从后端 AI 获取真实计划
+// try {
+//   const aiPlan = await apiService.generateAIPlan();
+//   if (aiPlan && aiPlan.ok) {
+//     console.log("✅ AI计划返回成功，使用后端生成的数据:");
 
+//   } else {
+//     console.warn("⚠️ AI计划请求失败或无数据，回退到本地生成");
+//   }
+// } catch (err) {
+//   console.error("❌ 调用 AI 计划接口失败:", err);
+// }
 
-    // 使用preferencesStore生成学习计划
-    const planItems = preferencesStore.generateWeeklyPlan();
-    preferencesStore.setWeeklyPlan(0, planItems);
-    
-    // 显示本周学习计划
-    setWeeklyPlan(generateWeeklyPlan())
-    setShowPlan(true)
-    setShowPrefs(false)
+// //到这里我们手握ai生成的计划json
+
+//     // 使用preferencesStore生成学习计划
+//     // planItems就是每周的计划
+//     const weeklyPlan = await fetchAndMapAiPlan();
+//     console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
+//     preferencesStore.setWeeklyPlan(0, weeklyPlan[0]);// 显示本周学习计划
+
+//     //const planItems = preferencesStore.generateWeeklyPlan();
+//     // 后面preferenceStore.generateWeeklyPlan可以删掉了
+//     setWeeklyPlan(generateWeeklyPlan())
+//     setShowPlan(true)
+//     setShowPrefs(false)
   }
   
   return (

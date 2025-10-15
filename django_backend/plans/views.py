@@ -130,7 +130,7 @@ def generate_ai_plan(request):
         WEEK_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
         preferences = {
-            "dailyHours": int(pref.daily_hours),
+            "dailyHours": float(pref.daily_hours or 0),
             "weeklyStudyDays": int(pref.weekly_study_days or 5),
             "avoidDays": [],
         }
@@ -148,7 +148,7 @@ def generate_ai_plan(request):
         "weeklyStudyDays": 3,
         "avoidDays": ["Sun", "Sat"],
     }
-    #print("偏好是：",preferences)
+    print("偏好是：",preferences)
 
     # 3️⃣ 获取学生选的所有课程及任务
     from courses.models import StudentEnrollment, CourseTask
@@ -187,7 +187,7 @@ def generate_ai_plan(request):
         from pprint import pprint
         pprint(ai_result)
         # 直接返回结果
-        return JsonResponse(ai_result, safe=False)
+        return JsonResponse({"success": True, "message": "OK", "data": ai_result})
 
     except Exception as e:
         print("[AI_GENERATE_PLAN_ERROR]", str(e))

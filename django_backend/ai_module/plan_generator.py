@@ -203,6 +203,12 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
     ), ai_info
 
 def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]]) -> Dict[str, Any]:
+    preferences = {
+    "daily_hour_cap": preferences.get("dailyHours"),
+    "weekly_study_days": preferences.get("weeklyStudyDays"),
+    "avoid_days": preferences.get("avoidDays"),
+}
+    
     """
     输入：
       preferences = {
@@ -235,7 +241,7 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
         t, info = _to_task_with_parts(m)
         task_objs.append(t)
         ai_summaries.append(info)
-
+    
     prefs = Preferences(
         daily_hour_cap=int(preferences.get("daily_hour_cap", 3)),
         weekly_study_days=int(preferences.get("weekly_study_days", 5)),
@@ -243,11 +249,7 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
     )
 
     result = schedule(task_objs, prefs)
-    today = datetime.today().date()
-    print(f"[调试] 当前生成日期: {today}")
-
-    result = schedule(task_objs, prefs)
-    print(f"[调试] schedule() 返回的 weekStart: {result.get('weekStart')}")
+    
     # 合并 AI 解释信息
     result["aiSummary"] = {"tasks": ai_summaries}
     return result
