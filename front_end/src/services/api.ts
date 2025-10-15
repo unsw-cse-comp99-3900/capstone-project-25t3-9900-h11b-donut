@@ -1,5 +1,5 @@
 // API服务层 - 后端集成接口
-//const API_BASE = 'http://localhost:3001/api';
+
 const API_BASE = '/api';
 
 export interface ApiResponse<T> {
@@ -156,6 +156,7 @@ class ApiService {
         user.avatarUrl = `${API_BASE}${user.avatarUrl}`;
       }
       localStorage.setItem('user', JSON.stringify(user));
+      
     }
     return result.data;
   }
@@ -269,9 +270,7 @@ class ApiService {
 
     return await response.blob();
   }
-    // ======================
-  // AI 智能学习计划生成
-  // ======================
+  
   async generateAIPlan(): Promise<any> {
   try {
     const res = await this.request<any>('/generate', { method: 'POST' });

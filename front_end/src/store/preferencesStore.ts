@@ -107,7 +107,7 @@ class PreferencesStore {
       console.warn('Failed to save preferences to localStorage:', error);
     }
   }
-   loadWeeklyPlans() {
+  loadWeeklyPlans() {
   try {
     const raw = localStorage.getItem('ai-web-weekly-plans');
     this.weeklyPlans = raw ? JSON.parse(raw) : {};

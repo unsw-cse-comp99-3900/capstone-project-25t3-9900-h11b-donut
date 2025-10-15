@@ -32,7 +32,7 @@ export function StudentHome() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   useEffect(() => {
-    preferencesStore.loadWeeklyPlans(); 
+    //preferencesStore.loadWeeklyPlans(); 
     const unsubCourses = coursesStore.subscribe(() => {
       setCourses([...coursesStore.myCourses])
       // 当课程变化时，重新获取并排序deadlines
