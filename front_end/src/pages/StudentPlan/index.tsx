@@ -53,23 +53,20 @@ export function StudentPlan() {
 
   // 组件加载时从preferencesStore加载已保存的计划
   useEffect(() => {
-    const savedPlan = preferencesStore.getWeeklyPlan(weekOffset);
-    if (savedPlan.length > 0) {
-      // 将PlanItem[]转换为按天分组的Record<number, PlanItem[]>
-      const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
-      savedPlan.forEach(item => {
-        const { monday, sunday } = getWeekRange(weekOffset);
-        const itemDate = new Date(item.date);
-        // 仅分配在当前周范围内的项
-        if (itemDate < monday || itemDate > sunday) return;
-        const dayDiff = Math.floor((itemDate.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24));
-        const dayIdx = Math.max(0, Math.min(6, dayDiff));
-        planByDay[dayIdx] = [...planByDay[dayIdx], item];
-      });
-      setWeeklyPlan(planByDay);
-      setShowPlan(true);
-    }
-  }, [weekOffset]);
+  const savedPlan = preferencesStore.getWeeklyPlan(weekOffset);
+  if (savedPlan.length > 0) {
+    // 将 PlanItem[] 转换为按天分组的 Record<number, PlanItem[]>
+    const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+
+    savedPlan.forEach(item => {
+      const itemDate = new Date(item.date);  // 不处理时区
+      const dayIdx = (itemDate.getDay() + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
+      planByDay[dayIdx] = [...planByDay[dayIdx], item];
+    });
+    setWeeklyPlan(planByDay);
+    setShowPlan(true);
+  }
+}, [weekOffset]);
 
   // 颜色统一由 coursesStore 提供，避免本地硬编码，便于后端对接
 
@@ -114,62 +111,47 @@ export function StudentPlan() {
     setAvoidDays(prev => prev.includes(d) ? prev.filter(i => i !== d) : [...prev, d])
   }
 
-  const applyPreferences =async ()=> {
-    const toSave: Partial<Preferences> = {
-      dailyHours: Math.max(1, Math.min(12, Number(dailyHours) || 1)),
-      weeklyStudyDays: Math.max(1, Math.min(7, Number(weeklyStudyDays) || 1)),
-      avoidDays,
-      saveAsDefault,
-      description
-    }
-    preferencesStore.setPreferences(toSave)
-     try {
-    // 一个函数搞定：内部会调 apiService.generateAIPlan()
+  const applyPreferences = async () => {
+  const toSave: Partial<Preferences> = {
+    dailyHours: Math.max(1, Math.min(12, Number(dailyHours) || 1)),
+    weeklyStudyDays: Math.max(1, Math.min(7, Number(weeklyStudyDays) || 1)),
+    avoidDays,
+    saveAsDefault,
+    description
+  }
+  preferencesStore.setPreferences(toSave)
+
+  try {
+    // 1) 后端生成 + 映射
     const weeklyPlan = await fetchAndMapAiPlan();
+    console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
 
-    // 如果只渲染本周
+    // 2) 写入 store（按你的逻辑保持不变）
     preferencesStore.setWeeklyPlan(0, weeklyPlan[0] || []);
-
-    // 如果后端可能返回多周，顺手一并写入
     for (const [offsetStr, items] of Object.entries(weeklyPlan)) {
       preferencesStore.setWeeklyPlan(Number(offsetStr), items);
     }
-    // 3) 切换界面
+
+    //  3) 立刻把“本周”的 PlanItem[] 分桶并喂给组件状态（不等 useEffect）
+    const cur = preferencesStore.getWeeklyPlan(0) || [];
+    const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+    for (const it of cur) {
+      const d = new Date(it.date);                  // 按你要求：不考虑时区
+      const dayIdx = (d.getDay() + 6) % 7;          // Mon=0..Sun=6
+      planByDay[dayIdx] = [...planByDay[dayIdx], it];
+    }
+    setWeekOffset(0);
+    setWeeklyPlan(planByDay);
+
+    // 4) 再切界面（此时 state 已就绪，页面立即有内容）
     setShowPlan(true);
     setShowPrefs(false);
-    console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
 
   } catch (err) {
     console.error('❌ AI 计划失败，使用本地兜底:', err);
-    return; 
+    return;
   }
-   // 尝试从后端 AI 获取真实计划
-// try {
-//   const aiPlan = await apiService.generateAIPlan();
-//   if (aiPlan && aiPlan.ok) {
-//     console.log("✅ AI计划返回成功，使用后端生成的数据:");
-
-//   } else {
-//     console.warn("⚠️ AI计划请求失败或无数据，回退到本地生成");
-//   }
-// } catch (err) {
-//   console.error("❌ 调用 AI 计划接口失败:", err);
-// }
-
-// //到这里我们手握ai生成的计划json
-
-//     // 使用preferencesStore生成学习计划
-//     // planItems就是每周的计划
-//     const weeklyPlan = await fetchAndMapAiPlan();
-//     console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
-//     preferencesStore.setWeeklyPlan(0, weeklyPlan[0]);// 显示本周学习计划
-
-//     //const planItems = preferencesStore.generateWeeklyPlan();
-//     // 后面preferenceStore.generateWeeklyPlan可以删掉了
-//     setWeeklyPlan(generateWeeklyPlan())
-//     setShowPlan(true)
-//     setShowPrefs(false)
-  }
+};
   
   return (
     <div className="student-plan-layout">
@@ -243,25 +225,37 @@ export function StudentPlan() {
                 <span>{getWeekRange(weekOffset).label}</span>
                 <div className="sp-week-nav">
                   <button className="week-btn" aria-label="Previous week" disabled={weekOffset <= 0} onClick={() => { 
-                    if (weekOffset <= 0) return; 
-                    const n = weekOffset - 1; 
-                    setWeekOffset(n); 
-                    // 保存计划到 preferencesStore
+                    if (weekOffset <= 0) return;
+                    const n = weekOffset - 1;
+                    setWeekOffset(n);
+                    const items = preferencesStore.getWeeklyPlan(n) || [];
 
-                    const planItems = preferencesStore.generateWeeklyPlan();
-                    preferencesStore.setWeeklyPlan(n, planItems);
-                    setWeeklyPlan(generateWeeklyPlan(n)); 
+                    const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+                    for (const item of items) {
+                      const d = new Date(item.date);               // 不处理时区
+                      const dayIdx = (d.getDay() + 6) % 7;         // Mon=0 ... Sun=6
+                      planByDay[dayIdx] = [...planByDay[dayIdx], item];
+                    }
+                    setWeeklyPlan(planByDay);
+                    
                   }}>‹</button>
                   <button className="week-btn" aria-label="Next week" disabled={weekOffset >= getMaxWeekOffset()} onClick={() => { 
                     const maxOffset = getMaxWeekOffset();
                     if (weekOffset >= maxOffset) return;
                     const n = weekOffset + 1; 
                     setWeekOffset(n); 
-                    // 保存计划到 preferencesStore
+                     const items = preferencesStore.getWeeklyPlan(n) || [];
 
-                    const planItems = preferencesStore.generateWeeklyPlan();
-                    preferencesStore.setWeeklyPlan(n, planItems);
-                    setWeeklyPlan(generateWeeklyPlan(n)); 
+                    const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+                    for (const item of items) {
+                      const d = new Date(item.date);               // 不处理时区
+                      const dayIdx = (d.getDay() + 6) % 7;         // Mon=0 ... Sun=6
+                      planByDay[dayIdx] = [...planByDay[dayIdx], item];
+                    }
+                    setWeeklyPlan(planByDay);
+
+
+                     
                   }}>›</button>
                 </div>
               </div>

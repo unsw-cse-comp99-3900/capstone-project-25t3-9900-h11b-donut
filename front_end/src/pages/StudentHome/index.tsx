@@ -16,7 +16,7 @@ import illoAdmin from '../../assets/images/illustration-admin.png'
 import { coursesStore, type Deadline, type Course } from '../../store/coursesStore'
 import {ProtectedRoute} from '../../components/ProtectedRoute';
 
-
+import { preferencesStore } from '../../store/preferencesStore';
 
 const illoMap: Record<string, string> = {
   orange: illoOrange,
@@ -32,6 +32,7 @@ export function StudentHome() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   useEffect(() => {
+    preferencesStore.loadWeeklyPlans(); 
     const unsubCourses = coursesStore.subscribe(() => {
       setCourses([...coursesStore.myCourses])
       // 当课程变化时，重新获取并排序deadlines

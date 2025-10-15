@@ -78,7 +78,7 @@ class PreferencesStore {
 
 
 
-  // 从localStorage加载学习计划（备用方案）
+  // 从localStorage加载pre（备用方案）
   private loadFromLocalStorage(): void {
     try {
       const storedPrefs = localStorage.getItem('ai-web-preferences');
@@ -91,7 +91,6 @@ class PreferencesStore {
           saveAsDefault: parsed.saveAsDefault || false,
           description: parsed.description || ''
         };
-
       }
     } catch (error) {
       console.warn('Failed to load from localStorage:', error);
@@ -108,7 +107,16 @@ class PreferencesStore {
       console.warn('Failed to save preferences to localStorage:', error);
     }
   }
-
+   loadWeeklyPlans() {
+  try {
+    const raw = localStorage.getItem('ai-web-weekly-plans');
+    this.weeklyPlans = raw ? JSON.parse(raw) : {};
+    this.notify();              // 通知界面刷新
+  } catch (e) {
+    console.warn('Failed to load weekly plans from localStorage:', e);
+    this.weeklyPlans = {};
+  }
+}
   // 保存学习计划到localStorage
   private saveWeeklyPlans() {
     try {
