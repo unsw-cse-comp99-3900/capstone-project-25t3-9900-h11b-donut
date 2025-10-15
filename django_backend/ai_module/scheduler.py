@@ -64,11 +64,11 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
     仍不足：返回 impossible，并列出无法安放的 parts。
     """
 
-    print("=== 调试：传入的 prefs ===")
+    print("===  prefs ===")
     print("daily_hour_cap:", prefs.daily_hour_cap)
     print("weekly_study_days:", prefs.weekly_study_days)
-    print("avoid_days 原始值:", prefs.avoid_days)
-    print("类型:", type(prefs.avoid_days))
+    print("avoid_days origin value:", prefs.avoid_days)
+    print("type:", type(prefs.avoid_days))
 
     if prefs.avoid_days:
         for i, v in enumerate(prefs.avoid_days):
@@ -103,14 +103,14 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
         
         # 不能早于今天
         smart_start = max(today, calculated_start)
-        print(f"📊今天是：{today}")
-        print(f"📊 智能开始时间计算:")
-        print(f"   总工作量: {total_minutes}分钟 ({total_minutes/60:.1f}小时)")
-        print(f"   每周容量: {weekly_capacity}分钟 ({weekly_capacity/60:.1f}小时)")
-        print(f"   需要周数: {weeks_needed}周")
-        print(f"   最早截止: {earliest_due}")
-        print(f"   计算开始: {calculated_start}")
-        print(f"   实际开始: {smart_start}")
+        # print(f"📊今天是：{today}")
+        # print(f"📊 智能开始时间计算:")
+        # print(f"   总工作量: {total_minutes}分钟 ({total_minutes/60:.1f}小时)")
+        # print(f"   每周容量: {weekly_capacity}分钟 ({weekly_capacity/60:.1f}小时)")
+        # print(f"   需要周数: {weeks_needed}周")
+        # print(f"   最早截止: {earliest_due}")
+        # print(f"   计算开始: {calculated_start}")
+        # print(f"   实际开始: {smart_start}")
         
         return smart_start
     
@@ -119,7 +119,7 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
     start = today # 直接从今天开始
     end = week_monday(latest_due) + timedelta(days=6)
     
-    print(f"📅 调度时间范围: {start} 到 {end}")
+   # print(f"📅 调度时间范围: {start} 到 {end}")
 
     def build_days(daily_cap_min: int, weekly_days: int, avoid_set: set[int]) -> List[Dict[str, Any]]:
         # days: List[Dict[str, Any]] = []

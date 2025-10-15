@@ -148,7 +148,7 @@ def generate_ai_plan(request):
         "weeklyStudyDays": 3,
         "avoidDays": ["Sun", "Sat"],
     }
-    print("偏好是：",preferences)
+    print("Pre is：",preferences)
 
     # 3️⃣ 获取学生选的所有课程及任务
     from courses.models import StudentEnrollment, CourseTask
@@ -183,7 +183,7 @@ def generate_ai_plan(request):
 
     try:
         ai_result = generate_plan(preferences, tasks_meta)
-        print("🤖 AI 计划生成成功，返回结果如下：")
+        print("🤖 AI generate!：")
         from pprint import pprint
         pprint(ai_result)
         # 直接返回结果

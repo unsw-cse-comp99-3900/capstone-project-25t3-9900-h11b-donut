@@ -146,11 +146,7 @@ class ApiService {
   });
   
   if (result.success && result.data?.token) {
-    for (const key of Object.keys(localStorage)) {
-      if (key.startsWith('ai-web-') || key.startsWith('u:')) {
-        localStorage.removeItem(key);
-      }
-    }
+
     this.token = result.data.token;
     localStorage.setItem('auth_token', this.token);
     localStorage.setItem('login_time', Date.now().toString());
@@ -163,8 +159,6 @@ class ApiService {
       localStorage.setItem('current_user_id', uid);
       localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
 
-      
-      
     }
     return result.data;
   }
