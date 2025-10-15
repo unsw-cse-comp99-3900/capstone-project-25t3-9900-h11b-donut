@@ -243,6 +243,11 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
     )
 
     result = schedule(task_objs, prefs)
+    today = datetime.today().date()
+    print(f"[调试] 当前生成日期: {today}")
+
+    result = schedule(task_objs, prefs)
+    print(f"[调试] schedule() 返回的 weekStart: {result.get('weekStart')}")
     # 合并 AI 解释信息
     result["aiSummary"] = {"tasks": ai_summaries}
     return result

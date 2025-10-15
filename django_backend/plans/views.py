@@ -108,10 +108,10 @@ def weekly_plan(request: HttpRequest, week_offset: int):
 @csrf_exempt
 def generate_ai_plan(request):
     """AI 计划生成调试接口：整合 courses + preferences + AI"""
-    # sid = get_student_id_from_request(request)
-    # if not sid:
-    #     return JsonResponse({"success": False, "message": "Unauthorized"}, status=401)
-    sid = "z5540730" 
+    sid = get_student_id_from_request(request)
+    if not sid:
+        return JsonResponse({"success": False, "message": "Unauthorized"}, status=401)
+    #sid = "z5540730" 
 
     # 1️⃣ 获取当前学生对象
     try:
@@ -123,35 +123,44 @@ def generate_ai_plan(request):
     pref = StudentPreferenceDefault.objects.filter(student=student).first()
     if not pref:
         pref = StudentPreference.objects.filter(student=student).first()
+    
 
     # 解析偏好数据（如果学生没设置就用默认值）
     if pref:
-        preferences = {
-            "daily_hour_cap": float(pref.daily_hours or Decimal("3")),
-            "weekly_study_days": int(pref.weekly_study_days or 5),
-            "avoid_days": [],
-        }
+        WEEK_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
+        preferences = {
+            "dailyHours": int(pref.daily_hours),
+            "weeklyStudyDays": int(pref.weekly_study_days or 5),
+            "avoidDays": [],
+        }
+        
+    
         # bitmask 转数组，例如二进制 1100000 -> [5,6] (表示避开周六周日)
         mask = int(pref.avoid_days_bitmask or 0)
         for i in range(7):  # 0=Sun, 6=Sat
             if mask & (1 << i):
-                preferences["avoid_days"].append(i)
+                preferences["avoidDays"].append(WEEK_LABELS[i])
     else:
         # 如果数据库里啥都没设置，给个默认偏好
-        preferences = {"daily_hour_cap": 3, "weekly_study_days": 5, "avoid_days": [5, 6]}
+        preferences = {
+        "dailyHours": 1,
+        "weeklyStudyDays": 3,
+        "avoidDays": ["Sun", "Sat"],
+    }
+    #print("偏好是：",preferences)
 
     # 3️⃣ 获取学生选的所有课程及任务
     from courses.models import StudentEnrollment, CourseTask
 
     # 找出该学生选了哪些课程
     enrolled_courses = StudentEnrollment.objects.filter(student_id=sid).values_list("course_code", flat=True)
-
+    
     tasks_meta = []
     for course_code in enrolled_courses:
         # 查该课程下的任务
         tasks = CourseTask.objects.filter(course_code=course_code).values(
-            "id", "title", "deadline", "brief"
+            "id", "title", "deadline", "brief","url"
         )
 
         for t in tasks:
@@ -160,11 +169,12 @@ def generate_ai_plan(request):
                 "id": f"{course_code}_{t['id']}",
                 "task": f"{course_code} - {t['title']}",
                 "dueDate": t["deadline"].isoformat() if t["deadline"] else None,
-                "detailPdfPath": None,  # 暂时没有 PDF 文件路径，可后续添加
-                "estimatedHours": 3     # 临时估计 3 小时，AI 模块会自动修正
+                "detailPdfPath":  t["url"], # 取出
+                #"estimatedHours": 3     # 临时估计 3 小时，AI 模块会自动修正
             }
             tasks_meta.append(task_meta)
 
+    #print("任务有:",tasks_meta)
     if not tasks_meta:
         return JsonResponse({"success": False, "message": "No tasks found"}, status=404)
     
@@ -173,7 +183,9 @@ def generate_ai_plan(request):
 
     try:
         ai_result = generate_plan(preferences, tasks_meta)
-
+        print("🤖 AI 计划生成成功，返回结果如下：")
+        from pprint import pprint
+        pprint(ai_result)
         # 直接返回结果
         return JsonResponse(ai_result, safe=False)
 
