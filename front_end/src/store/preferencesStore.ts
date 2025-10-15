@@ -183,8 +183,9 @@ class PreferencesStore {
       ...next,
       avoidDays: next.avoidDays ? [...next.avoidDays] : this.prefs.avoidDays
     };
-    await this.savePreferencesToAPI();
+    return this.savePreferencesToAPI().then(() => {
     this.notify();
+  });
   }
 
   // 获取指定周的学习计划

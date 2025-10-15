@@ -131,7 +131,7 @@ export function StudentPlan() {
     saveAsDefault,
     description
   }
-  preferencesStore.setPreferences(toSave)
+   await preferencesStore.setPreferences(toSave)
 
   try {
     // 1) 后端生成 + 映射
