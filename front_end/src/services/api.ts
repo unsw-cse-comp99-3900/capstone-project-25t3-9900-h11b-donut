@@ -158,7 +158,7 @@ class ApiService {
       const uid: string = user.studentId ?? user.id ?? user.student_id ?? String(studentId);
       localStorage.setItem('current_user_id', uid);
       localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
-
+      window.location.reload();
     }
     return result.data;
   }
