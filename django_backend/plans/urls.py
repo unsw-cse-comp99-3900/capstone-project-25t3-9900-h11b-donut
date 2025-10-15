@@ -1,6 +1,9 @@
 from django.urls import path
 from .views import weekly_plan
+from . import views
+
 
 urlpatterns = [
     path('plans/weekly/<int:week_offset>', weekly_plan),
+    path("generate", views.generate_ai_plan, name="generate_ai_plan"),
 ]

@@ -269,6 +269,22 @@ class ApiService {
 
     return await response.blob();
   }
+    // ======================
+  // AI 智能学习计划生成
+  // ======================
+  async generateAIPlan(): Promise<any> {
+    try {
+      const res = await this.request<any>('/generate', {
+        method: 'POST',
+      });
+      console.log("✅ AI 计划已从后端获取:", res);
+      return res.data ?? null;
+    } catch (err) {
+      console.error("❌ 获取 AI 学习计划失败:", err);
+      return null;
+    }
+  }
+
 
   // 获取学习材料列表
   async getCourseMaterials(courseId: string): Promise<Array<{

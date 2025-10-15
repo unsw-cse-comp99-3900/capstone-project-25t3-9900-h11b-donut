@@ -24,7 +24,9 @@ urlpatterns = [
     path('api/preferences', include('preferences.urls')),
     path('api/', include('accounts.urls')),
     path('api/', include('courses.urls')),
-   # path('api/', include('plans.urls')),
+    path('api/', include('api.urls')),
+    path('api/', include('plans.urls')),
+   
 ] 
 if settings.DEBUG:
     # 已有的 /media/ 映射

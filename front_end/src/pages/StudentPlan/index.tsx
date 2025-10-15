@@ -10,6 +10,7 @@ import UserWhite from '../../assets/icons/user-24-white.svg'
 import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import { preferencesStore, type Preferences, type PlanItem } from '../../store/preferencesStore'
 import { coursesStore } from '../../store/coursesStore'
+import { apiService } from '../../services/api';
 
 
 export function StudentPlan() {
@@ -123,6 +124,22 @@ export function StudentPlan() {
     }
     preferencesStore.setPreferences(toSave)
     
+   // 尝试从后端 AI 获取真实计划
+try {
+  const aiPlan = await apiService.generateAIPlan();
+  if (aiPlan && aiPlan.ok) {
+    console.log("✅ AI计划返回成功，使用后端生成的数据:", aiPlan);
+
+    // TODO: 未来这里可以把 aiPlan.days 映射成前端 PlanItem[] 格式
+    // 暂时只打印结果确认连通性
+  } else {
+    console.warn("⚠️ AI计划请求失败或无数据，回退到本地生成");
+  }
+} catch (err) {
+  console.error("❌ 调用 AI 计划接口失败:", err);
+}
+
+
     // 使用preferencesStore生成学习计划
     const planItems = preferencesStore.generateWeeklyPlan();
     preferencesStore.setWeeklyPlan(0, planItems);
