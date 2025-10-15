@@ -10,7 +10,18 @@ import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 export function StudentProfile() {
   const [showForm, setShowForm] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const uid = localStorage.getItem('current_user_id');
+  let user = {};
+
+  if (uid) {
+    try {
+      user = JSON.parse(localStorage.getItem(`u:${uid}:user`) || '{}');
+    } catch {
+      user = {};
+    }
+  } else {
+    user = {};
+  }
   return (
     <div className="student-profile-layout">
       {/* 左侧沿用 StudentHome 侧栏 */}

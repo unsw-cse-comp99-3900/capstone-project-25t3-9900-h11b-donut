@@ -1,5 +1,4 @@
 // API服务层 - 后端集成接口
-
 const API_BASE = '/api';
 
 export interface ApiResponse<T> {
@@ -46,7 +45,7 @@ export interface ApiPlanItem {
 
 class ApiService {
   private token: string | null = null;
-
+  
   async searchCourses(q: string): Promise<ApiCourse[]> {
     const res = await this.request<ApiCourse[]>('/courses/search?q=' + encodeURIComponent(q));
     // 后端返回的是 {code,title,description,illustration}
@@ -145,7 +144,7 @@ class ApiService {
     method: 'POST',
     body: JSON.stringify({ student_id:studentId, password }),
   });
-
+  
   if (result.success && result.data?.token) {
     this.token = result.data.token;
     localStorage.setItem('auth_token', this.token);
@@ -155,7 +154,11 @@ class ApiService {
       if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
         user.avatarUrl = `${API_BASE}${user.avatarUrl}`;
       }
-      localStorage.setItem('user', JSON.stringify(user));
+      const uid: string = user.studentId ?? user.id ?? user.student_id ?? String(studentId);
+      localStorage.setItem('current_user_id', uid);
+      localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
+
+      
       
     }
     return result.data;

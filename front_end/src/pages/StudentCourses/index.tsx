@@ -20,7 +20,20 @@ const illoMap: Record<'orange' | 'student' | 'admin', string> = {
   admin: illoAdmin,
 }
 export function StudentCourses() {
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const uid = localStorage.getItem('current_user_id');
+  const user: { studentId?: string; name?: string; email?: string ;avatarUrl?: string;} | null = (() => {
+    if (!uid) return null;
+    try {
+      return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null');
+    } catch {
+      return null;
+    }
+  })();
+
+  // 如果没登录或无用户数据
+  if (!uid || !user) {
+    return null; // 或者直接 window.location.hash = '#/signup';
+  }
   const [q, setQ] = useState('')
   const [v, setV] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)

@@ -79,52 +79,87 @@ class PreferencesStore {
 
 
   // 从localStorage加载pre（备用方案）
-  private loadFromLocalStorage(): void {
-    try {
-      const storedPrefs = localStorage.getItem('ai-web-preferences');
-      if (storedPrefs) {
-        const parsed = JSON.parse(storedPrefs);
-        this.prefs = {
-          dailyHours: parsed.dailyHours || 2,
-          weeklyStudyDays: parsed.weeklyStudyDays || 5,
-          avoidDays: parsed.avoidDays || [],
-          saveAsDefault: parsed.saveAsDefault || false,
-          description: parsed.description || ''
-        };
-      }
-    } catch (error) {
-      console.warn('Failed to load from localStorage:', error);
+  loadFromLocalStorage(): void {
+  try {
+    // ✅ 取出当前登录用户ID
+    const uid = localStorage.getItem('current_user_id');
+    if (!uid) {
+      console.warn('No current_user_id found when loading preferences.');
+      return;
     }
+
+    // ✅ 改为按用户命名空间存储的key
+    const key = `u:${uid}:ai-web-preferences`;
+    const storedPrefs = localStorage.getItem(key);
+    if (storedPrefs) {
+      const parsed = JSON.parse(storedPrefs);
+      this.prefs = {
+        dailyHours: parsed.dailyHours ?? 2,
+        weeklyStudyDays: parsed.weeklyStudyDays ?? 5,
+        avoidDays: parsed.avoidDays ?? [],
+        saveAsDefault: parsed.saveAsDefault ?? false,
+        description: parsed.description ?? ''
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to load from localStorage:', error);
   }
+}
+
 
 
 
   // 保存偏好设置到localStorage,暂时没用上可能后面会用上？
   private savePreferences() {
     try {
-      localStorage.setItem('ai-web-preferences', JSON.stringify(this.prefs));
+      const uid = localStorage.getItem('current_user_id');
+      if (!uid) {
+      console.warn('No current user ID found when saving preferences.');
+      return;
+    }
+      const key = `u:${uid}:ai-web-preferences`;
+      localStorage.setItem(key, JSON.stringify(this.prefs));
     } catch (error) {
       console.warn('Failed to save preferences to localStorage:', error);
     }
   }
+
   loadWeeklyPlans() {
   try {
-    const raw = localStorage.getItem('ai-web-weekly-plans');
+    // ✅ 取当前登录用户 ID
+    const uid = localStorage.getItem('current_user_id');
+    if (!uid) {
+      console.warn('No current_user_id found when loading weekly plans.');
+      this.weeklyPlans = {};
+      return;
+    }
+
+    // ✅ 改为用户专属的 key
+    const key = `u:${uid}:ai-web-weekly-plans`;
+    const raw = localStorage.getItem(key);
+
     this.weeklyPlans = raw ? JSON.parse(raw) : {};
-    this.notify();              // 通知界面刷新
+    this.notify();  // 通知界面刷新
   } catch (e) {
     console.warn('Failed to load weekly plans from localStorage:', e);
     this.weeklyPlans = {};
   }
 }
+
   // 保存学习计划到localStorage
   private saveWeeklyPlans() {
-    try {
-      localStorage.setItem('ai-web-weekly-plans', JSON.stringify(this.weeklyPlans));
-    } catch (error) {
-      console.warn('Failed to save weekly plans to localStorage:', error);
+  try {
+    const uid = localStorage.getItem('current_user_id');
+    if (!uid) {
+      console.warn('No current user ID found when saving weekly plans.');
+      return;
     }
+    const key = `u:${uid}:ai-web-weekly-plans`;
+    localStorage.setItem(key, JSON.stringify(this.weeklyPlans));
+  } catch (error) {
+    console.warn('Failed to save weekly plans to localStorage:', error);
   }
+}
 
   subscribe(fn: Listener) {
     this.listeners.push(fn);

@@ -17,7 +17,19 @@ export function StudentPlan() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
   
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const uid = localStorage.getItem('current_user_id');
+  let user = {};
+
+  if (uid) {
+    try {
+      user = JSON.parse(localStorage.getItem(`u:${uid}:user`) || '{}');
+    } catch {
+      user = {};
+    }
+  } else {
+    // 没有 current_user_id，说明未登录
+    user = {};
+  }
   // Initialize local form state from global preferences
   const init = preferencesStore.getPreferences()
   const [dailyHours, setDailyHours] = useState(init.dailyHours)

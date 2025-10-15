@@ -46,7 +46,23 @@ export function CourseDetail() {
   const [detailData, setDetailData] = useState<CourseDetailData | null>(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [courseProgress, setCourseProgress] = useState(0)
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+  const uid = localStorage.getItem('current_user_id');
+  const user: { studentId?: string; name?: string; email?: string } | null = (() => {
+    if (!uid) return null;
+    try {
+      return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null');
+    } catch {
+      return null;
+    }
+  })();
+
+  // （可选）如果必须已登录用户才可访问，则直接拦截
+  if (!uid || !user) {
+    // 也可以返回一个占位 skeleton，或触发跳转
+    return null;
+  }
+
   const handleDownload = async (materialId: string) => {
     try {
       const blob = await apiService.downloadMaterial(materialId)

@@ -29,10 +29,18 @@ export function StudentHome() {
   const [courses, setCourses] = useState(coursesStore.myCourses)
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [lessons, setLessons] = useState<Deadline[]>(coursesStore.getDeadlines())
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-
+  const uid = localStorage.getItem('current_user_id');
+  let user = null;
+  if (uid) {
+    try {
+      user = JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null');
+    } catch {
+      user = null;
+    }
+  }
   useEffect(() => {
-    //preferencesStore.loadWeeklyPlans(); 
+    
+    preferencesStore.loadWeeklyPlans?.();
     const unsubCourses = coursesStore.subscribe(() => {
       setCourses([...coursesStore.myCourses])
       // 当课程变化时，重新获取并排序deadlines
@@ -109,9 +117,14 @@ export function StudentHome() {
   try {
     // 调用后端 /api/auth/logout
     await apiService.logout();
+    
 
-    // 清除本地 token
+  // ✅ 只清除登录状态相关数据
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('login_time');
+    localStorage.removeItem('current_user_id');
+    // 清除本地 token
+    
 
     console.log('User logged out');
     window.location.hash = '#/login-student'; // 跳回登录页
