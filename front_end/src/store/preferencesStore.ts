@@ -109,7 +109,7 @@ class PreferencesStore {
 
 
 
-  // 保存偏好设置到localStorage,暂时没用上可能后面会用上？
+  // 保存偏好设置到localStorage
   private savePreferences() {
     try {
       const uid = localStorage.getItem('current_user_id');

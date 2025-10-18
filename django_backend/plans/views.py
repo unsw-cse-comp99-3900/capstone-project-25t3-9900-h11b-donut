@@ -4,19 +4,37 @@ from typing import Dict, List
 from django.http import JsonResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 from utils.auth import get_student_id_from_request
-#from courses.views import MY_COURSES_BY_STUDENT, TASKS_BY_COURSE, _course_color
-
+from typing import Optional
 from ai_module.plan_generator import generate_plan
 from accounts.models import StudentAccount
 from preferences.models import StudentPreference, StudentPreferenceDefault
 from courses.models import StudentEnrollment, CourseTask
 from decimal import Decimal
 
-def _auth(request: HttpRequest):
-    sid = get_student_id_from_request(request)
-    if not sid:
+def _auth(request: HttpRequest) -> Optional[str]:
+    """
+    返回当前已登录学生ID。
+    优先使用 session，再尝试从 Authorization: Bearer <token> 中查数据库。
+    """
+    sid = request.session.get("student_id")
+    if sid:
+        return sid
+
+    auth = request.headers.get("Authorization") or request.META.get("HTTP_AUTHORIZATION") or ""
+    if not auth.startswith("Bearer "):
         return None
-    return sid
+
+    token = auth[7:].strip()
+    if not token:
+        return None
+
+    account = (
+        StudentAccount.objects
+        .only("student_id")
+        .filter(current_token=token)
+        .first()
+    )
+    return account.student_id if account else None
 
 def _ok(data=None):
     return JsonResponse({"success": True, "data": data})
@@ -111,8 +129,6 @@ def generate_ai_plan(request):
     sid = get_student_id_from_request(request)
     if not sid:
         return JsonResponse({"success": False, "message": "Unauthorized"}, status=401)
-    #sid = "z5540730" 
-
     # 1️⃣ 获取当前学生对象
     try:
         student = StudentAccount.objects.get(student_id=sid)

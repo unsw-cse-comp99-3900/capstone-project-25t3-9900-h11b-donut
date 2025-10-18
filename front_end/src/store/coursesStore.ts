@@ -44,13 +44,12 @@ class CoursesStore {
     // 启动时拉取我的课程与可用课程
 
 
-
     const uid = localStorage.getItem('current_user_id');
   if (uid) {
     const raw = localStorage.getItem(`u:${uid}:myCourses:v1`);
     if (raw) {
       this.myCourses = JSON.parse(raw);
-      this.notify(); // 立刻让 UI 显示
+      this.notify(); 
     }
   }
     this.loadAvailableCourses();

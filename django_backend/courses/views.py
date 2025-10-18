@@ -4,8 +4,8 @@ from django.db import models, IntegrityError
 from django.conf import settings
 from pathlib import Path
 from typing import Optional
+from accounts.models import StudentAccount
 from django.views.decorators.csrf import csrf_exempt
-from utils.auth import get_student_id_from_request  # 支持 Bearer Token
 from .models import (
     CourseCatalog,
     CourseTask,
@@ -14,13 +14,10 @@ from .models import (
     Material,
 )
 
-# =========================
-# 保留的页面逻辑
-# =========================
 
 def choose_courses(request):
-    # 兼容 session 与 Bearer
-    sid = request.session.get("student_id") or get_student_id_from_request(request)
+    sid = _require_student(request)
+   
     if sid is None:
         return redirect("index")
 
@@ -49,7 +46,7 @@ def choose_courses(request):
 
 
 def materials_of_course(request, course_code):
-    sid = request.session.get("student_id") or get_student_id_from_request(request)
+    sid = _require_student(request)
     if sid is None:
         return redirect("index")
 
@@ -71,7 +68,7 @@ def materials_of_course(request, course_code):
 
 
 def show_my_material(request, course_code):
-    sid = request.session.get("student_id") or get_student_id_from_request(request)
+    sid = _require_student(request)
     if sid is None:
         return redirect("index")
     code = (course_code or "").upper()
@@ -81,13 +78,22 @@ def show_my_material(request, course_code):
 # JSON APIs（前端调用）
 # =========================
 
-def _require_student(request) -> Optional[str]:
-    # 兼容 session 与 Bearer
-    sid = request.session.get("student_id") or get_student_id_from_request(request)
+def _require_student(request):
+    auth = request.headers.get("Authorization", "") or request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:].strip()
+    sid = (
+        StudentAccount.objects
+        .filter(current_token=token)
+        .values_list("student_id", flat=True)
+        .first()
+    )
     return sid
 
 def available_courses(request):
     sid = _require_student(request)
+    
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
     rows = list(CourseCatalog.objects.values("code", "title", "description", "illustration"))

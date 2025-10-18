@@ -6,6 +6,8 @@ from django.http import JsonResponse, HttpRequest
 import json
 from django.views.decorators.csrf import csrf_exempt
 import os
+from django.db import transaction                         
+from django.utils import timezone    
 from django.utils.crypto import get_random_string
 from utils.auth import make_token
 
@@ -132,27 +134,29 @@ def login_api(request: HttpRequest):
 
     try:
         
-        row = (
+        account = (
             StudentAccount.objects
-            .filter(student_id=student_id)
-            .values("student_id", "email","name","password_hash", "avatar_url")
-            .first()
+            .only("student_id", "email", "name", "password_hash", "avatar_url")  # 提前限定字段，减少 IO
+            .get(student_id=student_id)
         )
-        if not row:
-            return api_err("Invalid id or password", 401)
-
-        ok = bcrypt.checkpw(password.encode("utf-8"), row["password_hash"].encode("utf-8"))
+        ok = bcrypt.checkpw(password.encode("utf-8"), account.password_hash.encode("utf-8"))
         if not ok:
             return api_err("Invalid id or password", 401)
 
-        token = make_token(row["student_id"])#取消占位假token
-
+        token = make_token()
         # 在 user 里带上 avatarUrl
+        now = timezone.now()
+        with transaction.atomic():
+            account.current_token = token
+            account.token_issued_at = now
+            # 如果你有 last_login_at 等字段，也可以一并更新
+            account.save(update_fields=["current_token", "token_issued_at"])
+
         user_payload = {
-            "studentId": row["student_id"],
-            "name": row["name"],
-            "email": row["email"],
-            "avatarUrl": row.get("avatar_url"),  # 可能为 None
+            "studentId": account.student_id,
+            "name": account.name or "",
+            "email": account.email or "",
+            "avatarUrl": getattr(account, "avatar_url", None),  # 可能为 None
         }
 
         return api_ok({"token": token, "user": user_payload})

@@ -48,18 +48,6 @@ class ApiService {
   private token: string | null = (typeof window !== 'undefined'
     ? localStorage.getItem('auth_token')
     : null);;
-  
-  async searchCourses(q: string): Promise<ApiCourse[]> {
-    const res = await this.request<ApiCourse[]>('/courses/search?q=' + encodeURIComponent(q));
-    // 后端返回的是 {code,title,description,illustration}
-    const raw = (res.data ?? []) as any[];
-    return raw.map(r => ({
-      id: r.code,
-      title: r.title,
-      description: r.description,
-      illustration: r.illustration as 'orange'|'student'|'admin',
-    }));
-  }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const url = `${API_BASE}${endpoint}`;
@@ -67,27 +55,31 @@ class ApiService {
   // 先把调用方传入的 headers 标准化
   const headers = new Headers(options.headers as HeadersInit | undefined);
 
-  // 补充鉴权头（如果有）
-  if (this.token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${this.token}`);
+  //  兜底同步 token：优先 this.token，没有则从 localStorage 取
+  let token = this.token;
+  if (!token) {
+    try { token = localStorage.getItem('auth_token') || ''; } catch { token = ''; }
+    // 可选：把兜底到的 token 回写到实例，后续就不用每次 localStorage 了
+    if (token) this.token = token;
   }
 
-  // 根据 body 类型**有条件地**设置 Content-Type
+  // 统一补充鉴权头（如果有且没被显式覆盖）
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  // 根据 body 类型**有条件地**设置 Content-Type（你原逻辑保留）
   const body = options.body as any;
   if (body === undefined || body === null) {
-    // 没有 body：不要设置 Content-Type
     headers.delete('Content-Type');
   } else if (body instanceof FormData || body instanceof Blob || body instanceof File) {
-    // 二进制/表单：不要设置 Content-Type（浏览器会自动加 multipart/form-data 或相应类型）
     headers.delete('Content-Type');
   } else if (typeof body === 'string') {
-    // 字符串（通常是 JSON.stringify 后的文本）
     if (!headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }
   } else {
     // 其它情况（比如直接传对象）不建议；如果要支持，可在这里 JSON 化
-    // 为保持当前调用方式，这里不做处理。
   }
 
   const config: RequestInit = {
@@ -99,18 +91,44 @@ class ApiService {
 
   try {
     const response = await fetch(url, config);
-    // 兜底解析：先拿文本再尝试 JSON
+
+    //  先尝试拿文本→JSON（避免二次读取 body）
     const text = await response.text();
     let payload: ApiResponse<T> | null = null;
     try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
 
-    if (payload && typeof payload.success === 'boolean') {
-      return payload; 
+    //  统一拦截 401（未登录/过期/被挤下线）
+    if (response.status === 401) {
+      const code = (payload as any)?.code || 'UNAUTHORIZED';
+
+      // 清空本地会话态
+      try {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('current_user_id');
+      } catch {}
+
+      // 若是被挤下线给出提示（按你项目改成全局 toast 也可以）
+      if (code === 'KICKED') {
+        try { alert('你的账号在另一处登录，你已下线'); } catch {}
+      }
+
+      // 回到登录页
+      try { window.location.href = '#/login'; } catch {}
+
+      // 返回统一失败对象，防止上层崩
+      return { success: false, message: 'Unauthorized', data: null as unknown as T };
     }
 
+    // [改5] 如果后端本来就返回 ApiResponse 结构，直接返回
+    if (payload && typeof (payload as any).success === 'boolean') {
+      return payload as ApiResponse<T>;
+    }
+
+    // [改6] 兜底：按 HTTP 状态构造一个 ApiResponse
     return {
       success: response.ok,
-      message: response.ok ? 'OK' :  `HTTP ${response.status}`,
+      message: response.ok ? 'OK' : `HTTP ${response.status}`,
       data: null as unknown as T,
     };
   } catch (error) {
@@ -119,6 +137,17 @@ class ApiService {
   }
 }
 
+  async searchCourses(q: string): Promise<ApiCourse[]> {
+    const res = await this.request<ApiCourse[]>('/courses/search?q=' + encodeURIComponent(q));
+    // 后端返回的是 {code,title,description,illustration}
+    const raw = (res.data ?? []) as any[];
+    return raw.map(r => ({
+      id: r.code,
+      title: r.title,
+      description: r.description,
+      illustration: r.illustration as 'orange'|'student'|'admin',
+    }));
+  }
   // 用户认证
   async register(student_id: string, name: string,email: string, password: string, avatarFile?: File) {
   const formData = new FormData();
@@ -211,8 +240,7 @@ class ApiService {
 
   // 任务管理
   async getCourseTasks(courseId: string): Promise<ApiTask[]> {
-    // const result = await this.request<ApiResponse<ApiTask[]>>(`/courses/${courseId}/tasks`);
-    // return result.data || [];
+
     const res = await this.request<ApiTask[]>(`/courses/${courseId}/tasks`);
     return res.data ?? [];
   }
@@ -226,14 +254,6 @@ class ApiService {
 
   // 用户偏好
   async getPreferences(): Promise<ApiPreferences> {
-    // const result = await this.request<ApiResponse<ApiPreferences>>('/preferences');
-    // return result.data || {
-    //   dailyHours: 2,
-    //   weeklyStudyDays: 5,
-    //   avoidDays: [],
-    //   saveAsDefault: false,
-    //   description: ''
-    // };
     const res = await this.request<ApiPreferences>('/preferences');
     return res.data ?? {
       dailyHours: 2,
