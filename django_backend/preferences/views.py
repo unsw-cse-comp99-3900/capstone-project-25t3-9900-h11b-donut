@@ -55,7 +55,6 @@ def preferences_entry(request: HttpRequest):
     """
     # 1) 鉴权：从 Bearer Token 中解析 student_id
     student_id = get_student_id_from_request(request)
-    print(student_id)
     if not student_id:
         return _err("Unauthorized", 401)
 

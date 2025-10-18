@@ -10,9 +10,15 @@ from django.db import transaction
 from django.utils import timezone    
 from django.utils.crypto import get_random_string
 from utils.auth import make_token
+from utils.validators import (
+    validate_email, validate_student_id, validate_name, validate_password
+)
+from django.core.exceptions import ValidationError
+
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
+
 def api_ok(data=None, message="OK", status=200):
     return JsonResponse({"success": True, "message": message, "data": data}, status=status)
 
@@ -53,7 +59,14 @@ def register_api(request):
 
         if not student_id or not email or not password or not name:
             return JsonResponse({"success": False, "message": "Please enter zid, email and password"}, status=400)
-
+        try:
+            validate_student_id(student_id)                    # 学号：如 z1234567
+            validate_email(email)                              # 邮箱基本格式
+            validate_name(name)                                # 姓名：中/英、空格、-、·、’ 2~50
+            validate_password(password, student_id=student_id, email=email)  # 密码强度+不含学号/邮箱前缀
+        except ValidationError as ve:
+            return JsonResponse({"success": False, "message": str(ve)}, status=400)
+        
         # --- 2) 重复检查（更友好地返回409） ---
         if StudentAccount.objects.filter(student_id=student_id).exists():
             return JsonResponse({"success": False, "message": "Student ID already exists"}, status=409)
@@ -95,7 +108,7 @@ def register_api(request):
             name=name,
             password_hash=hashed,
         )
-        # 仅当模型里存在 avatar_url 字段时才写入（避免你还没迁移时报错）
+       
         if hasattr(StudentAccount, "avatar_url"):
             create_kwargs["avatar_url"] = avatar_url
 

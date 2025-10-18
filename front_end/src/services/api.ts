@@ -1,5 +1,9 @@
 // API服务层 - 后端集成接口
 import { coursesStore } from '../store/coursesStore';
+import { preferencesStore } from '../store/preferencesStore'; 
+import {
+  validateEmail, validateStudentId, validateName, validatePassword
+} from '../components/validators';
 const API_BASE = '/api';
 
 export interface ApiResponse<T> {
@@ -150,6 +154,20 @@ class ApiService {
   }
   // 用户认证
   async register(student_id: string, name: string,email: string, password: string, avatarFile?: File) {
+    if (!validateStudentId(student_id)) {
+    throw new Error("Wrong ID Format(eg:z1234567)");
+  }
+  if (!validateEmail(email)) {
+    throw new Error("Wrong Email Format");
+  }
+  if (!validateName(name)) {
+    throw new Error("Names are only allowed in letters");
+  }
+  if (!validatePassword(password, student_id, email)) {
+    throw new Error(
+      "The password needs to be 8-64 characters long, including at least one uppercase and lowercase letter, one numeric character, and one special character, and does not include the student ID/email prefix"
+    );
+  }
   const formData = new FormData();
   formData.append("student_id", student_id);
   formData.append("email", email);
@@ -191,7 +209,7 @@ class ApiService {
     }
     await coursesStore.refreshAvailableCourses();
     await coursesStore.refreshMyCourses();
-
+    await preferencesStore.loadPreferencesFromAPI();
     return result.data;
   }
   // 把后端返回的 message 暴露给 UI
@@ -273,8 +291,7 @@ class ApiService {
 
   // 学习计划
   async getWeeklyPlan(weekOffset: number): Promise<ApiPlanItem[]> {
-    // const result = await this.request<ApiResponse<ApiPlanItem[]>>(`/plans/weekly/${weekOffset}`);
-    // return result.data || [];
+
     const res = await this.request<ApiPlanItem[]>(`/plans/weekly/${weekOffset}`);
     return res.data ?? [];
   }

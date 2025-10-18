@@ -14,7 +14,6 @@ import illoOrange from '../../assets/images/illustration-orange.png'
 import illoStudent from '../../assets/images/illustration-student.png'
 import illoAdmin from '../../assets/images/illustration-admin.png'
 import { coursesStore, type Deadline, type Course } from '../../store/coursesStore'
-import {ProtectedRoute} from '../../components/ProtectedRoute';
 
 import { preferencesStore } from '../../store/preferencesStore';
 
@@ -134,7 +133,7 @@ const [user, setUser] = useState<any>(() => {
 };
 
   return (
-  <ProtectedRoute>
+  
     <div key={uid} className="student-home-layout">
       <aside className="sh-sidebar">
         <div className="sh-profile-card" onClick={() => (window.location.hash = '#/student-profile')} role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
@@ -261,7 +260,7 @@ const [user, setUser] = useState<any>(() => {
         cancelText="Cancel"
       />
     </div>
-  </ProtectedRoute>
+
   )
 }
 

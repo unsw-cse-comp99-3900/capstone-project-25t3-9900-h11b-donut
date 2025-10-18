@@ -42,11 +42,16 @@ class PreferencesStore {
 
 
   constructor() {
-    this.loadPreferencesFromAPI();
+  //   const token = localStorage.getItem('auth_token');
+  // if (token) {
+  //   this.loadPreferencesFromAPI();
+  // } else {
+  //   console.log('not login yet!');
+  // } 避免未登录就获取preference
   }
 
   // 从API加载偏好设置
-  private async loadPreferencesFromAPI(): Promise<void> {
+  async loadPreferencesFromAPI(): Promise<void> {
     try {
       const preferences = await apiService.getPreferences();
       if (preferences) {
@@ -62,7 +67,6 @@ class PreferencesStore {
       }
     } catch (error) {
       console.warn('Failed to load preferences from API, falling back to localStorage:', error);
-      this.loadFromLocalStorage();
     }
   }
 
@@ -75,39 +79,6 @@ class PreferencesStore {
       this.savePreferences();
     }
   }
-
-
-
-  // 从localStorage加载pre（备用方案）
-  loadFromLocalStorage(): void {
-  try {
-    // ✅ 取出当前登录用户ID
-    const uid = localStorage.getItem('current_user_id');
-    if (!uid) {
-      console.warn('No current_user_id found when loading preferences.');
-      return;
-    }
-
-    // ✅ 改为按用户命名空间存储的key
-    const key = `u:${uid}:ai-web-preferences`;
-    const storedPrefs = localStorage.getItem(key);
-    if (storedPrefs) {
-      const parsed = JSON.parse(storedPrefs);
-      this.prefs = {
-        dailyHours: parsed.dailyHours ?? 2,
-        weeklyStudyDays: parsed.weeklyStudyDays ?? 5,
-        avoidDays: parsed.avoidDays ?? [],
-        saveAsDefault: parsed.saveAsDefault ?? false,
-        description: parsed.description ?? ''
-      };
-    }
-  } catch (error) {
-    console.warn('Failed to load from localStorage:', error);
-  }
-}
-
-
-
 
   // 保存偏好设置到localStorage
   private savePreferences() {
