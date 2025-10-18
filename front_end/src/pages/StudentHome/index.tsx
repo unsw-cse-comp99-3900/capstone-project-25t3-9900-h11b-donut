@@ -36,7 +36,7 @@ const [user, setUser] = useState<any>(() => {
   catch { return null; }
 });
   useEffect(() => {
-  // ★ 切换账号后重读 user
+  //  切换账号后重读 user
   if (uid) {
     try {
       setUser(JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'));
@@ -46,8 +46,9 @@ const [user, setUser] = useState<any>(() => {
   } else {
     setUser(null);
   }
-
-  preferencesStore.loadWeeklyPlans?.();
+  if (uid) {
+  preferencesStore.loadWeeklyPlans?.(uid); // 如果支持传 uid，最好显式传入
+}
 
   const unsubCourses = coursesStore.subscribe(() => {
     setCourses([...coursesStore.myCourses]);
@@ -89,6 +90,18 @@ const [user, setUser] = useState<any>(() => {
 }, [uid]); // ★ 关键：依赖 uid
   // 每分钟刷新一次，保证倒计时实时更新并按倒计时升序展示
   useEffect(() => {
+  if (!uid) return;
+
+  if (coursesStore.myCourses.length === 0) {
+    void coursesStore.refreshMyCourses();        // ✅ 没数据就拉一次
+  }
+  if (coursesStore.availableCourses.length === 0) {
+    void coursesStore.refreshAvailableCourses(true); // ✅ 搜索页依赖的目录也拉
+  }
+}, [uid]);
+
+
+  useEffect(() => {
     const parseTime = (dueIn: string) => {
       const isNegative = dueIn.startsWith('-');
       const clean = isNegative ? dueIn.substring(2) : dueIn;
@@ -113,24 +126,10 @@ const [user, setUser] = useState<any>(() => {
   }
 
   const confirmLogout = async () => {
-  try {
-    // 调用后端 /api/auth/logout
-    await apiService.logout();
-    
-
-  // ✅ 只清除登录状态相关数据
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('login_time');
-    localStorage.removeItem('current_user_id');
-    // 清除本地 token
-    
-
-    console.log('User logged out');
-    window.location.hash = '#/login-student'; // 跳回登录页
-  } catch (e) {
-    console.error('Logout failed:', e);
-  } finally {
-    setLogoutModalOpen(false); // 关闭弹窗
+  try { await apiService.logout(); }
+  finally {
+    window.location.hash = '#/login-student';
+    setLogoutModalOpen(false);
   }
 };
 

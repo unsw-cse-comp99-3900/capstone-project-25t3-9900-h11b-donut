@@ -1,4 +1,5 @@
 // API服务层 - 后端集成接口
+import { coursesStore } from '../store/coursesStore';
 const API_BASE = '/api';
 
 export interface ApiResponse<T> {
@@ -44,7 +45,9 @@ export interface ApiPlanItem {
 }
 
 class ApiService {
-  private token: string | null = null;
+  private token: string | null = (typeof window !== 'undefined'
+    ? localStorage.getItem('auth_token')
+    : null);;
   
   async searchCourses(q: string): Promise<ApiCourse[]> {
     const res = await this.request<ApiCourse[]>('/courses/search?q=' + encodeURIComponent(q));
@@ -144,9 +147,7 @@ class ApiService {
     method: 'POST',
     body: JSON.stringify({ student_id:studentId, password }),
   });
-  
   if (result.success && result.data?.token) {
-
     this.token = result.data.token;
     localStorage.setItem('auth_token', this.token);
     localStorage.setItem('login_time', Date.now().toString());
@@ -159,6 +160,9 @@ class ApiService {
       localStorage.setItem('current_user_id', uid);
       localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
     }
+    await coursesStore.refreshAvailableCourses();
+    await coursesStore.refreshMyCourses();
+
     return result.data;
   }
   // 把后端返回的 message 暴露给 UI
@@ -166,23 +170,28 @@ class ApiService {
 }
 
   async logout(): Promise<void> {
-    await this.request('/auth/logout', { method: 'POST' });
-    this.token = null;
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-  }
+  // 1) 后端会话登出（即使失败也做本地清理）
+  try { await this.request('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
 
+  // 2) 清空鉴权态
+  this.token = null;
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('login_time');
+
+  // 3) 记录并清理当前用户 ID（关键）
+  const uid = localStorage.getItem('current_user_id');
+  localStorage.removeItem('current_user_id');
+  // 5) 清空前端“内存”状态（避免下个账号看到旧内存）
+  try { coursesStore.reset(); } catch {}
+
+}
   // 课程管理
   async getAvailableCourses(): Promise<ApiCourse[]> {
-    // const result = await this.request<ApiResponse<ApiCourse[]>>('/courses/available');
-    // return result.data || [];
     const res = await this.request<ApiCourse[]>('/courses/available');
     return res.data ?? [];
   }
 
   async getUserCourses(): Promise<ApiCourse[]> {
-    // const result = await this.request<ApiResponse<ApiCourse[]>>('/courses/my');
-    // return result.data || [];
     const res = await this.request<ApiCourse[]>('/courses/my');
    return res.data ?? [];
   }

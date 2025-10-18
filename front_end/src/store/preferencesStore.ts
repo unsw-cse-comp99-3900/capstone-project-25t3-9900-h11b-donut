@@ -124,22 +124,19 @@ class PreferencesStore {
     }
   }
 
-  loadWeeklyPlans() {
+  loadWeeklyPlans(uid?: string) {
   try {
-    // ✅ 取当前登录用户 ID
-    const uid = localStorage.getItem('current_user_id');
-    if (!uid) {
-      console.warn('No current_user_id found when loading weekly plans.');
+    const userId = uid || localStorage.getItem('current_user_id');
+    if (!userId) {
+      console.warn('No user ID provided when loading weekly plans.');
       this.weeklyPlans = {};
       return;
     }
 
-    // ✅ 改为用户专属的 key
-    const key = `u:${uid}:ai-web-weekly-plans`;
+    const key = `u:${userId}:ai-web-weekly-plans`;
     const raw = localStorage.getItem(key);
-
     this.weeklyPlans = raw ? JSON.parse(raw) : {};
-    this.notify();  // 通知界面刷新
+    this.notify();
   } catch (e) {
     console.warn('Failed to load weekly plans from localStorage:', e);
     this.weeklyPlans = {};

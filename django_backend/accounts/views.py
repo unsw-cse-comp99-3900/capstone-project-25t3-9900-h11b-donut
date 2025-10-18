@@ -170,7 +170,6 @@ def logout_api(request: HttpRequest):
     
     # 清空 session
     request.session.flush()
-
     return JsonResponse({"success": True, "message": "Logged out successfully", "data": None})
 
 

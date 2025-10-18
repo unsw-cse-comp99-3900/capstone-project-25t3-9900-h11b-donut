@@ -40,9 +40,21 @@ class CoursesStore {
   private listeners: Listener[] = [];
   
   constructor() {
+    const token = localStorage.getItem('auth_token');
     // 启动时拉取我的课程与可用课程
+
+
+
+    const uid = localStorage.getItem('current_user_id');
+  if (uid) {
+    const raw = localStorage.getItem(`u:${uid}:myCourses:v1`);
+    if (raw) {
+      this.myCourses = JSON.parse(raw);
+      this.notify(); // 立刻让 UI 显示
+    }
+  }
     this.loadAvailableCourses();
-    this.loadMyCoursesFromAPI();
+    if (token) this.loadMyCoursesFromAPI(); 
   }
 
   subscribe(fn: Listener) {
@@ -81,10 +93,37 @@ class CoursesStore {
         illustration: c.illustration
       }));
       await this.syncDeadlinesFromCourses(); // 拉取任务再生成 deadlines
+      const uid = (typeof window !== 'undefined') ? localStorage.getItem('current_user_id') : null;
+      if (uid) {
+        localStorage.setItem(`u:${uid}:myCourses:v1`, JSON.stringify(this.myCourses));
+        // 把 deadlines 也缓存起来
+        try {
+          localStorage.setItem(`u:${uid}:deadlines:v1`, JSON.stringify(this.deadlines));
+        } catch { /* 存储满了可忽略 */ }
+      }
       this.notify();
     } catch (error) {
       console.warn('Failed to load my courses from API:', error);
     }
+  }
+  //這裡解決了重新登錄後出現前一個賬戶的課程！！！
+  public async refreshMyCourses(): Promise<void> {
+  await this.loadMyCoursesFromAPI();
+  }
+  public async refreshAvailableCourses(force = false) {
+  if (force || this.availableCourses.length === 0) {
+    await this.loadAvailableCourses();
+    this.notify();
+  }
+}
+
+  public reset(): void {
+  this.availableCourses = this.availableCourses; 
+  this.myCourses = [];
+  this.tasksByCourse = {};
+  this.deadlines = [];
+  this.progressByDeadline = {};
+  this.notify();
   }
 
   async searchCourses(q: string): Promise<Course[]> {

@@ -6,7 +6,6 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import apiService from '../../services/api'
 
 export function LoginStudent() {
-  //const [email,] = useState('')
   const [password, setPassword] = useState('')
   const [studentId, setID] = useState('')
   const [error, setError] = useState('')     //  补上错误状态
