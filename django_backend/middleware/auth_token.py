@@ -2,13 +2,14 @@
 from django.utils.deprecation import MiddlewareMixin
 from django.http import JsonResponse
 from stu_accounts.models import StudentAccount
-
+from adm_accounts.models import AdminAccount
 class AuthTokenMiddleware(MiddlewareMixin):
     PUBLIC_PREFIXES = (
         "/api/auth/login",
         "/api/auth/logout",
         "/api/auth/register",   
         "/api/admin/register",
+        "/api/admin/login",
     )
 
     def process_request(self, request):
@@ -27,6 +28,9 @@ class AuthTokenMiddleware(MiddlewareMixin):
 
         # 用 current_token 反查用户
         account = StudentAccount.objects.filter(current_token=token).only("student_id", "name", "email", "avatar_url").first()
+        if not account:
+            account = AdminAccount.objects.filter(current_token=token).only("admin_id", "full_name", "email", "avatar_url").first()
+        
         if not account:
             return JsonResponse({"success": False, "code": "KICKED", "message": "Logged in elsewhere", "data": None}, status=401)
 

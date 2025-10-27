@@ -3,11 +3,31 @@ import { Header } from '../../components/Header'
 import { TextInput } from '../../components/TextInput'
 import illustration from '../../assets/images/illustration-admin.png'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
+import apiService from '../../services/api'
+
 
 export function LoginAdmin() {
-  const [email, setEmail] = useState('')
+  const [adminId, setID] = useState('')
+  const [error, setError] = useState('')     //  补上错误状态
+  const [loading, setLoading] = useState(false) // 可选：加载中状态
   const [password, setPassword] = useState('')
-
+  const handleLogin = async () => {           //  绑定到按钮
+      setError('')
+      if (!adminId || !password) {
+        setError('PLEASE ENTER YOUR ID OR PASSWORD!')
+        return
+      }
+      try {
+        setLoading(true)
+        await apiService.login_adm(adminId, password)
+        
+        window.location.hash = '/admin-home'
+      } catch (e: any) {
+        setError(e?.message || 'FAIL TO SIGNIN')
+      } finally {
+        setLoading(false)
+      }
+    }
   return (
     <div className="signup-container theme-admin">
       {/* 左侧插画面板（Admin 专属插图） */}
@@ -32,11 +52,11 @@ export function LoginAdmin() {
           <div className="card login-card">
             <div className="form-row">
               <TextInput
-                label="Email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                label="Admin_ID"
+                type="id"
+                placeholder="z123456"
+                value={adminId}
+                onChange={(e) => setID(e.target.value)}
                 required
               />
             </div>
@@ -51,7 +71,11 @@ export function LoginAdmin() {
                 required
               />
             </div>
-
+            {error && (
+              <div className="form-row">
+                <p style={{ color: 'red', margin: 0 }}>{error}</p>
+              </div>
+            )}
             <div className="form-row" style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <a className="link" href="#" onClick={(e) => e.preventDefault()}>Forgot password?</a>
             </div>
@@ -61,8 +85,10 @@ export function LoginAdmin() {
                 <span>Sign Up</span>
                 <img className="arrow" src={ArrowRight} width={16} height={16} alt="" aria-hidden />
               </button>
-              <button className="ghost-btn" style={{ marginTop: 16 }}>
-                <span>Login</span>
+              <button className="ghost-btn"  style={{ marginTop: 16, opacity: loading ? 0.7 : 1 }}
+                onClick={handleLogin}
+                disabled={loading}>
+                <span>{loading ? 'Logging in...' : 'Login'}</span>
                 <img className="arrow" src={ArrowRight} width={16} height={16} alt="" aria-hidden />
               </button>
             </div>

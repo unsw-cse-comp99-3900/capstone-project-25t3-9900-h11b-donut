@@ -14,6 +14,7 @@ import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import apiService from '../../services/api'
 import { coursesStore } from '../../store/coursesStore'
+import { courseAdmin } from '../../store/coursesAdmin'
 
 // 图片映射 - 循环使用4张图片
 const adminIllustrations = [
@@ -25,35 +26,53 @@ const adminIllustrations = [
 
 export function AdminCourses() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
-  const [courses, setCourses] = useState(coursesStore.myCourses)
+  const [courses, setCourses] = useState(courseAdmin.all)
+  const [creating, setCreating] = useState(false);
   const [createCourseModalOpen, setCreateCourseModalOpen] = useState(false)
   const [courseId, setCourseId] = useState('')
   const [courseName, setCourseName] = useState('')
   const [courseDescription, setCourseDescription] = useState('')
-  // ==================== MOCK DATA START ====================
-  // 从localStorage加载已创建的课程数据 - 这是mock数据
-  // TODO: 替换为真实API调用：GET /api/admin/courses
   const [createdCourses, setCreatedCourses] = useState<Array<{
-    id: string;
-    title: string;
-    description: string;
-    illustrationIndex: number;
-  }>>(() => {
-    try {
-      const saved = localStorage.getItem('admin_created_courses');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  id: string;
+  title: string;
+  description: string;
+  illustrationIndex: number;
+}>>(() => {
+  try {
+    const adminId = localStorage.getItem('current_user_id');
+    const saved = adminId
+      ? localStorage.getItem(`admin:${adminId}:courses`)
+      : null;
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+});
+console.log("!!@#!@#",createdCourses)
 
   // 删除课程函数
-  const handleDeleteCourse = (courseId: string) => {
+  const handleDeleteCourse = async(courseId: string) => {
+    const snapshot = createdCourses;
+
     setCreatedCourses(prev => {
       const updated = prev.filter(course => course.id !== courseId);
-      localStorage.setItem('admin_created_courses', JSON.stringify(updated));
+      const adminId = localStorage.getItem('current_user_id');
+      if (adminId) {
+      localStorage.setItem(`admin:${adminId}:courses`, JSON.stringify(updated));
+    }
       return updated;
     });
+    try {
+    await apiService.adminDeleteCourse(courseId); 
+    } catch (e) {
+      // 失败回滚
+      setCreatedCourses(snapshot);
+      const adminId = localStorage.getItem('current_user_id');
+      if (adminId) {
+        localStorage.setItem(`admin:${adminId}:courses`, JSON.stringify(snapshot));
+      }
+      alert('fail!!!');
+    }
   };
   
   const uid = localStorage.getItem('current_user_id') || '';
@@ -62,20 +81,6 @@ export function AdminCourses() {
     try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
     catch { return null; }
   });
-
-  // 绕过管理员登录验证 - 直接设置管理员用户数据
-  useEffect(() => {
-    if (!uid) {
-      const adminUser = {
-        name: 'John Smith',
-        email: 'johnsmith@gmail.com',
-        avatarUrl: ''
-      };
-      localStorage.setItem('current_user_id', 'admin-123');
-      localStorage.setItem('u:admin-123:user', JSON.stringify(adminUser));
-      setUser(adminUser);
-    }
-  }, [uid]);
 
   useEffect(() => {
     // 切换账号后重读 user
@@ -88,40 +93,27 @@ export function AdminCourses() {
     } else {
       setUser(null);
     }
-
-    const unsubCourses = coursesStore.subscribe(() => {
-      setCourses([...coursesStore.myCourses]);
-    });
+    const unsubCourses = courseAdmin.subscribe(() => {
+    setCourses([...courseAdmin.all]);
+  });
 
     return () => {
       unsubCourses();
     };
   }, [uid]);
 
-  useEffect(() => {
-    if (!uid) return;
-
-    if (coursesStore.myCourses.length === 0) {
-      void coursesStore.refreshMyCourses();
-    }
-    if (coursesStore.availableCourses.length === 0) {
-      void coursesStore.refreshAvailableCourses(true);
-    }
-  }, [uid]);
-
+  
   const handleLogout = () => {
     setLogoutModalOpen(true)
   }
 
   const confirmLogout = async () => {
-    try { await apiService.logout(); }
+    try { await apiService.logout_adm(); }
     finally {
       window.location.hash = '#/login-admin';
       setLogoutModalOpen(false);
     }
   };
-
-
 
   const handleCreateNewCourse = () => {
     setCreateCourseModalOpen(true);
@@ -150,17 +142,11 @@ export function AdminCourses() {
       .join(' ');
   };
 
-  const handleSubmitCreateCourse = () => {
+  const handleSubmitCreateCourse = async() => {
+    if (creating) return; 
     // 验证必填字段
-    if (!courseId.trim()) {
-      alert('Please enter Course ID');
-      return;
-    }
-    
-    if (!courseName.trim()) {
-      alert('Please enter Course Name');
-      return;
-    }
+    if (!courseId.trim()) { alert('Please enter Course ID'); return; }
+    if (!courseName.trim()) { alert('Please enter Course Name'); return; }
     
     // 格式化输入数据
     const formattedCourseId = formatCourseId(courseId);
@@ -169,6 +155,14 @@ export function AdminCourses() {
     // 计算图片索引 - 循环使用4张图片
     const illustrationIndex = createdCourses.length % 4;
     
+    const check = await apiService.adminCheckCourseExists(formattedCourseId);
+    console.log(check.data.exists)
+    if (check?.data?.exists) {
+      alert('This Course ID already exists in database.');
+      return;
+    }
+    const illustrations: Array<'orange' | 'student' | 'admin'> = ['orange', 'student', 'admin'];
+    const illustration = illustrations[createdCourses.length % illustrations.length];
     // 创建新课程
     const newCourse = {
       id: formattedCourseId,
@@ -177,17 +171,30 @@ export function AdminCourses() {
       illustrationIndex: illustrationIndex
     };
     
+    const adminId = localStorage.getItem('current_user_id');
+    const snapshot = createdCourses;
+
     // 添加到已创建课程列表并保存到localStorage
-    setCreatedCourses(prev => {
-      const updated = [...prev, newCourse];
-      localStorage.setItem('admin_created_courses', JSON.stringify(updated));
-      return updated;
+   
+    try {
+    await apiService.adminCreateCourse({
+      code: formattedCourseId,
+      title: formattedCourseName,
+      description: courseDescription,
+      illustration,
     });
-    
-    // 模拟创建成功
-    alert(`Course created successfully!\nID: ${formattedCourseId}\nName: ${formattedCourseName}\nDescription: ${courseDescription || 'No description provided'}`);
-    
+    setCreatedCourses(prev => {
+        const updated = [...prev, newCourse];
+        if (adminId) localStorage.setItem(`admin:${adminId}:courses`, JSON.stringify(updated));
+        return updated;
+      });
     handleCloseCreateCourseModal();
+  } catch (e: any) {
+    // 失败回滚本地
+    alert(`创建失败：${e?.message || 'Please try again'}`);
+    setCreatedCourses(snapshot);
+    if (adminId) localStorage.setItem(`admin:${adminId}:courses`, JSON.stringify(snapshot));
+  }
   };
 
   return (

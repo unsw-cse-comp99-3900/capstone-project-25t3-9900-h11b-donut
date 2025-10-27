@@ -43,7 +43,6 @@ class CoursesStore {
     const token = localStorage.getItem('auth_token');
     // 启动时拉取我的课程与可用课程
 
-
     const uid = localStorage.getItem('current_user_id');
   if (uid) {
     const raw = localStorage.getItem(`u:${uid}:myCourses:v1`);
@@ -142,7 +141,7 @@ class CoursesStore {
     const found = this.availableCourses.find(c => c.id.toLowerCase() === courseId.toLowerCase());
     if (!found) return;
 
-    // 乐观更新：立即加入 UI 并通知渲染
+    // 立即加入 UI 并通知渲染
     this.myCourses = [...this.myCourses, found];
     this.notify();
 

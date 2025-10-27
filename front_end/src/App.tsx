@@ -10,6 +10,11 @@ import { StudentProfile } from './pages/StudentProfile'
 import { StudentCourses } from './pages/StudentCourses'
 import { CourseDetail } from './pages/CourseDetail'
 import { StudentPlan } from './pages/StudentPlan'
+import { AdminHome } from './pages/AdminHome'
+import { AdminCourses } from './pages/AdminCourses'
+import { AdminManageCourse } from './pages/AdminManageCourse'
+import { AdminMonitor } from './pages/AdminMonitor'
+
 
 // 登录状态检查（只用本地）
 function isAuthed(maxAgeMs = 30 * 60 * 1000) {
@@ -64,7 +69,10 @@ function App() {
     window.location.hash = '#/login-student'
     return null
   }
-
+  if (hash.startsWith('#/admin-home')) return <AdminHome />
+  if (hash.startsWith('#/admin-courses')) return <AdminCourses />
+  if (hash.startsWith('#/admin-manage-course')) return <AdminManageCourse />
+  if (hash.startsWith('#/admi-monitor')) return <AdminMonitor />
   if (hash.startsWith('#/student-profile')) return <StudentProfile />
   if (hash.startsWith('#/student-home')) return <StudentHome />
   if (hash.startsWith('#/student-courses')) return <StudentCourses />

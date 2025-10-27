@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     "stu_accounts",
     "adm_accounts",
     "courses",   
+    "courses_admin"
     #"plans",
 ]
 

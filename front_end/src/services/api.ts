@@ -58,7 +58,7 @@ class ApiService {
 
   // 先把调用方传入的 headers 标准化
   const headers = new Headers(options.headers as HeadersInit | undefined);
-
+ 
   //  兜底同步 token：优先 this.token，没有则从 localStorage 取
   let token = this.token;
   if (!token) {
@@ -89,8 +89,6 @@ class ApiService {
   const config: RequestInit = {
     ...options,
     headers,                 // 用整理过的 headers
-    // 如果走 Cookie/Session，需要携带 cookie：
-    // credentials: 'include',
   };
 
   try {
@@ -212,33 +210,57 @@ async adm_register(admin_id: string, fullName: string, email: string, password: 
   return result;
 }
 
-  async login(studentId: string, password: string): Promise<{ token: string; user: any }> {
-  const result = await this.request<{ token: string; user: any }>('/auth/login', {
+async login(studentId: string, password: string): Promise<{ token: string; user: any }> {
+const result = await this.request<{ token: string; user: any }>('/auth/login', {
+  method: 'POST',
+  body: JSON.stringify({ student_id:studentId, password }),
+});
+if (result.success && result.data?.token) {
+  this.token = result.data.token;
+  localStorage.setItem('auth_token', this.token);
+  localStorage.setItem('login_time', Date.now().toString());
+  if (result.data.user) {
+    const user = result.data.user;
+    if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
+      user.avatarUrl = `${API_BASE}${user.avatarUrl}`;
+    }
+    const uid: string = user.studentId ?? user.id ?? user.student_id ?? String(studentId);
+    localStorage.setItem('current_user_id', uid);
+    localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
+  }
+  await coursesStore.refreshAvailableCourses();
+  await coursesStore.refreshMyCourses();
+  await preferencesStore.loadPreferencesFromAPI();
+  return result.data;
+}
+throw new Error(result.message || 'wrong password/id');
+}
+
+async login_adm(adminId: string, password: string): Promise<{ token: string; user: any }> {
+  const result = await this.request<{ token: string; user: any }>('/admin/login', {
     method: 'POST',
-    body: JSON.stringify({ student_id:studentId, password }),
+    body: JSON.stringify({ admin_id: adminId, password }),
   });
+
   if (result.success && result.data?.token) {
     this.token = result.data.token;
     localStorage.setItem('auth_token', this.token);
     localStorage.setItem('login_time', Date.now().toString());
-    if (result.data.user) {
-      const user = result.data.user;
-      if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
-        user.avatarUrl = `${API_BASE}${user.avatarUrl}`;
-      }
-      const uid: string = user.studentId ?? user.id ?? user.student_id ?? String(studentId);
-      localStorage.setItem('current_user_id', uid);
-      localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
+    const user = result.data.user;
+    if (user.avatarUrl && !user.avatarUrl.startsWith('http')) {
+      user.avatarUrl = `${API_BASE}${user.avatarUrl}`;
     }
-    await coursesStore.refreshAvailableCourses();
-    await coursesStore.refreshMyCourses();
-    await preferencesStore.loadPreferencesFromAPI();
+    const uid = user.adminId ?? user.id ?? String(adminId);
+    localStorage.setItem('current_user_id', uid);
+    localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
+    window.location.hash = '/admin/home';
     return result.data;
   }
-  throw new Error(result.message || 'wrong password/id');
-}
 
-  async logout(): Promise<void> {
+
+  throw new Error(result.message || 'Invalid admin ID or password');
+}
+async logout(): Promise<void> {
   // 后端会话登出
   try { await this.request('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
   // 清空鉴权态
@@ -251,17 +273,84 @@ async adm_register(admin_id: string, fullName: string, email: string, password: 
   // 清空前端“内存”状态（避免下个账号看到旧内存）
   try { coursesStore.reset(); } catch {}
 }
+
+async logout_adm(): Promise<void> {
+  try { await this.request('/admin/logout', { method: 'POST' }); } catch { /* ignore */ }
+  // 清空鉴权态
+  this.token = null;
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('login_time');
+  const uid = localStorage.getItem('current_user_id');
+  localStorage.removeItem('current_user_id');
+}
+
   // 课程管理
   async getAvailableCourses(): Promise<ApiCourse[]> {
     const res = await this.request<ApiCourse[]>('/courses/available');
     return res.data ?? [];
   }
 
-  async getUserCourses(): Promise<ApiCourse[]> {
-    const res = await this.request<ApiCourse[]>('/courses/my');
-   return res.data ?? [];
+      
+  async adminGetMyCourses(): Promise<ApiCourse[]> {
+    const adminId = localStorage.getItem('current_user_id');
+    if (!adminId) {
+      console.warn('[adminGetMyCourses] no admin_id found');
+      return [];
+    }
+
+    const res = await this.request<ApiCourse[]>(
+      `/courses_admin?admin_id=${encodeURIComponent(adminId)}`
+    );
+    return res.data ?? [];
+
   }
 
+  async adminDeleteCourse(code: string) {
+  const adminId = localStorage.getItem('current_user_id') || '';
+  const form = new FormData();
+  form.append('admin_id', adminId);
+  form.append('code', code);
+
+  return this.request<void>('/delete_course', {
+    method: 'POST',
+    body: form,
+  });
+}
+
+
+async adminCheckCourseExists(code: string) {
+  return this.request<{ exists: boolean }>(`/course_exists?code=${encodeURIComponent(code)}`, {
+    method: 'GET',
+  });
+}
+
+async adminCreateCourse(payload: {
+  code: string;
+  title: string;
+  description?: string;
+  illustration?: 'orange' | 'student' | 'admin';
+}) {
+  const adminId = localStorage.getItem('current_user_id') || '';
+  const form = new FormData();
+
+  form.append('admin_id', adminId);
+  form.append('code', payload.code);
+  form.append('title', payload.title);
+  form.append('description', payload.description || '');
+  form.append('illustration', payload.illustration || 'admin');
+
+  return this.request<void>('/create_course', {
+    method: 'POST',
+    body: form,
+  });
+}
+
+
+  async getUserCourses(): Promise<ApiCourse[]> {
+    const res = await this.request<ApiCourse[]>('/courses/my');
+    return res.data ?? [];
+  }
+  
   async addCourse(courseId: string): Promise<void> {
     await this.request<ApiResponse<void>>('/courses/add', {
       method: 'POST',

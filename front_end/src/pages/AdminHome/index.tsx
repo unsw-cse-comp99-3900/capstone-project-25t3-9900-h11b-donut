@@ -12,7 +12,9 @@ import illustrationAdmin from '../../assets/images/illustration-admin.png'
 import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
 import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
-import { coursesStore } from '../../store/coursesStore'
+
+import { courseAdmin } from '../../store/coursesAdmin';
+import { create } from 'zustand'
 
 // 图片映射 - 循环使用4张图片
 const adminIllustrations = [
@@ -24,45 +26,41 @@ const adminIllustrations = [
 
 export function AdminHome() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
-  const [courses, setCourses] = useState(coursesStore.myCourses)
+  const [courses, setCourses] = useState(courseAdmin.all)
   const uid = localStorage.getItem('current_user_id') || '';
   const [user, setUser] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(() => {
     if (!uid) return null;
     try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
     catch { return null; }
   });
-
-  // ==================== MOCK DATA START ====================
-  // 从localStorage加载已创建的课程数据 - 这是mock数据
-  // TODO: 替换为真实API调用：GET /api/admin/courses
-  const [createdCourses, setCreatedCourses] = useState<Array<{
-    id: string;
-    title: string;
-    description: string;
-    illustrationIndex: number;
-  }>>(() => {
-    try {
-      const saved = localStorage.getItem('admin_created_courses');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  // ==================== MOCK DATA END ====================
-
-  // ==================== MOCK DATA START ====================
-  // 统计数据 - 这是mock数据
-  // TODO: 替换为真实API调用：GET /api/admin/stats
+  
+  //4个数量展示
   const [stats, setStats] = useState({
-    totalCourses: 0,
-    totalStudents: 0,
-    activeTasks: 0,
-    atRiskStudents: 0
-  })
-  // ==================== MOCK DATA END ====================
+      totalCourses: 0,
+      totalStudents: 0,
+      activeTasks: 0,
+      atRiskStudents: 0
+    })
+  //展示创建的课程 
+  const [createdCourses, setCreatedCourses] = useState<Array<{
+  id: string;
+  title: string;
+  desc: string;
+  illustrationIndex: number;
+  studentCount?: number; 
+}>>(() => {
+  try {
+    const adminId = localStorage.getItem('current_user_id');
+    const saved = adminId
+      ? localStorage.getItem(`admin:${adminId}:courses`)
+      : null;
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+});
 
   useEffect(() => {
-    // 切换账号后重读 user
     if (uid) {
       try {
         setUser(JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'));
@@ -73,10 +71,12 @@ export function AdminHome() {
       setUser(null);
     }
 
-    const unsubCourses = coursesStore.subscribe(() => {
-      setCourses([...coursesStore.myCourses]);
-    });
+    const unsubCourses = courseAdmin.subscribe(() => {
+    setCourses([...courseAdmin.all]);
+  });
 
+    courseAdmin.getMyCourses();
+    
     // 监听localStorage变化来更新课程数据
     const handleStorageChange = () => {
       try {
@@ -95,9 +95,11 @@ export function AdminHome() {
     // 更新统计数据
     const totalCreatedCourses = createdCourses.length;
     
-    // ==================== MOCK DATA START ====================
-    // 计算所有课程的Task总数 - 这是mock数据
-    // TODO: 替换为真实API调用：GET /api/admin/total-tasks
+    const totalStudents = createdCourses.reduce(
+    (sum, c) => sum + (c.studentCount ?? 0),
+    0
+  );
+    //待改进
     let totalTasks = 0;
     createdCourses.forEach(course => {
       const savedTasks = localStorage.getItem(`admin_course_tasks_${course.id}`);
@@ -106,11 +108,10 @@ export function AdminHome() {
         totalTasks += tasks.length;
       }
     });
-    // ==================== MOCK DATA END ====================
     
     setStats({
       totalCourses: totalCreatedCourses,
-      totalStudents: 0,
+      totalStudents: totalStudents,
       activeTasks: totalTasks,
       atRiskStudents: 0
     });
@@ -120,16 +121,10 @@ export function AdminHome() {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [uid]);
-
   useEffect(() => {
     if (!uid) return;
-
-    if (coursesStore.myCourses.length === 0) {
-      void coursesStore.refreshMyCourses();
-    }
-    if (coursesStore.availableCourses.length === 0) {
-      void coursesStore.refreshAvailableCourses(true);
-    }
+    if (courseAdmin.all.length === 0) {
+  }
   }, [uid]);
 
   // 监听createdCourses变化，实时更新统计数据
@@ -145,7 +140,7 @@ export function AdminHome() {
   }
 
   const confirmLogout = async () => {
-    try { await apiService.logout(); }
+    try { await apiService.logout_adm(); }
     finally {
       window.location.hash = '#/login-admin';
       setLogoutModalOpen(false);

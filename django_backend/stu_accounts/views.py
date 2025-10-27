@@ -146,7 +146,6 @@ def login_api(request: HttpRequest):
         return api_err("id and password are required")
 
     try:
-        
         account = (
             StudentAccount.objects
             .only("student_id", "email", "name", "password_hash", "avatar_url")  # 提前限定字段，减少 IO
@@ -157,12 +156,11 @@ def login_api(request: HttpRequest):
             return api_err("Invalid id or password", 401)
 
         token = make_token()
-        # 在 user 里带上 avatarUrl
+        
         now = timezone.now()
         with transaction.atomic():
             account.current_token = token
             account.token_issued_at = now
-            # 如果你有 last_login_at 等字段，也可以一并更新
             account.save(update_fields=["current_token", "token_issued_at"])
 
         user_payload = {

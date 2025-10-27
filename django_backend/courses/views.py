@@ -148,6 +148,7 @@ def my_courses(request):
     rows = list(CourseCatalog.objects.filter(code__in=codes).values("code", "title", "description", "illustration"))
     data = [{"id": r["code"], "title": r["title"], "description": r["description"], "illustration": r["illustration"]} for r in rows]
     return JsonResponse({"success": True, "data": data})
+
 @csrf_exempt
 def remove_course(request, course_code):
     sid = _require_student(request)

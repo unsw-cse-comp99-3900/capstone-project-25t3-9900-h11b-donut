@@ -6,10 +6,10 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.db import IntegrityError, transaction
 from django.core.exceptions import ValidationError
-
-from .models import AdminAccount
+from django.utils import timezone   
+from .models import AdminAccount 
 from utils.validators import validate_email, validate_id, validate_name, validate_password
-
+from utils.auth import make_token
 # 头像配置
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
@@ -19,7 +19,12 @@ def api_ok(data=None, message="OK", status=200):
 
 def api_err(message="Bad Request", status=400):
     return JsonResponse({"success": False, "message": message, "data": None}, status=status)
-
+def _json_body(request: HttpRequest):
+    """安全解析 JSON 请求体"""
+    try:
+        return json.loads(request.body.decode("utf-8") or "{}")
+    except Exception:
+        return {}
 @csrf_exempt
 def register_admin(request: HttpRequest):
     """管理员注册接口"""
@@ -107,3 +112,55 @@ def register_admin(request: HttpRequest):
     except Exception as e:
         print("[ADMIN REGISTER ERROR]", repr(e))
         return api_err("Internal server error", 500)
+    
+@csrf_exempt
+def login_admin(request: HttpRequest):
+    if request.method != "POST":
+        return api_err("Method Not Allowed", 405)
+    body = _json_body(request)
+    print(body)
+    admin_id = (body.get("admin_id") or "").strip()
+    password = body.get("password") or ""
+    if not admin_id or not password:
+            return api_err("admin_id and password are required", 400)
+    
+    try:
+        account = (
+            AdminAccount.objects
+            .only("admin_id", "email", "full_name", "password_hash", "avatar_url")  
+            .get(admin_id=admin_id)
+        )
+        ok = bcrypt.checkpw(password.encode("utf-8"), account.password_hash.encode("utf-8"))
+        if not ok:
+            return api_err("Invalid id or password", 401)
+
+        token = make_token()
+        # 在 user 里带上 avatarUrl
+        now = timezone.now()
+        with transaction.atomic():
+            account.current_token = token
+            account.token_issued_at = now
+            account.save(update_fields=["current_token", "token_issued_at"])
+
+        user_payload = {
+            "adminId": account.admin_id,
+            "name": account.full_name or "",
+            "email": account.email or "",
+            "avatarUrl": getattr(account, "avatar_url", None),  # 可能为 None
+        }
+
+        return api_ok({"token": token, "user": user_payload})
+
+    except Exception as e:
+        print("[API LOGIN ERROR]", repr(e))
+        return api_err("Server Error", 500)
+    
+@csrf_exempt
+def logout_admin(request: HttpRequest):
+    
+    if request.method != "POST":
+        return JsonResponse({"success": False, "message": "Method Not Allowed", "data": None}, status=405)
+    
+    # 清空 session
+    request.session.flush()
+    return JsonResponse({"success": True, "message": "Logged out successfully", "data": None})
