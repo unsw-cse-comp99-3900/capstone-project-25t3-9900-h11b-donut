@@ -1,0 +1,108 @@
+/* 通用侧栏容器（两页都包含） */
+.ac-sidebar, .amc-sidebar {
+  display:flex;
+  flex-direction:column;
+}
+
+/* 统一 Log Out 按钮为课程页的视觉：Arial、13.3333px、#000 */
+.ac-sidebar .btn-outline,
+.amc-sidebar .btn-outline {
+  padding:14px;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid #EAEAEA;
+  cursor:pointer;
+  font-weight:600;
+  font-size:13.3333px;   /* 课程页的 computed 值 */
+  color:#000;            /* 课程页的 computed 值 */
+  margin-top:auto;
+  display:block;
+  /* 不要在这里设置固定 width/height */
+}
+
+/* 通用侧栏布局样式 */
+.admin-sidebar-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 48px;
+  padding: 32px;
+  color: #172239;
+  background: #fff;
+  font-family: 'Montserrat', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  min-height: 100vh;
+}
+
+/* 通用侧栏内容样式 */
+.sidebar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+}
+
+/* 通用用户信息卡片 */
+.sidebar-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #EAEAEA;
+  border-radius: 20px;
+  background: #FFFFFF;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+  height: 95.36px;
+}
+
+/* 通用导航菜单 */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #EAEAEA;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+}
+
+/* 通用导航菜单项 */
+.sidebar-nav .item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #6D6D78;
+  font-weight: 500;
+}
+
+.sidebar-nav .item.active {
+  background: #BB87AC;
+  color: #172239;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.sidebar-nav .nav-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* 通用插图区域 */
+.sidebar-illustration {
+  margin-top: auto;
+  margin-bottom: 20px;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-illustration img {
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
+  display: block;
+}
