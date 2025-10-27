@@ -5,7 +5,7 @@ class CourseCatalog(models.Model):
     code = models.CharField(max_length=16, primary_key=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    illustration = models.CharField(max_length=32, default="orange")  # 前端期望的插图标识：orange|student|admin
+    illustration = models.CharField(max_length=32, default="orange")  #orange|student|admin
 
     class Meta:
         db_table = "course_catalog"

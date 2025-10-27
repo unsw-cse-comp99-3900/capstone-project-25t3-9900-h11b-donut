@@ -11,7 +11,7 @@ def validate_email(value: str):
     if not EMAIL_RE.match((value or "").strip()):
         raise ValidationError("Wrong Email Format")
 
-def validate_student_id(value: str):
+def validate_id(value: str):
     if not STUDENT_ID_RE.match((value or "").strip()):
         raise ValidationError("Wrong ID Format(eg:z1234567)")
 

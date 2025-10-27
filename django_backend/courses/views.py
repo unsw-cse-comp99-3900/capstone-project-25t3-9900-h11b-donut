@@ -4,7 +4,7 @@ from django.db import models, IntegrityError
 from django.conf import settings
 from pathlib import Path
 from typing import Optional
-from accounts.models import StudentAccount
+from stu_accounts.models import StudentAccount
 from django.views.decorators.csrf import csrf_exempt
 from .models import (
     CourseCatalog,

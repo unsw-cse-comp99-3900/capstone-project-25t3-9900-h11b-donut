@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.http import JsonResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
-from accounts.models import StudentAccount
+from stu_accounts.models import StudentAccount
 from preferences.models import StudentPreference, StudentPreferenceDefault
 from utils.auth import get_student_id_from_request
 

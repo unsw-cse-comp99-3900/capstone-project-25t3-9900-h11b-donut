@@ -11,7 +11,7 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from utils.auth import make_token
 from utils.validators import (
-    validate_email, validate_student_id, validate_name, validate_password
+    validate_email, validate_id, validate_name, validate_password
 )
 from django.core.exceptions import ValidationError
 
@@ -60,7 +60,7 @@ def register_api(request):
         if not student_id or not email or not password or not name:
             return JsonResponse({"success": False, "message": "Please enter zid, email and password"}, status=400)
         try:
-            validate_student_id(student_id)                    # 学号：如 z1234567
+            validate_id(student_id)                    # 学号：如 z1234567
             validate_email(email)                              # 邮箱基本格式
             validate_name(name)                                # 姓名：中/英、空格、-、·、’ 2~50
             validate_password(password, student_id=student_id, email=email)  # 密码强度+不含学号/邮箱前缀

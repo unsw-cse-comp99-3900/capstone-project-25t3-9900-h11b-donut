@@ -1,7 +1,7 @@
 # preferences/models.py
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from accounts.models import StudentAccount
+from stu_accounts.models import StudentAccount
 
 class StudentPreference(models.Model):
     """

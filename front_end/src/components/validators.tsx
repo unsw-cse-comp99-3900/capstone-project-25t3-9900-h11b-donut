@@ -6,7 +6,7 @@ export const PASSWORD_STRICT_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])\
 export function validateEmail(v: string) {
   return EMAIL_RE.test((v || '').trim());
 }
-export function validateStudentId(v: string) {
+export function validateId(v: string) {
   return STUDENT_ID_RE.test((v || '').trim());
 }
 export function validateName(v: string) {

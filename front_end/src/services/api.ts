@@ -2,7 +2,7 @@
 import { coursesStore } from '../store/coursesStore';
 import { preferencesStore } from '../store/preferencesStore'; 
 import {
-  validateEmail, validateStudentId, validateName, validatePassword
+  validateEmail, validateId, validateName, validatePassword
 } from '../components/validators';
 const API_BASE = '/api';
 
@@ -112,7 +112,7 @@ class ApiService {
         localStorage.removeItem('current_user_id');
       } catch {}
 
-      // 若是被挤下线给出提示（按你项目改成全局 toast 也可以）
+      // 若是被挤下线给出提示
       if (code === 'KICKED') {
         try { alert('你的账号在另一处登录，你已下线'); } catch {}
       }
@@ -153,8 +153,8 @@ class ApiService {
     }));
   }
   // 用户认证
-  async register(student_id: string, name: string,email: string, password: string, avatarFile?: File) {
-    if (!validateStudentId(student_id)) {
+  async stu_register(student_id: string, name: string,email: string, password: string, avatarFile?: File) {
+    if (!validateId(student_id)) {
     throw new Error("Wrong ID Format(eg:z1234567)");
   }
   if (!validateEmail(email)) {
@@ -188,6 +188,29 @@ class ApiService {
   return result;
 }
 
+async adm_register(admin_id: string, fullName: string, email: string, password: string, avatarFile?: File) {
+  if (!validateId(admin_id)) throw new Error("Wrong ID Format(eg:z1234567)");
+  if (!validateEmail(email)) throw new Error("Wrong Email Format");
+  if (!validateName(fullName)) throw new Error("Names are only allowed in letters");
+  if (!validatePassword(password, admin_id, email)) {
+    throw new Error("The password needs to be 8-64 characters long, including at least one uppercase and lowercase letter, one numeric character, and one special character, and does not include the student ID/email prefix");
+  }
+
+  const formData = new FormData();
+  formData.append("admin_id", admin_id);
+  formData.append("email", email);
+  formData.append("fullName", fullName);
+  formData.append("password", password);
+  if (avatarFile) formData.append("avatar", avatarFile);
+
+  const result = await this.request<ApiResponse<any>>("/admin/register", {
+    method: "POST",
+    body: formData, // multipart/form-data
+  });
+
+  if (!result.success) throw new Error(result.message || "fail to register");
+  return result;
+}
 
   async login(studentId: string, password: string): Promise<{ token: string; user: any }> {
   const result = await this.request<{ token: string; user: any }>('/auth/login', {
@@ -212,25 +235,21 @@ class ApiService {
     await preferencesStore.loadPreferencesFromAPI();
     return result.data;
   }
-  // 把后端返回的 message 暴露给 UI
   throw new Error(result.message || 'wrong password/id');
 }
 
   async logout(): Promise<void> {
-  // 1) 后端会话登出（即使失败也做本地清理）
+  // 后端会话登出
   try { await this.request('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
-
-  // 2) 清空鉴权态
+  // 清空鉴权态
   this.token = null;
   localStorage.removeItem('auth_token');
   localStorage.removeItem('login_time');
-
-  // 3) 记录并清理当前用户 ID（关键）
+  //记录并清理当前用户 ID（关键）
   const uid = localStorage.getItem('current_user_id');
   localStorage.removeItem('current_user_id');
-  // 5) 清空前端“内存”状态（避免下个账号看到旧内存）
+  // 清空前端“内存”状态（避免下个账号看到旧内存）
   try { coursesStore.reset(); } catch {}
-
 }
   // 课程管理
   async getAvailableCourses(): Promise<ApiCourse[]> {

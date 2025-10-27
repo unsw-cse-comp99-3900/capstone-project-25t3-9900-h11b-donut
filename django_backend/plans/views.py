@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from utils.auth import get_student_id_from_request
 from typing import Optional
 from ai_module.plan_generator import generate_plan
-from accounts.models import StudentAccount
+from stu_accounts.models import StudentAccount
 from preferences.models import StudentPreference, StudentPreferenceDefault
 from courses.models import StudentEnrollment, CourseTask
 from decimal import Decimal

@@ -23,7 +23,7 @@ export function SignupStudent() {
 
     try {
       setLoading(true)
-      await apiService.register(studentId,studentName,email, password,avatarFile|| undefined)
+      await apiService.stu_register(studentId,studentName,email, password,avatarFile|| undefined)
       alert('Successful!')
       window.location.hash = '/login-student'
     } catch (e: any) {
@@ -102,7 +102,7 @@ export function SignupStudent() {
               />
             </div>
 
-            {/* ✅ 错误信息显示 */}
+            {/* 错误信息显示 */}
             {error && (
               <div className="form-row">
                 <p style={{ color: 'red', margin: 0 }}>{error}</p>
@@ -111,9 +111,9 @@ export function SignupStudent() {
 
             <div className="form-row" style={{ marginTop: 32 }}>
               <PrimaryButton
-                text={loading ? 'Creating…' : 'Create Account'}  // ✅ 使用 loading
-                onClick={handleRegister}                          // ✅ 使用 handleRegister
-                //disabled={loading}
+                text={loading ? 'Creating…' : 'Create Account'}  //  使用 loading
+                onClick={handleRegister}                          // 使用 handleRegister
+        
               />
             </div>
           </div>

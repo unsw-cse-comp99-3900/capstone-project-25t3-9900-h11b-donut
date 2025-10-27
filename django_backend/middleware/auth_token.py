@@ -1,13 +1,14 @@
 # middleware/auth_token.py
 from django.utils.deprecation import MiddlewareMixin
 from django.http import JsonResponse
-from accounts.models import StudentAccount
+from stu_accounts.models import StudentAccount
 
 class AuthTokenMiddleware(MiddlewareMixin):
     PUBLIC_PREFIXES = (
         "/api/auth/login",
         "/api/auth/logout",
         "/api/auth/register",   
+        "/api/admin/register",
     )
 
     def process_request(self, request):

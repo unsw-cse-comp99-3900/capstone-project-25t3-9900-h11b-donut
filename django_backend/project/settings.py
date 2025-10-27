@@ -49,9 +49,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "accounts",
     "preferences",
-    "courses",
+    "stu_accounts",
+    "adm_accounts",
+    "courses",   
     #"plans",
 ]
 

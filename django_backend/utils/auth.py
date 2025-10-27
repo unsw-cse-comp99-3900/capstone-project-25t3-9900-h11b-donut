@@ -1,4 +1,4 @@
-from accounts.models import StudentAccount
+from stu_accounts.models import StudentAccount
 from django.http import HttpRequest
 from typing import Optional
 import secrets
