@@ -75,8 +75,12 @@ export function AdminHome() {
     setCourses([...courseAdmin.all]);
   });
 
-    courseAdmin.getMyCourses();
-    
+    (async () => {
+    await courseAdmin.getMyCourses();     // 先等课程
+    await courseAdmin.getMyTasks();       // 再拉任务
+    await courseAdmin.getMyMaterials();   // 再拉材料
+    await courseAdmin.getMyQuestions();   // 再拉question
+  })();
     // 监听localStorage变化来更新课程数据
     const handleStorageChange = () => {
       try {

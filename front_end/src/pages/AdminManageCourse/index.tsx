@@ -11,6 +11,7 @@ import illustrationAdmin from '../../assets/images/illustration-admin.png'
 import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
 import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
+import { apiService, type ApiQuestion } from '../../services/api'
 
 // 图片映射 - 循环使用4张图片
 const adminIllustrations = [
@@ -19,8 +20,26 @@ const adminIllustrations = [
   illustrationAdmin3,
   illustrationAdmin4
 ];
+type NewTask = {
+  title: string;
+  id: string;
+  deadline: string;
+  brief: string;
+  attachment: File | null;
+};
 
 export function AdminManageCourse() {
+  const [uploadStatus, setUploadStatus] = useState<'idle'|'uploading'|'done'|'error'>('idle');
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [fileInputKey, setFileInputKey] = useState(0);
+
+  const resetUpload = () => {
+  setUploadStatus('idle');
+  setUploadedUrl(null);
+  setUploadError(null);
+  setFileInputKey(k => k + 1);   
+  };
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [selectedCourse, setSelectedCourse] = useState<any>(null)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
@@ -29,20 +48,24 @@ export function AdminManageCourse() {
   const [tasks, setTasks] = useState<any[]>([])
   const [materials, setMaterials] = useState<any[]>([])
   const [newTask, setNewTask] = useState({
-    title: '',
-    id: '',
-    deadline: '',
-    brief: '',
-    attachment: ''
-  })
+  title: '',
+  id: '',
+  deadline: '',
+  brief: '',
+  attachment: null,   
+});
   const [materialModalOpen, setMaterialModalOpen] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<any>(null)
   const [deleteMaterialId, setDeleteMaterialId] = useState<string | null>(null)
-  const [newMaterial, setNewMaterial] = useState({
-    name: '',
-    description: '',
-    file: ''
-  })
+  const [newMaterial, setNewMaterial] = useState<{
+  name: string;
+  description: string;
+  file: File | null;   // ← 只能是文件
+}>({
+  name: '',
+  description: '',
+  file: null,
+});
   
   // Question相关状态
   const [questionModalOpen, setQuestionModalOpen] = useState(false)
@@ -65,36 +88,30 @@ export function AdminManageCourse() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
     const courseId = urlParams.get('courseId');
-    
-    if (courseId) {
-      // 🚨🚨🚨 MOCK DATA START - 课程数据加载 🚨🚨🚨
-      // ========================================================
-      // 📍 注意：这是模拟数据，使用localStorage存储
-      // 📍 后端开发时请替换为真实API调用
-      // 📍 API端点：GET /api/courses/{courseId}
-      // ========================================================
+    const adminId = localStorage.getItem('current_user_id');
+
+    if (courseId && adminId) {
       try {
-        const savedCourses = localStorage.getItem('admin_created_courses');
+        const savedCourses = localStorage.getItem(`admin:${adminId}:courses`);
+
         if (savedCourses) {
           const courses = JSON.parse(savedCourses);
           const course = courses.find((c: any) => c.id === courseId);
           if (course) {
-            setSelectedCourse(course);
-            
+            setSelectedCourse(course);          
             // 加载该课程的Task数据
-            const savedTasks = localStorage.getItem(`admin_course_tasks_${courseId}`);
+            const savedTasks = localStorage.getItem(`admin:${adminId}:course_tasks_${courseId}`);
             if (savedTasks) {
               setTasks(JSON.parse(savedTasks));
-            }
-            
+            }           
             // 加载该课程的Material数据
-            const savedMaterials = localStorage.getItem(`admin_course_materials_${courseId}`);
+            const savedMaterials = localStorage.getItem(`admin:${adminId}:course_materials_${courseId}`);
             if (savedMaterials) {
               setMaterials(JSON.parse(savedMaterials));
             }
             
             // 加载该课程的Question数据
-            const savedQuestions = localStorage.getItem(`admin_course_questions_${courseId}`);
+            const savedQuestions = localStorage.getItem(`admin:${adminId}:course_questions_${courseId}`);
             if (savedQuestions) {
               setQuestions(JSON.parse(savedQuestions));
             }
@@ -103,49 +120,33 @@ export function AdminManageCourse() {
       } catch (error) {
         console.error('Error loading course:', error);
       }
-      // 🚨🚨🚨 MOCK DATA END - 课程数据加载 🚨🚨🚨
     }
   }, []);
 
-  // 🚨🚨🚨 MOCK DATA START - 管理员登录验证 🚨🚨🚨
-  // ========================================================
-  // 📍 注意：这是模拟数据，绕过真实登录验证
-  // 📍 后端开发时请替换为真实登录验证
-  // 📍 API端点：POST /api/auth/login
-  // 📍 当前模拟用户：John Smith (johnsmith@gmail.com)
-  // ========================================================
+
   useEffect(() => {
-    // 检查是否已有用户数据
-    const uid = localStorage.getItem('current_user_id');
-    if (uid) {
-      try {
-        const userData = JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null');
-        if (userData) {
-          setUser(userData);
-          return;
-        }
-      } catch (error) {
-        console.error('Error loading user data:', error);
+  const uid = localStorage.getItem('current_user_id');
+  if (uid) {
+    try {
+      const userData = JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null');
+      if (userData) {
+        setUser(userData);
+      } else {
+        console.warn('No user data found for current_user_id');
       }
+    } catch (error) {
+      console.error('Error loading user data:', error);
     }
-    
-    // 如果没有用户数据，创建默认管理员用户
-    const adminUser = {
-      name: 'John Smith',
-      email: 'johnsmith@gmail.com',
-      avatarUrl: ''
-    };
-    localStorage.setItem('current_user_id', 'admin-123');
-    localStorage.setItem('u:admin-123:user', JSON.stringify(adminUser));
-    setUser(adminUser);
-  }, []);
-  // 🚨🚨🚨 MOCK DATA END - 管理员登录验证 🚨🚨🚨
-
+  } else {
+    console.warn('No current_user_id found in localStorage');
+  }
+}, []);
+ 
+  
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('login_time');
     localStorage.removeItem('current_user_id');
-    localStorage.removeItem('user');
     window.location.hash = '#/login-admin';
   };
 
@@ -167,143 +168,288 @@ export function AdminManageCourse() {
       id: '',
       deadline: '',
       brief: '',
-      attachment: ''
+      attachment: null,
     });
+    resetUpload(); 
   };
 
   // 处理任务表单输入
-  const handleTaskInputChange = (field: string, value: string) => {
-    setNewTask(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  const handleTaskInputChange = <K extends keyof NewTask>(
+  field: K,
+  value: NewTask[K]
+) => {
+  setNewTask((prev) => ({
+    ...prev,
+    [field]: value,
+  }));
+};
 
   // 创建新任务
-  const handleCreateTask = () => {
-    if (!newTask.title.trim()) {
-      // 显示错误提示
+  const handleCreateTask = async () => {
+  // 基本校验
+  const today = new Date();
+  const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    .toISOString()
+    .slice(0, 10); 
+
+  if (newTask.deadline < todayStr) {
+    alert('Deadline ahead of today!');
+    return;
+  }
+  if (!newTask.title?.trim()) { alert('Title is required'); return; }
+  if (!selectedCourse) { alert('No course selected'); return; }
+  if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}$/.test(newTask.deadline)) {
+    alert('Please select a valid deadline (YYYY-MM-DD)');
+    return;
+  }
+
+  // 1) 先上传附件（如果有）
+  let fileUrl: string | null = null;
+  const file = newTask.attachment as File | null;
+
+  if (file) {
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('course', selectedCourse.id); // 用课程号分目录（/task/<course>/...）
+      const token = localStorage.getItem('auth_token') || '';
+      const uploadRes = await fetch('/api/courses_admin/upload/task-file', {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: fd,
+      }).then(r => r.json());
+
+      if (!uploadRes?.success) {
+        alert(uploadRes?.message || 'Upload attachment failed');
+        return;
+      }
+      fileUrl = uploadRes.data.url as string; // e.g. /task/COMP9900/xxx_ab12cd34.pdf
+    } catch (e: any) {
+      console.error('Upload error:', e);
+      alert(e?.message || 'Upload attachment error');
       return;
     }
-    
-    // 处理deadline：如果没有选择，默认为"none"
-    const taskData = {
-      ...newTask,
-      deadline: newTask.deadline.trim() ? newTask.deadline : 'none',
-      id: newTask.id.trim() || `TASK_${Date.now()}`,
-      createdAt: new Date().toISOString()
-    };
-    
-    // 🚨🚨🚨 MOCK DATA START - 创建任务 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：POST /api/courses/{courseId}/tasks
-    // 📍 存储位置：localStorage (admin_course_tasks_{courseId})
-    // ========================================================
-    const updatedTasks = [...tasks, taskData];
-    setTasks(updatedTasks);
-    
-    if (selectedCourse) {
-      localStorage.setItem(`admin_course_tasks_${selectedCourse.id}`, JSON.stringify(updatedTasks));
-      
-      // 更新Home页面的统计数据
-      updateHomePageStats(selectedCourse.id, updatedTasks.length);
-    }
-    // 🚨🚨🚨 MOCK DATA END - 创建任务 🚨🚨🚨
-    
-    // 关闭弹窗
-    handleCloseTaskModal();
+  }
+
+  // 2) 构造创建 Task 的 payload（百分比固定 100）
+  const payload = {
+    title: newTask.title.trim(),
+    deadline: newTask.deadline,        // 必须 YYYY-MM-DD
+    brief: (newTask.brief ?? '').trim(),
+    percent_contribution: 100,
+    url: fileUrl,                      // 没有附件则为 null
   };
+
+  try {
+    // 3) 调后端创建
+    // 期望返回 { success: true, data: { id: number } }
+    const res = await apiService.adminCreateTask(selectedCourse.id, payload);
+    if (!res?.success) throw new Error(res?.message || 'Create task failed');
+
+    const newId = String(res.data.id);
+
+    // 4) 更新本地状态
+    const taskForUI = {
+      id: newId,
+      course_code: selectedCourse.id,
+      title: payload.title,
+      deadline: payload.deadline,
+      brief: payload.brief,
+      percentContribution: payload.percent_contribution,
+      url: payload.url,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...tasks, taskForUI];
+    setTasks(updated);
+
+    // 5) 双写 localStorage
+    const adminId = localStorage.getItem('current_user_id') || '';
+    localStorage.setItem(
+      `admin:${adminId}:course_tasks_${selectedCourse.id}`,
+      JSON.stringify(updated)
+    );
+    const allKey = `admin:${adminId}:tasks`;
+    const allRaw = localStorage.getItem(allKey);
+    const allObj = allRaw ? JSON.parse(allRaw) : {};
+    allObj[selectedCourse.id] = updated;
+    localStorage.setItem(allKey, JSON.stringify(allObj));
+
+    // 6) 关闭并重置（用你提供的版本）
+    handleCloseTaskModal();
+  } catch (e: any) {
+    console.error('Create task error:', e);
+    alert(e?.message || 'Create task error');
+  }
+};
 
   // 编辑任务
   const handleEditTask = (task: any) => {
-    setEditingTask(task);
-    setNewTask({
-      title: task.title,
-      id: task.id,
-      deadline: task.deadline === 'none' ? '' : task.deadline,
-      brief: task.brief,
-      attachment: task.attachment
-    });
-    setTaskModalOpen(true);
-  };
+  setEditingTask(task);
+
+  setNewTask({
+    title: task.title || '',
+    id: String(task.id || ''),
+    deadline: task.deadline && task.deadline !== 'none' ? task.deadline : '',
+    brief: task.brief || '', 
+    attachment: null,  
+  });
+  setUploadedUrl(task.url || null);
+  setUploadStatus('idle');
+  setUploadError(null);
+  setTaskModalOpen(true);
+};
+
 
   // 更新任务
-  const handleUpdateTask = () => {
-    if (!newTask.title.trim()) {
-      return;
+  const handleUpdateTask = async () => {
+  if (!editingTask || !selectedCourse) return;
+
+  // 1) 基本校验
+  if (!newTask.title?.trim()) { alert('Title is required'); return; }
+  if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}$/.test(newTask.deadline)) {
+    alert('Please select a valid deadline (YYYY-MM-DD)');
+    return;
+  }
+  // 不允许选择过去日期（允许今天）
+  const today = new Date();
+  const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    .toISOString().slice(0, 10);
+  if (newTask.deadline < todayStr) {
+    alert('Deadline 不能早于今天');
+    return;
+  }
+
+  // 如果用户选择了新文件但还没上传完/上传失败，拦截
+  if (newTask.attachment && uploadStatus !== 'done') {
+    alert(uploadStatus === 'uploading' ? '附件仍在上传，请稍候…' : '附件上传失败，请重试');
+    return;
+  }
+
+  try {
+    // 2) 组装 payload（如果没换附件，就不传 url 字段，后端保持不变）
+    const payload: any = {
+      title: newTask.title.trim(),
+      deadline: newTask.deadline,
+      brief: (newTask.brief ?? '').trim(),
+      percent_contribution: 100,   // 按你的约定固定为 100
+    };
+    if (uploadedUrl) {
+      payload.url = uploadedUrl;   // 仅当用户换了附件才覆盖
     }
-    
+
+    // 3) 调后端更新（下一步我们再在 apiService 里实现 adminEditTask）
+    const hasNewFile = Boolean(uploadedUrl && uploadedUrl !== editingTask.url);
+    const res = await apiService.adminEditTask(
+      selectedCourse.id,
+      editingTask.id,
+      payload,
+      { delete_old_file: hasNewFile }
+    );
+    if (!res?.success) throw new Error(res?.message || 'Update failed');
+
+    // 4) 更新前端内存状态（UI字段名：percentContribution）
     const updatedTask = {
       ...editingTask,
-      ...newTask,
-      deadline: newTask.deadline.trim() ? newTask.deadline : 'none',
-      updatedAt: new Date().toISOString()
+      title: payload.title,
+      deadline: payload.deadline,
+      brief: payload.brief,
+      percentContribution: payload.percent_contribution,
+      url: uploadedUrl ?? editingTask.url ?? null,
+      updatedAt: new Date().toISOString(),
     };
-    
-    // 🚨🚨🚨 MOCK DATA START - 更新任务 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：PUT /api/courses/{courseId}/tasks/{taskId}
-    // 📍 存储位置：localStorage (admin_course_tasks_{courseId})
-    // ========================================================
-    const updatedTasks = tasks.map((task: any) => 
-      task.id === editingTask.id ? updatedTask : task
+    const updatedList = tasks.map((t: any) =>
+      String(t.id) === String(editingTask.id) ? updatedTask : t
     );
-    setTasks(updatedTasks);
-    
-    if (selectedCourse) {
-      localStorage.setItem(`admin_course_tasks_${selectedCourse.id}`, JSON.stringify(updatedTasks));
-    }
-    // 🚨🚨🚨 MOCK DATA END - 更新任务 🚨🚨🚨
-    
-    setEditingTask(null);
-    handleCloseTaskModal();
-  };
+    setTasks(updatedList);
 
+    // 5) 双写 localStorage（两处）
+    const adminId = localStorage.getItem('current_user_id') || '';
+
+    // 5.1 课程维度列表
+    localStorage.setItem(
+      `admin:${adminId}:course_tasks_${selectedCourse.id}`,
+      JSON.stringify(updatedList)
+    );
+
+    // 5.2 汇总对象
+    const allKey = `admin:${adminId}:tasks`;
+    const allRaw = localStorage.getItem(allKey);
+    const allObj = allRaw ? JSON.parse(allRaw) : {};
+    const curList = Array.isArray(allObj[selectedCourse.id]) ? allObj[selectedCourse.id] : [];
+    allObj[selectedCourse.id] = curList.map((t: any) =>
+      String(t.id) === String(editingTask.id) ? updatedTask : t
+    );
+    localStorage.setItem(allKey, JSON.stringify(allObj));
+
+    // 6) 收尾
+    setEditingTask(null);
+    resetUpload?.();             // 如果你有这个工具函数就调用；否则可忽略
+    handleCloseTaskModal();
+  } catch (e: any) {
+    console.error('Update task error:', e);
+    alert(e?.message || 'Update task error');
+  }
+};
   // 删除任务确认
   const handleDeleteTask = (taskId: string) => {
     setDeleteTaskId(taskId);
   };
 
   // 确认删除任务
-  const handleConfirmDeleteTask = () => {
-    if (!deleteTaskId || !selectedCourse) return;
-    
-    // 🚨🚨🚨 MOCK DATA START - 删除任务 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：DELETE /api/courses/{courseId}/tasks/{taskId}
-    // 📍 存储位置：localStorage (admin_course_tasks_{courseId})
-    // ========================================================
-    const updatedTasks = tasks.filter((task: any) => task.id !== deleteTaskId);
+  const handleConfirmDeleteTask = async () => {
+  if (!deleteTaskId || !selectedCourse) return;
+
+  try {
+    // 1) 先调后端：删除数据库记录 + 删除 TaskProgress +（可选）删除附件文件
+    const res = await apiService.adminDeleteTask(
+      selectedCourse.id,
+      deleteTaskId,
+      { delete_file: true }     // 同时删除附件
+    );
+
+    if (!res?.success) {
+      throw new Error(res?.message || 'Delete failed');
+    }
+
+    // 2) 成功后再更新本地状态
+    const updatedTasks = tasks.filter((t: any) => String(t.id) !== String(deleteTaskId));
     setTasks(updatedTasks);
-    
-    localStorage.setItem(`admin_course_tasks_${selectedCourse.id}`, JSON.stringify(updatedTasks));
-    
-    // 更新Home页面的统计数据
-    updateHomePageStats(selectedCourse.id, updatedTasks.length);
-    // 🚨🚨🚨 MOCK DATA END - 删除任务 🚨🚨🚨
-    
+
+    // 3) 双写 localStorage
+    const adminId = localStorage.getItem('current_user_id') || '';
+
+    // 3.1 课程维度列表
+    localStorage.setItem(
+      `admin:${adminId}:course_tasks_${selectedCourse.id}`,
+      JSON.stringify(updatedTasks)
+    );
+
+    // 3.2 汇总对象（按课程归档）
+    const allKey = `admin:${adminId}:tasks`;
+    const allRaw = localStorage.getItem(allKey);
+    const allObj = allRaw ? JSON.parse(allRaw) : {};
+    const curList = Array.isArray(allObj[selectedCourse.id]) ? allObj[selectedCourse.id] : [];
+    allObj[selectedCourse.id] = curList.filter((t: any) => String(t.id) !== String(deleteTaskId));
+    localStorage.setItem(allKey, JSON.stringify(allObj));
+
+    // 4) 收尾
     setDeleteTaskId(null);
-  };
+    // 可选：toast.success('Task deleted');
+  } catch (e: any) {
+    console.error('Delete task error:', e);
+    alert(e?.message || 'Delete task error');
+  }
+};
+
 
   // 更新Home页面统计数据
   const updateHomePageStats = (courseId: string, taskCount: number) => {
-    // 🚨🚨🚨 MOCK DATA START - 更新统计数据 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：PUT /api/admin/stats
-    // 📍 存储位置：localStorage (admin_home_stats)
-    // ========================================================
+    
     const homeStats = JSON.parse(localStorage.getItem('admin_home_stats') || '{}');
     homeStats[courseId] = taskCount;
     localStorage.setItem('admin_home_stats', JSON.stringify(homeStats));
-    // 🚨🚨🚨 MOCK DATA END - 更新统计数据 🚨🚨🚨
+    
   };
 
   // 处理弹窗提交
@@ -320,92 +466,160 @@ export function AdminManageCourse() {
     setNewMaterial({
       name: '',
       description: '',
-      file: ''
+      file: null
     });
+    resetUpload();
   };
 
   // 处理材料表单输入
-  const handleMaterialInputChange = (field: string, value: string) => {
-    setNewMaterial(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  const handleMaterialInputChange = (field: string, value: string | File | null) => {
+  setNewMaterial(prev => ({ ...prev, [field]: value }));
+};
 
   // 创建新材料
-  const handleCreateMaterial = () => {
-    if (!newMaterial.name.trim()) {
-      // 显示错误提示
-      return;
+  const handleCreateMaterial = async () => {
+  //console.log('file =', newMaterial.file, newMaterial.file instanceof File);
+  const name = (newMaterial.name || '').trim();
+  const description = (newMaterial.description || '').trim();
+  const fileObj = newMaterial.file;
+
+  if (!name) {
+    alert(' Material  Name required');
+    return;
+  }
+  if (!selectedCourse?.id) {
+    alert('which course?');
+    return;
+  }
+  if (!fileObj) {
+    alert('choose your material!');
+    return;
+  }
+
+  try {
+    
+    const fileUrl = await apiService.uploadMaterialFile(fileObj, selectedCourse.id);
+
+    const courseId = String(selectedCourse.id);
+    const createRes = await apiService.adminCreateMaterial(courseId, {
+      title: name,
+      description,
+      url: fileUrl,
+    });
+
+    if (!createRes?.success) {
+      throw new Error(createRes?.message || '创建失败');
     }
 
-    // 🚨🚨🚨 MOCK DATA START - 创建材料 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：POST /api/courses/{courseId}/materials
-    // 📍 存储位置：localStorage (admin_course_materials_{courseId})
-    // ========================================================
-    const newMaterialItem = {
-      id: Date.now().toString(),
-      name: newMaterial.name.trim(),
-      description: newMaterial.description.trim(),
-      file: newMaterial.file,
-      createdAt: new Date().toISOString()
+    const newId = String(createRes.data?.id ?? `M_${Date.now()}`);
+    const adminId = localStorage.getItem('current_user_id') || '';
+
+    // 更新本地状态
+    const newItem = {
+      id: newId,
+      title: name,
+      description,
+      url: fileUrl,
     };
-
-    const updatedMaterials = [...materials, newMaterialItem];
+    const updatedMaterials = [...materials, newItem];
     setMaterials(updatedMaterials);
-    
-    if (selectedCourse) {
-      localStorage.setItem(`admin_course_materials_${selectedCourse.id}`, JSON.stringify(updatedMaterials));
+
+    //  同步 localStorage —— 单课
+    const perCourseKey = `admin:${adminId}:course_materials_${courseId}`;
+    localStorage.setItem(perCourseKey, JSON.stringify(updatedMaterials));
+
+    // 同步 localStorage —— 汇总（Record<courseId, Material[]>）
+    const allKey = `admin:${adminId}:materials`;
+    let allMap: Record<string, any[]> = {};
+    try {
+      allMap = JSON.parse(localStorage.getItem(allKey) || '{}');
+    } catch {
+      allMap = {};
     }
-    // 🚨🚨🚨 MOCK DATA END - 创建材料 🚨🚨🚨
-    
-    // 关闭弹窗
-    handleCloseMaterialModal();
-  };
+    allMap[courseId] = updatedMaterials;
+    localStorage.setItem(allKey, JSON.stringify(allMap));
+
+    //  复位 & 关闭
+    setNewMaterial({ name: '', description: '', file: null });
+    setMaterialModalOpen(false);
+    alert('Succeed!');
+  } catch (err: any) {
+    console.error('[handleCreateMaterial] failed:', err);
+    alert(err?.message || 'Fail!');
+  }
+};
 
   // 编辑材料
   const handleEditMaterial = (material: any) => {
-    setEditingMaterial(material);
-    setNewMaterial({
-      name: material.name,
-      description: material.description,
-      file: material.file
-    });
-    setMaterialModalOpen(true);
-  };
+  setEditingMaterial(material);
+  setNewMaterial({
+    name: material.title ?? '',          
+    description: material.description ?? '',
+    file: null,                         
+  });
+  setMaterialModalOpen(true);
+};
 
   // 更新材料
-  const handleUpdateMaterial = () => {
-    if (!newMaterial.name.trim()) {
-      // 显示错误提示
-      return;
+  const handleUpdateMaterial = async () => {
+  const name = (newMaterial.name || '').trim();
+  const description = (newMaterial.description || '').trim();
+  const fileObj = newMaterial.file; // File | null
+
+  if (!name || !editingMaterial?.id || !selectedCourse?.id) {
+    alert('fail!');
+    return;
+  }
+
+  const courseId = String(selectedCourse.id);
+  const adminId = localStorage.getItem('current_user_id') || '';
+
+  try {
+    // 1) 如果用户上传了新文件：先上传拿到新 URL；若没上传则保留旧 URL
+    let finalUrl: string = editingMaterial.url || '';
+    if (fileObj instanceof File) {
+      // 上传文件时把课程 id 一起传，后端会存到 material/<courseId>/ 下
+      finalUrl = await apiService.uploadMaterialFile(fileObj, courseId);
     }
 
-    // 🚨🚨🚨 MOCK DATA START - 更新材料 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：PUT /api/courses/{courseId}/materials/{materialId}
-    // 📍 存储位置：localStorage (admin_course_materials_{courseId})
-    // ========================================================
-    const updatedMaterials = materials.map(material => 
-      material.id === editingMaterial.id 
-        ? { ...material, ...newMaterial }
-        : material
+    // 2) 调用后端更新数据库（title/description，若换文件则同时更新 url）
+    await apiService.adminUpdateMaterial(courseId, editingMaterial.id, {
+      title: name,
+      description,
+      url: finalUrl, // 即使未更换文件也传原来的 url（后端幂等更新）
+    });
+
+    // 3) 刷新内存状态
+    const updatedMaterials = materials.map((m) =>
+      m.id === editingMaterial.id
+        ? { ...m, title: name, description, url: finalUrl }
+        : m
     );
     setMaterials(updatedMaterials);
-    
-    if (selectedCourse) {
-      localStorage.setItem(`admin_course_materials_${selectedCourse.id}`, JSON.stringify(updatedMaterials));
+
+    // 4) 同步 localStorage —— 单课
+    const perCourseKey = `admin:${adminId}:course_materials_${courseId}`;
+    localStorage.setItem(perCourseKey, JSON.stringify(updatedMaterials));
+
+    // 5) 同步 localStorage —— 汇总（Record<courseId, Material[]>）
+    const allKey = `admin:${adminId}:materials`;
+    let allMap: Record<string, any[]> = {};
+    try {
+      allMap = JSON.parse(localStorage.getItem(allKey) || '{}');
+    } catch {
+      allMap = {};
     }
-    // 🚨🚨🚨 MOCK DATA END - 更新材料 🚨🚨🚨
-    
-    // 关闭弹窗
+    allMap[courseId] = updatedMaterials;
+    localStorage.setItem(allKey, JSON.stringify(allMap));
+
+    // 6) 关闭并复位
     handleCloseMaterialModal();
-  };
+    setEditingMaterial(null);
+  } catch (err: any) {
+    console.error('[handleUpdateMaterial] failed:', err);
+    alert(err?.message || 'fail!');
+  }
+};
 
   // 删除材料
   const handleDeleteMaterial = (materialId: string) => {
@@ -413,26 +627,42 @@ export function AdminManageCourse() {
   };
 
   // 确认删除材料
-  const handleConfirmDeleteMaterial = () => {
-    if (!deleteMaterialId) return;
+  const handleConfirmDeleteMaterial = async () => {
+  if (!deleteMaterialId || !selectedCourse?.id) return;
 
-    // 🚨🚨🚨 MOCK DATA START - 删除材料 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：DELETE /api/courses/{courseId}/materials/{materialId}
-    // 📍 存储位置：localStorage (admin_course_materials_{courseId})
-    // ========================================================
-    const updatedMaterials = materials.filter(material => material.id !== deleteMaterialId);
+  const courseId = String(selectedCourse.id);
+  const adminId = localStorage.getItem('current_user_id') || '';
+
+  try {
+    // 1) 先请求后端删除
+    await apiService.adminDeleteMaterial(courseId, deleteMaterialId);
+
+    // 2) 本地内存状态移除
+    const updatedMaterials = materials.filter(m => m.id !== deleteMaterialId);
     setMaterials(updatedMaterials);
-    
-    if (selectedCourse) {
-      localStorage.setItem(`admin_course_materials_${selectedCourse.id}`, JSON.stringify(updatedMaterials));
+
+    // 3) 同步 localStorage —— 单课
+    const perCourseKeyNew = `admin:${adminId}:course_materials_${courseId}`;
+    localStorage.setItem(perCourseKeyNew, JSON.stringify(updatedMaterials));
+
+    // 4) 同步 localStorage —— 汇总（Record<courseId, Material[]>）
+    const allKey = `admin:${adminId}:materials`;
+    let allMap: Record<string, any[]> = {};
+    try {
+      allMap = JSON.parse(localStorage.getItem(allKey) || '{}');
+    } catch {
+      allMap = {};
     }
-    // 🚨🚨🚨 MOCK DATA END - 删除材料 🚨🚨🚨
-    
+    allMap[courseId] = updatedMaterials;
+    localStorage.setItem(allKey, JSON.stringify(allMap));
+
+    // 5) 关闭确认
     setDeleteMaterialId(null);
-  };
+  } catch (err: any) {
+    console.error('[handleConfirmDeleteMaterial] failed:', err);
+    alert(err?.message || 'fail!');
+  }
+};
 
   // 根据是否在编辑模式决定提交函数
   const handleMaterialSubmit = editingMaterial ? handleUpdateMaterial : handleCreateMaterial;
@@ -441,7 +671,7 @@ export function AdminManageCourse() {
   const handleAddQuestion = () => {
     setEditingQuestion(null);
     setNewQuestion({
-      type: 'multiple-choice',
+      type: 'multiple-choice',   
       title: '',
       description: '',
       keywords: '',
@@ -454,19 +684,19 @@ export function AdminManageCourse() {
   };
 
   const handleCloseQuestionModal = () => {
-    setQuestionModalOpen(false);
-    setEditingQuestion(null);
-    setNewQuestion({
-      type: 'multiple-choice',
-      title: '',
-      description: '',
-      keywords: '',
-      questionText: '',
-      options: ['', '', '', ''],
-      correctAnswer: '',
-      answer: ''
-    });
-  };
+  setQuestionModalOpen(false);
+  setEditingQuestion(null);
+  setNewQuestion((prev) => ({
+    ...prev,                   
+    title: '',
+    description: '',
+    keywords: '',
+    questionText: '',
+    options: ['', '', '', ''],
+    correctAnswer: '',
+    answer: ''
+  }));
+};
 
   const handleQuestionInputChange = (field: string, value: any) => {
     setNewQuestion(prev => ({
@@ -483,74 +713,384 @@ export function AdminManageCourse() {
       options: newOptions
     }));
   };
+//创建题目
+  const handleCreateQuestion = async () => {
+  if (!newQuestion.title.trim() || !newQuestion.questionText.trim()) {
+    alert('Please fill in both title and question text.');
+    return;
+  }
+  if (!selectedCourse) {
+    alert('No course selected.');
+    return;
+  }
 
-  const handleCreateQuestion = () => {
-    if (!newQuestion.title.trim() || !newQuestion.questionText.trim()) {
+  const adminId = localStorage.getItem('current_user_id') || '';
+  const courseId = selectedCourse.id;
+
+  // 1) 先构造本地“临时题目”，立即更新 UI
+  const tempId = `q_${Date.now()}`;
+  const newQuestionItem = {
+    id: tempId,
+    type: newQuestion.type,
+    title: newQuestion.title,
+    description: newQuestion.description,
+    keywords: newQuestion.keywords,
+    questionText: newQuestion.questionText,
+    options: newQuestion.type === 'multiple-choice' ? newQuestion.options : [],
+    correctAnswer:
+      newQuestion.type === 'multiple-choice'
+        ? newQuestion.correctAnswer
+        : newQuestion.answer,
+    createdAt: new Date().toISOString(),
+  };
+
+  const optimistic = [...questions, newQuestionItem];
+  setQuestions(optimistic);
+  if (adminId) {
+    const courseKey = `admin:${adminId}:course_questions_${courseId}`;
+    const globalKey = `admin:${adminId}:questions`;
+
+  // 更新当前课程缓存
+  localStorage.setItem(courseKey, JSON.stringify(optimistic));
+
+  //  更新全局 questions 索引
+  try {
+    const allStr = localStorage.getItem(globalKey);
+    const all = allStr ? JSON.parse(allStr) : {};
+
+    // 确保是对象
+    if (typeof all !== 'object' || Array.isArray(all)) {
+      console.warn('[fix localStorage] resetting invalid global structure');
+      localStorage.setItem(globalKey, JSON.stringify({ [courseId]: optimistic }));
+    } else {
+      all[courseId] = optimistic;
+      localStorage.setItem(globalKey, JSON.stringify(all));
+    }
+  } catch (err) {
+    console.error('[localStorage] parse failed', err);
+    localStorage.setItem(globalKey, JSON.stringify({ [courseId]: optimistic }));
+  }
+  }
+
+  // 2) 组装后端 payload
+  const labels = ['A', 'B', 'C', 'D'] as const;
+  const keywordsArr = newQuestion.keywords
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const payload: Omit<ApiQuestion, 'id'> =
+  newQuestion.type === 'multiple-choice'
+    ? {
+        qtype: 'mcq',
+        title: newQuestion.title,
+        description: newQuestion.description || '',
+        text: newQuestion.questionText,
+        keywords: keywordsArr,
+        choices: (newQuestion.options || []).map((content, idx) => ({
+          label: labels[idx],
+          order: idx,
+          content,
+          isCorrect: labels[idx] === newQuestion.correctAnswer,  
+        })),
+      }
+    : {
+        qtype: 'short',
+        title: newQuestion.title,
+        description: newQuestion.description || '',
+        text: newQuestion.questionText,
+        keywords: keywordsArr,
+        answer: newQuestion.answer,
+      };
+
+  // 3) 调后端创建；成功后用真实 id 替换临时 id；失败则回滚本地
+  try {
+   
+    const res = await apiService.adminCreateCourseQuestion(courseId, payload) ; // { id }
+    console.log("[create question] response =", res);
+    const realId = String(res.id);
+
+    const withRealId = optimistic.map(q =>
+      q.id === tempId ? { ...q, id: realId } : q
+    );
+    setQuestions(withRealId);
+    if (adminId) {
+      localStorage.setItem(
+        `admin:${adminId}:course_questions_${courseId}`,
+        JSON.stringify(withRealId)
+      );
+    }
+    handleCloseQuestionModal();
+  } catch (err) {
+    console.error('[create question] failed:', err);
+    // 回滚：移除刚才插入的临时题目
+    const rolledBack = questions; // 原始列表
+    setQuestions(rolledBack);
+    if (adminId) {
+      localStorage.setItem(
+        `admin:${adminId}:course_questions_${courseId}`,
+        JSON.stringify(rolledBack)
+      );
+    }
+    alert('Create question failed.');
+  } finally {
+  }
+};
+
+ // 编辑题目
+  const handleEditQuestion = (q: any) => {
+  if (!q) return;
+
+  // 你在 handleCreateQuestion 里也用到了这套 labels，保持一致
+  const labels = ['A', 'B', 'C', 'D'] as const;
+
+  // 1) 题型归一化：前端是 'multiple-choice' | 'short-answer'；后端是 'mcq' | 'short'
+  const type: 'multiple-choice' | 'short-answer' =
+    q.type
+      ? q.type
+      : (q.qtype === 'mcq' ? 'multiple-choice' : 'short-answer');
+
+  // 2) 文本字段兜底
+  const title = q.title ?? '';
+  const description = q.description ?? '';
+  const questionText = q.questionText ?? q.text ?? '';
+
+  // 3) keywords 统一成「逗号分隔字符串」
+  let keywords = '';
+  if (Array.isArray(q.keywords)) {
+    keywords = q.keywords.filter(Boolean).join(', ');
+  } else if (typeof q.keywords === 'string') {
+    keywords = q.keywords;
+  } else {
+    keywords = '';
+  }
+
+  // 4) options / correctAnswer / answer 归一化
+  let options: string[] = ['', '', '', ''];
+  let correctAnswer: string = '';
+  let answer: string = '';
+
+  if (type === 'multiple-choice') {
+    // options 既可能是 string[]（你本地的），也可能是后端的 choices[{content,isCorrect}]
+    if (Array.isArray(q.options)) {
+      options = q.options.map((x: any) => String(x ?? '')).slice(0, 4);
+    } else if (Array.isArray(q.choices)) {
+      options = q.choices.map((c: any) => String(c?.content ?? '')).slice(0, 4);
+      // 从后端结构推断正确选项
+      const idx = q.choices.findIndex((c: any) => c?.isCorrect === true);
+      if (idx >= 0 && idx < labels.length) {
+        correctAnswer = labels[idx];
+      }
+    }
+
+    // 如果源里已经有 correctAnswer（你乐观写入过），直接兜底覆盖
+    if (typeof q.correctAnswer === 'string' && labels.includes(q.correctAnswer)) {
+      correctAnswer = q.correctAnswer;
+    }
+
+    // 补齐到 4 个
+    while (options.length < 4) options.push('');
+  } else {
+    // 简答题：优先用 q.answer；没有就兜底 q.correctAnswer（你本地乐观结构会把简答放在 correctAnswer）
+    answer = (q.answer ?? q.correctAnswer ?? '') as string;
+  }
+
+  // 5) 写入编辑态 + 打开弹窗
+  setEditingQuestion(q);
+  setNewQuestion({
+    type,
+    title,
+    description,
+    keywords,
+    questionText,
+    options,
+    correctAnswer, // 仅 MCQ 用；简答题为空串即可
+    answer,        // 仅简答题用；MCQ 为空串即可
+  });
+  setQuestionModalOpen(true);
+};
+ // 然后更新题目
+  const handleUpdateQuestion = async () => {
+  if (!editingQuestion) return;                
+  if (!newQuestion.title.trim() || !newQuestion.questionText.trim()) {
+    alert('Please fill in both title and question text.');
+    return;
+  }
+  if (newQuestion.type === 'multiple-choice') {
+    if (!newQuestion.correctAnswer) { alert('Please select a correct option.'); return; }
+  } else {
+    if (!newQuestion.answer.trim()) { alert('Please input the short answer.'); return; }
+  }
+  if (!selectedCourse) {
+    alert('No course selected.');
+    return;
+  }
+
+  const courseId   = selectedCourse.id;
+  const questionId = String(editingQuestion.id);
+  const adminId = localStorage.getItem('current_user_id') || '';
+  const courseKey = `admin:${adminId}:course_questions_${courseId}`;
+  const globalKey = `admin:${adminId}:questions`;
+   
+
+ const updatedOne = {
+  ...editingQuestion,
+  type: newQuestion.type,
+  title: newQuestion.title,
+  description: newQuestion.description,
+  keywords: newQuestion.keywords,
+  questionText: newQuestion.questionText,
+  options: newQuestion.type === 'multiple-choice' ? newQuestion.options : [],
+  correctAnswer: newQuestion.type === 'multiple-choice' ? newQuestion.correctAnswer : '',
+  answer: newQuestion.type === 'short-answer' ? newQuestion.answer : '',
+  createdAt: new Date().toISOString(), // 你可改成 updatedAt 或直接去掉
+};
+
+// 2️⃣ 做乐观更新（更新前端显示和 localStorage）
+const prevQuestions = questions; // 用于失败回滚
+const optimistic = questions.map(q =>
+  String(q.id) === questionId ? updatedOne : q
+);
+setQuestions(optimistic);
+
+// 3️⃣ 写入当前课程缓存
+if (adminId) {
+  try {
+    localStorage.setItem(courseKey, JSON.stringify(optimistic));
+  } catch (e) {
+    console.warn('[localStorage] failed to write courseKey', e);
+  }
+
+  // 4️⃣ 更新全局 questions 索引
+  try {
+    const allStr = localStorage.getItem(globalKey);
+    const all = allStr ? JSON.parse(allStr) : {};
+
+    if (typeof all !== 'object' || Array.isArray(all)) {
+      console.warn('[fix localStorage] resetting invalid global structure');
+      localStorage.setItem(globalKey, JSON.stringify({ [courseId]: optimistic }));
+    } else {
+      all[courseId] = optimistic;
+      localStorage.setItem(globalKey, JSON.stringify(all));
+    }
+  } catch (err) {
+    console.error('[localStorage] parse failed', err);
+    try {
+      localStorage.setItem(globalKey, JSON.stringify({ [courseId]: optimistic }));
+    } catch {}
+  }
+}
+  
+  //这里跟create一样
+  const labels = ['A', 'B', 'C', 'D'] as const;
+  const keywordsArr = (newQuestion.keywords || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const payload: Omit<ApiQuestion, 'id'> =
+    newQuestion.type === 'multiple-choice'
+      ? {
+          qtype: 'mcq',
+          title: newQuestion.title,
+          description: newQuestion.description || '',
+          text: newQuestion.questionText,
+          keywords: keywordsArr,
+          choices: (newQuestion.options || []).map((content, idx) => ({
+            label: labels[idx],
+            order: idx,
+            content,
+            isCorrect: labels[idx] === newQuestion.correctAnswer,
+          })),
+        }
+      : {
+          qtype: 'short',
+          title: newQuestion.title,
+          description: newQuestion.description || '',
+          text: newQuestion.questionText,
+          keywords: keywordsArr,
+          answer: newQuestion.answer,
+        };
+
+  try {
+    console.log('[update payload]', payload);
+
+  // 这里接住返回值
+    const res = await apiService.adminUpdateCourseQuestion(courseId, questionId, payload);
+    console.log('[update response]', res);
+    if (!res || res.success === false) {
+
+    throw new Error(res?.message || 'Update failed');
+  }
+    setQuestions(prev =>
+      prev.map(q =>
+        String(q.id) === questionId
+          ? {
+              ...q,
+              type: newQuestion.type,
+              title: newQuestion.title,
+              description: newQuestion.description,
+              keywords: newQuestion.keywords,
+              questionText: newQuestion.questionText,
+              options: newQuestion.type === 'multiple-choice' ? [...(newQuestion.options || [])] : [],
+              correctAnswer: newQuestion.type === 'multiple-choice' ? newQuestion.correctAnswer : '',
+              // 如果你列表里也显示简答，可加：answer: newQuestion.type==='short-answer'?newQuestion.answer:''
+              updatedAt: new Date().toISOString(),
+            }
+          : q
+      )
+    );
+
+    // 成功后收尾
+    handleCloseQuestionModal();
+  } catch (err) {
+    console.error('[update question] failed:', err);
+    alert('Update question failed.');
+  }
+};
+
+  // 删除题目
+  const handleDeleteQuestion = async (questionId: number | string) => {
+  if (!selectedCourse) return alert('No course selected.');
+  if (!window.confirm('Are you sure you want to delete this question?')) return;
+
+  const courseId = selectedCourse.id;
+  const adminId = localStorage.getItem('current_user_id') || '';
+
+  try {
+    //  调后端删除
+    const res = await apiService.adminDeleteCourseQuestion(courseId, String(questionId));
+    if (!res.success) {
+      alert(res.message || 'Delete failed.');
       return;
     }
 
-    // 🚨🚨🚨 MOCK DATA START - 创建题目 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：POST /api/courses/{courseId}/questions
-    // 📍 存储位置：localStorage (admin_course_questions_{courseId})
-    // ========================================================
-    const newQuestionItem = {
-      id: `q_${Date.now()}`,
-      type: newQuestion.type,
-      title: newQuestion.title,
-      description: newQuestion.description,
-      keywords: newQuestion.keywords,
-      questionText: newQuestion.questionText,
-      options: newQuestion.type === 'multiple-choice' ? newQuestion.options : [],
-      correctAnswer: newQuestion.type === 'multiple-choice' ? newQuestion.correctAnswer : newQuestion.answer,
-      createdAt: new Date().toISOString()
-    };
+    // 前端内存更新
+    const updated = questions.filter(q => String(q.id) !== String(questionId));
+    setQuestions(updated);
 
-    const updatedQuestions = [...questions, newQuestionItem];
-    setQuestions(updatedQuestions);
-    
-    if (selectedCourse) {
-      localStorage.setItem(`admin_course_questions_${selectedCourse.id}`, JSON.stringify(updatedQuestions));
+    //  同步到 localStorage
+    const courseKey = `admin:${adminId}:course_questions_${courseId}`;
+    const globalKey = `admin:${adminId}:questions`;
+
+    localStorage.setItem(courseKey, JSON.stringify(updated));
+
+    try {
+      const allStr = localStorage.getItem(globalKey);
+      const all = allStr ? JSON.parse(allStr) : {};
+      if (typeof all === 'object' && !Array.isArray(all)) {
+        all[courseId] = updated;
+        localStorage.setItem(globalKey, JSON.stringify(all));
+      }
+    } catch {
+      localStorage.setItem(globalKey, JSON.stringify({ [courseId]: updated }));
     }
-    // 🚨🚨🚨 MOCK DATA END - 创建题目 🚨🚨🚨
-    
-    handleCloseQuestionModal();
-  };
 
-  // 编辑题目
-  const handleEditQuestion = (question: any) => {
-    setEditingQuestion(question);
-    setNewQuestion({
-      type: question.type,
-      title: question.title,
-      description: question.description,
-      keywords: question.keywords,
-      questionText: question.questionText,
-      options: question.options || ['', '', '', ''],
-      correctAnswer: question.correctAnswer,
-      answer: question.type === 'short-answer' ? question.correctAnswer : ''
-    });
-    setQuestionModalOpen(true);
-  };
-
-  // 删除题目
-  const handleDeleteQuestion = (questionId: string) => {
-    // 🚨🚨🚨 MOCK DATA START - 删除题目 🚨🚨🚨
-    // ========================================================
-    // 📍 注意：这是模拟数据，使用localStorage存储
-    // 📍 后端开发时请替换为真实API调用
-    // 📍 API端点：DELETE /api/courses/{courseId}/questions/{questionId}
-    // 📍 存储位置：localStorage (admin_course_questions_{courseId})
-    // ========================================================
-    const updatedQuestions = questions.filter(question => question.id !== questionId);
-    setQuestions(updatedQuestions);
-    
-    if (selectedCourse) {
-      localStorage.setItem(`admin_course_questions_${selectedCourse.id}`, JSON.stringify(updatedQuestions));
-    }
-    // 🚨🚨🚨 MOCK DATA END - 删除题目 🚨🚨🚨
+    alert('Question deleted successfully.');
+  } catch (err) {
+    console.error('[delete question] failed:', err);
+    alert('Failed to delete question.');
+  }
   };
 
   // 获取课程图片索引 - 使用课程创建时保存的索引
@@ -886,6 +1426,7 @@ export function AdminManageCourse() {
                     type="date"
                     className="task-input"
                     value={newTask.deadline}
+                    min={new Date().toISOString().slice(0, 10)} 
                     onChange={(e) => handleTaskInputChange('deadline', e.target.value)}
                     lang="en-US"
                     title="Select deadline date (YYYY-MM-DD format)"
@@ -915,15 +1456,61 @@ export function AdminManageCourse() {
 
               {/* Attach Detail Doc */}
               <div className="task-input-group">
-                <label className="task-label">Attach Detail Doc</label>
-                <div className="file-upload-area">
-                  <div className="file-upload-icon">📎</div>
-                  <span className="file-upload-text">Upload Files</span>
-                  <input
-                    type="file"
-                    className="file-input"
-                    onChange={(e) => handleTaskInputChange('attachment', e.target.files?.[0]?.name || '')}
-                  />
+              <label className="task-label">Attach Detail Doc</label>
+              <div className="file-upload-area">
+                <div className="file-upload-icon">📎</div>
+                <span className="file-upload-text">Upload Files</span>
+                <input
+                        key={fileInputKey}    
+                        type="file"
+                        className="file-input"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0] || null;
+                          handleTaskInputChange('attachment', file); // 存 File 对象
+
+                          if (!file || !selectedCourse){
+                            setUploadStatus('idle');
+                            setUploadedUrl(null);
+                            setUploadError(null);
+                            return;  // 没选文件或没选课程直接返回
+                          }
+
+                          try {
+                            setUploadStatus('uploading');  // 上传中
+                            setUploadError(null);
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            fd.append('course', selectedCourse.id);
+
+                           
+                            const token = localStorage.getItem('auth_token') || '';
+
+                            const res = await fetch('/api/courses_admin/upload/task-file', {
+                              method: 'POST',
+                              headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              body: fd,
+                            }).then(r => r.json());
+
+                            if (!res?.success) {
+                              setUploadStatus('error');
+                              setUploadError(res?.message || 'fail!');
+                              setUploadedUrl(null);
+                              return;
+                            }
+
+                            // 上传成功
+                            setUploadedUrl(res.data.url as string);   // 存入 /task/... 路径
+                            setUploadStatus('done');
+                          } catch (err: any) {
+                            setUploadStatus('error');
+                            setUploadError(err?.message || 'error!');
+                            setUploadedUrl(null);
+                          }
+                        }}
+                      />
+                      {uploadStatus === 'uploading' && <div className="hint">Uploading...</div>}
+                      {uploadStatus === 'done' && <div className="hint ok">Done✓</div>}
+                      {uploadStatus === 'error' && <div className="hint err">{uploadError || 'fail!'}</div>}
                 </div>
               </div>
             </div>
@@ -991,15 +1578,68 @@ export function AdminManageCourse() {
 
               {/* Upload File */}
               <div className="material-input-group">
-                <label className="material-label">Upload File：</label>
+                <label className="material-label">Upload File:</label>
                 <div className="material-file-upload-area">
                   <div className="material-file-upload-icon">📎</div>
                   <span className="material-file-upload-text">Upload Files</span>
                   <input
-                    type="file"
-                    className="material-file-input"
-                    onChange={(e) => handleMaterialInputChange('file', e.target.files?.[0]?.name || '')}
-                  />
+                      key={fileInputKey}
+                      type="file"
+                      className="material-file-input"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0] || null;
+
+                      
+                        handleMaterialInputChange('file', file);
+
+                        
+                        if (!file || !selectedCourse) {
+                          setUploadStatus('idle');
+                          setUploadedUrl(null);
+                          setUploadError(null);
+                          return;
+                        }
+
+                        try {
+                          setUploadStatus('uploading');
+                          setUploadError(null);
+
+                          const fd = new FormData();
+                          fd.append('file', file);                      // 字段名必须是 file
+                          fd.append('course', String(selectedCourse.id)); // 用课程ID分目录
+
+                          const token = localStorage.getItem('auth_token') || '';
+
+                          const resp = await fetch('/api/courses_admin/upload/material-file', {
+                            method: 'POST',
+                            headers: token ? { Authorization: `Bearer ${token}` } : {},
+                            body: fd,
+                          });
+
+                          const res = await resp.json().catch(() => ({}));
+
+                          if (!resp.ok || !res?.success || !res?.data?.url) {
+                            setUploadStatus('error');
+                            setUploadError(res?.message || `HTTP ${resp.status}`);
+                            setUploadedUrl(null);
+                            return;
+                          }
+
+                          // 上传成功：拿到 /material/<courseId>/<filename>
+                          setUploadedUrl(res.data.url as string);
+                          setUploadStatus('done');
+                        } catch (err: any) {
+                          setUploadStatus('error');
+                          setUploadError(err?.message || 'Upload failed');
+                          setUploadedUrl(null);
+                        }
+                      }}
+                    />
+
+
+                    {uploadStatus === 'uploading' && <div className="hint">Uploading...</div>}
+                    {uploadStatus === 'done' && <div className="hint ok">Done✓</div>}
+                    {uploadStatus === 'error' && <div className="hint err">{uploadError || 'fail!'}</div>}
                 </div>
               </div>
             </div>
@@ -1152,25 +1792,27 @@ export function AdminManageCourse() {
                   
                   {/* 正确答案选择 */}
                   <div className="question-input-group">
-                    <label className="question-label">Correct Answer:</label>
-                    <select
-                      className="question-input"
-                      value={newQuestion.correctAnswer}
-                      onChange={(e) => handleQuestionInputChange('correctAnswer', e.target.value)}
-                    >
-                      <option value="">Select correct option</option>
-                      {newQuestion.options.map((option, index) => (
-                        option.trim() && (
-                          <option key={index} value={index}>
-                            {String.fromCharCode(65 + index)}: {option}
-                          </option>
-                        )
-                      ))}
-                    </select>
-                    {!newQuestion.correctAnswer && (
-                      <span className="question-error">Please select the correct answer</span>
-                    )}
-                  </div>
+                      <label className="question-label">Correct Answer:</label>
+                      <select
+                        className="question-input"
+                        value={newQuestion.correctAnswer}
+                        onChange={(e) => handleQuestionInputChange('correctAnswer', e.target.value)}
+                      >
+                        <option value="">Select correct option</option>
+                        {newQuestion.options.map((option, index) => (
+                          option.trim() && (
+                            <option key={index} value={String.fromCharCode(65 + index)}>
+                              {String.fromCharCode(65 + index)}: {option}
+                            </option>
+                          )
+                        ))}
+                      </select>
+
+                      {!newQuestion.correctAnswer && (
+                        <span className="question-error">Please select the correct answer</span>
+                      )}
+                    </div>
+
                 </div>
               )}
 
@@ -1195,7 +1837,13 @@ export function AdminManageCourse() {
             <div className="question-modal-footer">
               <button 
                 className="question-create-btn" 
-                onClick={handleCreateQuestion}
+                onClick={() => {
+                  if (editingQuestion) {
+                    handleUpdateQuestion();   
+                  } else {
+                    handleCreateQuestion();  
+                  }
+                }}
                 disabled={!newQuestion.title.trim() || !newQuestion.questionText.trim() || 
                   (newQuestion.type === 'multiple-choice' && !newQuestion.correctAnswer) ||
                   (newQuestion.type === 'short-answer' && !newQuestion.answer.trim())}

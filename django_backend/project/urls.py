@@ -38,3 +38,6 @@ if settings.DEBUG:
     # 映射task 可选：兼容前端拼了 /api/task/ 的情况
     urlpatterns += static(settings.TASK_URL, document_root=settings.TASK_ROOT)
     urlpatterns += static('/api/task/', document_root=settings.TASK_ROOT)
+    urlpatterns += static(settings.MAT_URL, document_root=settings.MAT_ROOT)
+    # 可选：兼容前端带 /api 前缀的情况
+    urlpatterns += static('/api/material/', document_root=settings.MAT_ROOT)

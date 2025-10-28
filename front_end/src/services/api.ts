@@ -26,7 +26,38 @@ export interface ApiTask {
   brief?: string;
   percentContribution?: number;
 }
-
+export interface CreateTaskPayload {
+  title: string;
+  deadline: string;                  
+  brief?: string;
+  percent_contribution: number;     
+  url?: string | null;                
+}
+export interface ApiMaterial {
+  id: number | string;
+  course_code: string;
+  title: string;
+  url: string;
+  description?: string;
+}
+export interface ApiQuestionChoice {
+  label?: string | null;
+  order: number;
+  content: string;
+  isCorrect: boolean;
+}
+export interface ApiQuestion {
+  id?: number | string;
+  qtype: 'mcq' | 'short';
+  title: string;
+  description: string;
+  text: string;
+  keywords: string[];
+  // mcq
+  choices?: ApiQuestionChoice[];
+  // short
+  answer?: string;
+}
 export interface ApiPreferences {
   dailyHours: number;
   weeklyStudyDays: number;
@@ -291,7 +322,7 @@ async logout_adm(): Promise<void> {
   }
 
       
-  async adminGetMyCourses(): Promise<ApiCourse[]> {
+async adminGetMyCourses(): Promise<ApiCourse[]> {
     const adminId = localStorage.getItem('current_user_id');
     if (!adminId) {
       console.warn('[adminGetMyCourses] no admin_id found');
@@ -304,8 +335,8 @@ async logout_adm(): Promise<void> {
     return res.data ?? [];
 
   }
-
-  async adminDeleteCourse(code: string) {
+//这个删除函数要改，不完善
+async adminDeleteCourse(code: string) {
   const adminId = localStorage.getItem('current_user_id') || '';
   const form = new FormData();
   form.append('admin_id', adminId);
@@ -317,13 +348,184 @@ async logout_adm(): Promise<void> {
   });
 }
 
+async adminGetCourseTasks(courseId: string): Promise<ApiTask[]> {
+  const res = await this.request<ApiTask[]>(`/courses_admin/${courseId}/tasks`);
+  return res.data ?? [];
+}
 
+async adminCreateTask(
+  courseId: string,
+  payload: Omit<ApiTask, 'id'> & { url?: string | null; percent_contribution?: number }
+) {
+  return this.request<{ id: number }>(
+    `/courses_admin/${encodeURIComponent(courseId)}/tasks/create`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+async adminDeleteTask(
+  courseId: string,
+  taskId: string | number,
+  opts?: { delete_file?: boolean; method?: 'POST' | 'DELETE' }
+) {
+  const q = opts?.delete_file ? '?delete_file=1' : '';
+  const method = opts?.method || 'POST'; 
+  return this.request<{}>(
+    `/courses_admin/${encodeURIComponent(courseId)}/tasks/${encodeURIComponent(String(taskId))}/delete${q}`,
+    { method }
+  );
+}
+
+async adminEditTask(
+  courseId: string,
+  taskId: string | number,
+  payload: any,
+  opts?: { delete_old_file?: boolean; method?: 'PUT' | 'POST' }
+) {
+  const q = opts?.delete_old_file ? '?delete_old_file=1' : '';
+  const method = opts?.method || 'PUT';
+  return this.request<{}>(
+    `/courses_admin/${encodeURIComponent(courseId)}/tasks/${encodeURIComponent(String(taskId))}${q}`,
+    {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+async adminGetCourseMaterials(courseId: string): Promise<ApiMaterial[]> {
+  const res = await this.request<ApiMaterial[]>(`/courses_admin/${courseId}/materials`);
+  return res.data ?? [];
+}
+
+async uploadMaterialFile(file: File, courseId: string) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('course', courseId); 
+  // token
+  let token = this.token || '';
+  try { token = token || localStorage.getItem('auth_token') || ''; } catch {}
+  // 发请求
+  const res = await fetch(`${API_BASE}/courses_admin/upload/material-file`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`fail!: HTTP ${res.status} ${text}`);
+  }
+
+  const json = await res.json();
+  // 预期返回 { success: true, data: { url: "..." } }
+  if (!json?.success || !json?.data?.url) {
+    throw new Error(json?.message || 'fail!');
+  }
+
+  // 返回文件可访问路径
+  return json.data.url as string;
+}
+async adminCreateMaterial(
+  courseId: string,
+  payload: { title: string; description?: string; url: string }
+) {
+  return this.request<{ id: number }>(
+    `/courses_admin/${encodeURIComponent(courseId)}/materials/create`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+async adminDeleteMaterial(courseId: string, materialId: string | number) {
+  return this.request<{}>(
+    `/courses_admin/${encodeURIComponent(courseId)}/materials/${encodeURIComponent(String(materialId))}/delete`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    }
+  );
+}
+async adminUpdateMaterial(
+  courseId: string,
+  materialId: string | number,
+  payload: { title: string; description?: string; url?: string }
+) {
+  return this.request<{}>(
+    `/courses_admin/${encodeURIComponent(courseId)}/materials/${encodeURIComponent(String(materialId))}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  );
+}
+async adminGetCourseQuestions(courseId: string): Promise<ApiQuestion[]> {
+  const res = await this.request<ApiQuestion[]>(`/courses_admin/${courseId}/questions`);
+  console.log(res)
+  return res.data ?? [];
+}
+async adminCreateCourseQuestion(courseId: string, payload: Omit<ApiQuestion,'id'>) {
+  // 映射到服务端字段
+  const serverBody =
+    payload.qtype === 'mcq'
+      ? {
+          course_code: courseId,
+          qtype: payload.qtype,
+          title: payload.title,
+          description: payload.description,
+          text: payload.text,
+          keywords: payload.keywords,
+          choices: (payload.choices || []).map(c => ({
+            label: c.label ?? null,
+            order: c.order,
+            content: c.content,
+            is_correct: c.isCorrect,     
+          })),
+        }
+      : {
+          course_code: courseId,
+          qtype: payload.qtype,
+          title: payload.title,
+          description: payload.description,
+          text: payload.text,
+          keywords: payload.keywords,
+          short_answer: payload.answer ?? '',
+        };
+
+  const res = await this.request<{ id: number }>(`/courses_admin/${courseId}/questions/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(serverBody),
+  });
+  console.log(res)
+  return res.data; // { id }
+}
+async adminUpdateCourseQuestion(courseId: string, questionId: string, payload: Omit<ApiQuestion,'id'>) {
+  return this.request<any>(`/courses_admin/${courseId}/questions/${questionId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+async adminDeleteCourseQuestion(courseId: string, questionId: string) {
+  return this.request<any>(`/courses_admin/${courseId}/questions/${questionId}/delete`, {
+    method: 'DELETE',
+  });
+}
 async adminCheckCourseExists(code: string) {
   return this.request<{ exists: boolean }>(`/course_exists?code=${encodeURIComponent(code)}`, {
     method: 'GET',
   });
 }
-
 async adminCreateCourse(payload: {
   code: string;
   title: string;
@@ -344,8 +546,6 @@ async adminCreateCourse(payload: {
     body: form,
   });
 }
-
-
   async getUserCourses(): Promise<ApiCourse[]> {
     const res = await this.request<ApiCourse[]>('/courses/my');
     return res.data ?? [];
@@ -364,13 +564,8 @@ async adminCreateCourse(payload: {
     });
   }
 
-  // 任务管理
-  async getCourseTasks(courseId: string): Promise<ApiTask[]> {
-
-    const res = await this.request<ApiTask[]>(`/courses/${courseId}/tasks`);
-    return res.data ?? [];
-  }
-
+  
+  
   async updateTaskProgress(taskId: string, progress: number): Promise<void> {
     await this.request<ApiResponse<void>>(`/tasks/${taskId}/progress`, {
       method: 'PUT',

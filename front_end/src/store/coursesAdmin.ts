@@ -45,6 +45,135 @@ class CourseAdminStore {
         this.loading = false;
   }
 }
+async getMyTasks(force = false) {
+  if (this.loading && !force) return;
+  this.loading = true;
+  try {
+    const adminId = localStorage.getItem('current_user_id');
+    if (!adminId) {
+      console.warn('[courseAdmin.getMyTasks] No admin_id found in localStorage');
+      return;
+    }
+
+    // 如果没有课程数据，先确保课程已经加载
+    if (!this.all || this.all.length === 0) {
+      await this.getMyCourses(true);  // 确保先取课程
+    }
+
+    const allTasks: Record<string, any[]> = {};
+
+    // 遍历每个课程
+    for (const course of this.all) {
+      try {
+        const tasks = await apiService.adminGetCourseTasks(course.id);
+        allTasks[course.id] = (tasks || []).map((t: any) => ({
+          id: String(t.id),
+          title: t.title ?? '',
+          deadline: t.deadline ?? '',
+          brief: t.brief ?? '',
+          percentContribution: t.percentContribution ?? 0,
+        }));
+
+        // 每门课单独缓存一份（方便单页面加载）
+        localStorage.setItem(
+          `admin:${adminId}:course_tasks_${course.id}`,
+          JSON.stringify(allTasks[course.id])
+        );
+      } catch (e) {
+        console.error(`[courseAdmin.getMyTasks] failed for course ${course.id}:`, e);
+      }
+    }
+
+    // 汇总缓存全部任务
+    localStorage.setItem(`admin:${adminId}:tasks`, JSON.stringify(allTasks));
+
+    console.log(`[courseAdmin.getMyTasks] All tasks saved for admin:${adminId}`);
+    this.notify();
+  } catch (err) {
+    console.error('[courseAdmin.getMyTasks] failed:', err);
+  } finally {
+    this.loading = false;
+  }
+}
+async getMyMaterials(force = false) {
+  if (this.loading && !force) return;
+  this.loading = true;
+  try {
+    const adminId = localStorage.getItem('current_user_id');
+    if (!adminId) return;
+
+    if (!this.all || this.all.length === 0) {
+      await this.getMyCourses(true); // 确保有课程列表
+    }
+
+    const allMaterials: Record<string, any[]> = {};
+
+    for (const course of this.all) {
+      const materials = await apiService.adminGetCourseMaterials(course.id);
+      allMaterials[course.id] = (materials || []).map(m => ({
+        id: String(m.id),
+        title: m.title ?? '',
+        url: m.url ?? '',
+        description: m.description ?? '',  
+      }));
+
+      // 单课缓存（带 adminId）
+      localStorage.setItem(
+        `admin:${adminId}:course_materials_${course.id}`,
+        JSON.stringify(allMaterials[course.id])
+      );
+    }
+
+    // 汇总缓存
+    localStorage.setItem(`admin:${adminId}:materials`, JSON.stringify(allMaterials));
+    this.notify();
+  } catch (err) {
+    console.error('[courseAdmin.getMyMaterials] failed:', err);
+  } finally {
+    this.loading = false;
+  }
+}
+async getMyQuestions(force = false) {
+  if (this.loading && !force) return;
+  this.loading = true;
+  try {
+    const adminId = localStorage.getItem('current_user_id');
+    if (!adminId) return;
+
+    if (!this.all || this.all.length === 0) {
+      await this.getMyCourses(true);
+    }
+
+    const allQuestions: Record<string, any[]> = {};
+
+    for (const course of this.all) {
+      const qs = await apiService.adminGetCourseQuestions(course.id);
+      
+      allQuestions[course.id] = (qs || []).map(q => ({
+        id: String(q.id),
+        qtype: q.qtype,
+        title: q.title ?? '',
+        description: q.description ?? '',
+        text: q.text ?? '',
+        keywords: Array.isArray(q.keywords) ? q.keywords : [],
+        choices: q.qtype === 'mcq' ? (q.choices || []) : undefined,
+        answer: q.qtype === 'short' ? (q.answer ?? '') : undefined,
+      }));
+
+      localStorage.setItem(
+        `admin:${adminId}:course_questions_${course.id}`,
+        JSON.stringify(allQuestions[course.id])
+      );
+    }
+
+    localStorage.setItem(`admin:${adminId}:questions`, JSON.stringify(allQuestions));
+    this.notify();
+  } catch (err) {
+    console.error('[courseAdmin.getMyQuestions] failed:', err);
+  } finally {
+    this.loading = false;
+  }
+}
 }
 
 export const courseAdmin = new CourseAdminStore();

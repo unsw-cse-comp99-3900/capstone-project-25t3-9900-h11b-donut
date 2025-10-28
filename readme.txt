@@ -101,5 +101,15 @@ update3:
 5.修改了读取preference的逻辑：只有登录进去后才会根据student_id从local storage中取出plan
 
 10.27：
-待解决：登录直接展示
+待解决：admin登录直接展示
 登录报错问题401/500
+
+10.28:
+1.确定改进思路：登录多等一会，等数据库数据取出来再进home页面
+2.能够上传，编辑，删除 task/material/question
+3.学生端能够看到task/material/question,并下载
+待解决：
+1.admin端删除课程的联级清楚数据库
+2.一些显示的小bug
+3.task/material表或许得重建主键,比如task编辑新的id，展示出来还是老id，因为编辑的id用不上。
+4.有关task的contribution，如何理解
