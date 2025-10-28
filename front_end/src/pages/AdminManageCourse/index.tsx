@@ -13,6 +13,25 @@ import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import { apiService, type ApiQuestion } from '../../services/api'
 
+function updateTaskStatsLocal(courseId: string, newTasks: any[]) {
+  const adminId = localStorage.getItem('current_user_id');
+  if (!adminId) return;
+
+  // 更新每门课程的任务数统计
+  const countsKey = `admin:${adminId}:tasks_counts_by_course`;
+  const countsByCourse = JSON.parse(localStorage.getItem(countsKey) || '{}');
+  countsByCourse[courseId] = newTasks.length;
+  localStorage.setItem(countsKey, JSON.stringify(countsByCourse));
+
+  // 更新总任务数
+  const total = Object.values(countsByCourse).reduce<number>(
+  (sum, n) => sum + Number(n || 0),
+  0
+);
+  localStorage.setItem(`admin:${adminId}:tasks_total_count`, String(total));
+
+  window.dispatchEvent(new Event('tasksUpdated'));
+}
 // 图片映射 - 循环使用4张图片
 const adminIllustrations = [
   illustrationAdmin,
@@ -262,7 +281,7 @@ export function AdminManageCourse() {
 
     const updated = [...tasks, taskForUI];
     setTasks(updated);
-
+    updateTaskStatsLocal(selectedCourse.id, updated);
     // 5) 双写 localStorage
     const adminId = localStorage.getItem('current_user_id') || '';
     localStorage.setItem(
@@ -332,7 +351,7 @@ export function AdminManageCourse() {
       title: newTask.title.trim(),
       deadline: newTask.deadline,
       brief: (newTask.brief ?? '').trim(),
-      percent_contribution: 100,   // 按你的约定固定为 100
+      percent_contribution: 100,   
     };
     if (uploadedUrl) {
       payload.url = uploadedUrl;   // 仅当用户换了附件才覆盖
@@ -415,7 +434,7 @@ export function AdminManageCourse() {
     // 2) 成功后再更新本地状态
     const updatedTasks = tasks.filter((t: any) => String(t.id) !== String(deleteTaskId));
     setTasks(updatedTasks);
-
+    updateTaskStatsLocal(selectedCourse.id, updatedTasks);
     // 3) 双写 localStorage
     const adminId = localStorage.getItem('current_user_id') || '';
 
@@ -441,16 +460,6 @@ export function AdminManageCourse() {
     alert(e?.message || 'Delete task error');
   }
 };
-
-
-  // 更新Home页面统计数据
-  const updateHomePageStats = (courseId: string, taskCount: number) => {
-    
-    const homeStats = JSON.parse(localStorage.getItem('admin_home_stats') || '{}');
-    homeStats[courseId] = taskCount;
-    localStorage.setItem('admin_home_stats', JSON.stringify(homeStats));
-    
-  };
 
   // 处理弹窗提交
   const handleTaskSubmit = editingTask ? handleUpdateTask : handleCreateTask;

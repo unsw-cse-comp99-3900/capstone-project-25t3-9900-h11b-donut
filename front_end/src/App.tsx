@@ -59,7 +59,7 @@ function App() {
 
   //  路由保护：受保护页但未登录 -> 跳转登录页
   if (isProtectedHash(hash) && !isAuthed()) {
-   
+    
     localStorage.removeItem('auth_token')
     localStorage.removeItem('login_time')
     localStorage.removeItem('current_user_id')
@@ -72,7 +72,7 @@ function App() {
   if (hash.startsWith('#/admin-home')) return <AdminHome />
   if (hash.startsWith('#/admin-courses')) return <AdminCourses />
   if (hash.startsWith('#/admin-manage-course')) return <AdminManageCourse />
-  if (hash.startsWith('#/admi-monitor')) return <AdminMonitor />
+  if (hash.startsWith('#/admin-monitor')) return <AdminMonitor />
   if (hash.startsWith('#/student-profile')) return <StudentProfile />
   if (hash.startsWith('#/student-home')) return <StudentHome />
   if (hash.startsWith('#/student-courses')) return <StudentCourses />

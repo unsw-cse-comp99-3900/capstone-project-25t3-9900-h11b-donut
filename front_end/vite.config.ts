@@ -17,7 +17,7 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/task': {
-        target: 'http://127.0.0.1:8000', // 或你的服务器内网地址
+        target: 'http://127.0.0.1:8000', // 
         changeOrigin: true,
       },
       '/material': {

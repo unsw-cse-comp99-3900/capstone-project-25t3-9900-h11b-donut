@@ -14,7 +14,7 @@ import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 
 import { courseAdmin } from '../../store/coursesAdmin';
-import { create } from 'zustand'
+
 
 // 图片映射 - 循环使用4张图片
 const adminIllustrations = [
@@ -81,12 +81,18 @@ export function AdminHome() {
     await courseAdmin.getMyMaterials();   // 再拉材料
     await courseAdmin.getMyQuestions();   // 再拉question
   })();
+  
     // 监听localStorage变化来更新课程数据
     const handleStorageChange = () => {
       try {
-        const saved = localStorage.getItem('admin_created_courses');
+        const adminId = localStorage.getItem('current_user_id');
+        if (!adminId) return;
+
+        const saved = localStorage.getItem(`admin:${adminId}:courses`);
         if (saved) {
           setCreatedCourses(JSON.parse(saved));
+        } else {
+          setCreatedCourses([]);
         }
       } catch {
         setCreatedCourses([]);
@@ -103,16 +109,23 @@ export function AdminHome() {
     (sum, c) => sum + (c.studentCount ?? 0),
     0
   );
-    //待改进
+
+
     let totalTasks = 0;
-    createdCourses.forEach(course => {
-      const savedTasks = localStorage.getItem(`admin_course_tasks_${course.id}`);
-      if (savedTasks) {
-        const tasks = JSON.parse(savedTasks);
-        totalTasks += tasks.length;
-      }
-    });
-    
+    const adminId = localStorage.getItem('current_user_id');
+    // 直接读取总任务数
+    const savedTotal = localStorage.getItem(`admin:${adminId}:tasks_total_count`);
+    if (savedTotal) {
+      totalTasks = Number(savedTotal);
+    } else {
+      const countsByCourse = JSON.parse(
+        localStorage.getItem(`admin:${adminId}:tasks_counts_by_course`) || '{}'
+      );
+      totalTasks = Object.values(countsByCourse).reduce(
+        (sum: number, n: any) => sum + Number(n),
+        0
+      );
+    }
     setStats({
       totalCourses: totalCreatedCourses,
       totalStudents: totalStudents,

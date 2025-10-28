@@ -178,10 +178,7 @@ def delete_course(request):
         return JsonResponse({"success": False, "message": f"删除失败：{e}"}, status=500)
 @csrf_exempt
 def course_tasks(request, course_id):
-    """
-    返回指定课程(course_id)下的所有任务
-    URL: /api/courses_admin/<course_id>/tasks
-    """
+    
     if request.method != "GET":
         return JsonResponse({"error": "GET method required"}, status=405)
 

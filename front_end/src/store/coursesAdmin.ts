@@ -55,18 +55,18 @@ async getMyTasks(force = false) {
       return;
     }
 
-    // 如果没有课程数据，先确保课程已经加载
+    // 确保课程数据已加载
     if (!this.all || this.all.length === 0) {
-      await this.getMyCourses(true);  // 确保先取课程
+      await this.getMyCourses(true);
     }
 
     const allTasks: Record<string, any[]> = {};
+    const countsByCourse: Record<string, number> = {}; 
 
-    // 遍历每个课程
     for (const course of this.all) {
       try {
         const tasks = await apiService.adminGetCourseTasks(course.id);
-        allTasks[course.id] = (tasks || []).map((t: any) => ({
+        const normalized = (tasks || []).map((t: any) => ({
           id: String(t.id),
           title: t.title ?? '',
           deadline: t.deadline ?? '',
@@ -74,20 +74,33 @@ async getMyTasks(force = false) {
           percentContribution: t.percentContribution ?? 0,
         }));
 
-        // 每门课单独缓存一份（方便单页面加载）
+        allTasks[course.id] = normalized;
+        countsByCourse[course.id] = normalized.length; 
+
+        // 每门课单独缓存
         localStorage.setItem(
           `admin:${adminId}:course_tasks_${course.id}`,
-          JSON.stringify(allTasks[course.id])
+          JSON.stringify(normalized)
         );
       } catch (e) {
         console.error(`[courseAdmin.getMyTasks] failed for course ${course.id}:`, e);
+        countsByCourse[course.id] = 0;
       }
     }
 
-    // 汇总缓存全部任务
     localStorage.setItem(`admin:${adminId}:tasks`, JSON.stringify(allTasks));
 
-    console.log(`[courseAdmin.getMyTasks] All tasks saved for admin:${adminId}`);
+    localStorage.setItem(
+      `admin:${adminId}:tasks_counts_by_course`,
+      JSON.stringify(countsByCourse)
+    );
+
+    const totalCount = Object.values(countsByCourse).reduce((sum, n) => sum + n, 0);
+    localStorage.setItem(`admin:${adminId}:tasks_total_count`, String(totalCount));
+
+    console.log(
+      `[courseAdmin.getMyTasks] Saved all tasks for admin:${adminId}, total=${totalCount}`
+    );
     this.notify();
   } catch (err) {
     console.error('[courseAdmin.getMyTasks] failed:', err);
@@ -95,6 +108,7 @@ async getMyTasks(force = false) {
     this.loading = false;
   }
 }
+
 async getMyMaterials(force = false) {
   if (this.loading && !force) return;
   this.loading = true;

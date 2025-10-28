@@ -14,7 +14,7 @@ class AuthTokenMiddleware(MiddlewareMixin):
         "/api/admin/login",
     )
 
-    # ✅ 新增：静态文件白名单路径
+    # 静态文件白名单路径
     PUBLIC_FILE_PREFIXES = (
         "/task/",
         "/api/task/",
@@ -27,11 +27,11 @@ class AuthTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
         path = request.path
 
-        # ✅ 如果是静态文件路径，直接放行，不要求 token
+        # 如果是静态文件路径，直接放行，不要求 token
         if any(path.startswith(p) for p in self.PUBLIC_FILE_PREFIXES):
             return None
 
-        # ✅ 原本就有的登录注册白名单
+        # 原本就有的登录注册白名单
         if any(path.startswith(p) for p in self.PUBLIC_PREFIXES):
             return None  
 

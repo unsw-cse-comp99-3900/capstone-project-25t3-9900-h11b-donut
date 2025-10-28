@@ -15,43 +15,54 @@ export function AdminMonitor() {
   const [selectedTask, setSelectedTask] = useState<string>('')
   const [selectedView, setSelectedView] = useState<string>('') // 'progress' or 'risk'
   
-  // ==================== MOCK DATA START ====================
-  // 从localStorage加载已创建的课程数据 - 这是mock数据
-  // TODO: 替换为真实API调用：GET /api/admin/courses-with-tasks
-  const [createdCourses, setCreatedCourses] = useState<Array<{
+  type CreatedCourse = {
+  id: string;
+  title: string;
+  description: string;
+  illustrationIndex: number;
+  tasks: Array<{
     id: string;
     title: string;
-    description: string;
-    illustrationIndex: number;
-    tasks: Array<{
-      id: string;
-      title: string;
-      deadline: string;
-    }>;
-  }>>(() => {
-    try {
-      const saved = localStorage.getItem('admin_created_courses');
-      const courses = saved ? JSON.parse(saved) : [];
-      
-      // 为每个课程加载对应的task数据
-      return courses.map((course: any) => {
-        const savedTasks = localStorage.getItem(`admin_course_tasks_${course.id}`);
-        const tasks = savedTasks ? JSON.parse(savedTasks) : [];
-        return {
-          ...course,
-          tasks: tasks.map((task: any) => ({
-            id: task.id || `task-${Math.random().toString(36).substr(2, 9)}`,
-            title: task.title || 'Untitled Task',
-            deadline: task.deadline || 'No deadline'
-          }))
-        };
-      });
-    } catch {
-      return [];
-    }
-  });
+    deadline: string;
+  }>;
+};
 
-  const uid = localStorage.getItem('current_user_id') || '';
+const uid = localStorage.getItem('current_user_id') || '';
+const safeJSON = <T,>(key: string, fallback: T): T => {
+  try {
+    const s = localStorage.getItem(key);
+    return s ? (JSON.parse(s) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
+  if (!uid) return [];
+  // 读取课程数组
+  const rawCourses = safeJSON<any[]>(`admin:${uid}:courses`, []);
+  // 读取任务映射表
+  const tasksMap = safeJSON<Record<string, any[]>>(`admin:${uid}:tasks`, {});
+  return rawCourses.map((c) => {
+    const courseId = String(c.id ?? c.code); 
+    const courseTasks = tasksMap[courseId] ?? [];
+    return {
+      id: courseId,
+      title: c.title ?? '',
+      description: c.desc ?? c.description ?? '', // desc → description
+      illustrationIndex:
+      Number.isFinite(c.illustrationIndex) ? c.illustrationIndex : 0,
+      tasks: courseTasks.map((t) => ({
+        id:
+          t.id != null
+            ? String(t.id)
+            : `task_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        title: t.title ?? 'Untitled Task',
+        deadline: t.deadline ?? 'No deadline',
+      })),
+    };
+  });
+});
+  
   const [user, setUser] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(() => {
     if (!uid) return null;
     try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
@@ -69,7 +80,8 @@ export function AdminMonitor() {
     } else {
       setUser(null);
     }
-
+    
+    //从这里开始要对接了
     // 监听localStorage变化来更新课程数据
     const handleStorageChange = () => {
       try {

@@ -105,11 +105,22 @@ update3:
 登录报错问题401/500
 
 10.28:
+
 1.确定改进思路：登录多等一会，等数据库数据取出来再进home页面
 2.能够上传，编辑，删除 task/material/question
-3.学生端能够看到task/material/question,并下载
+3.学生端能够看到task,并下载
 待解决：
 1.admin端删除课程的联级清楚数据库
-2.一些显示的小bug
+2.一些小bug（比如有时候admin的course会出现两个一样的课，但是有一个无法编辑或移除，刷新就好了）
+比如双击create会在数据库中创建相同的两条数据;包括学生端也有些小问题
 3.task/material表或许得重建主键,比如task编辑新的id，展示出来还是老id，因为编辑的id用不上。
 4.有关task的contribution，如何理解
+5.学生端看到material并下载还没实现
+
+注意事项：
+1.测试的时候千万不要直接删除课程！！！！先把课程里的question,task,material删掉，最后删课
+2.下载的测试必须通过服务器
+3.第一次登录会调用数据库，把数据拉出来，选择性的存入数据库
+4.f12可以清楚看到localStorage放了啥，什么样的格式
+5.admin端处理课程的函数在store/coursesAdmin.ts,不是coursesStore!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+6.由于我不理解task 中的contribution中是干啥的，所以全部默认设置了100，如果要修改，ctrl+shift+f搜索contribution
