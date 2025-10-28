@@ -33,7 +33,7 @@ interface CourseDetailData {
   materials: Material[]
 }
 
-/* 数据来源统一到 coursesStore：任务使用 coursesStore.getCourseTasks，材料此处留空或后续扩展 */
+
 
 const illoMap: Record<'orange' | 'student' | 'admin', string> = {
   orange: illoOrange,
@@ -225,16 +225,30 @@ export function CourseDetail() {
                     <h2>Task Lists</h2>
                     {detailData?.tasks.length ? (
                       <div className="task-list">
-                        {detailData.tasks.map(task => (
+                        {detailData.tasks.map((task) => (
                           <div key={task.id} className="task-item">
                             <div className="task-info">
                               <h3>{task.title}</h3>
                               <p>{task.brief}</p>
+
                               <div className="task-meta">
                                 <span className="meta-chip">Course ID: {course.id}</span>
                                 <span className="meta-chip">Task ID: {task.id}</span>
                               </div>
-                              <span className="deadline">Deadline: {task.deadline}</span>
+
+                              <span className="deadline">Deadline: {task.deadline}</span>                      
+                              {task.url ? (
+                                <a
+                                  href={task.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="download-link"
+                                >
+                                  📎 Download
+                                </a>
+                              ) : (
+                                <span className="no-file">No File Attached</span>
+                              )}
                             </div>
                           </div>
                         ))}

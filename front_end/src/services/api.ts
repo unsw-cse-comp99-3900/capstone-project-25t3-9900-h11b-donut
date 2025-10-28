@@ -25,6 +25,7 @@ export interface ApiTask {
   deadline: string;
   brief?: string;
   percentContribution?: number;
+  url?: string | null
 }
 export interface CreateTaskPayload {
   title: string;
@@ -638,7 +639,29 @@ async adminCreateCourse(payload: {
   }
 }
 
+async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
+  // 你的 request<T> 返回的是 ApiResponse<T>（{ success, data, message? }）
+  const res = await this.request<unknown[]>(
+    `/courses/${encodeURIComponent(courseCode)}/tasks`,
+    { method: 'GET', headers: { 'Content-Type': 'application/json' } }
+  );
 
+  if (!res?.success) {
+    throw new Error(res?.message || 'Failed to fetch course tasks');
+  }
+
+  const list = Array.isArray(res.data) ? res.data : [];
+
+  // 在 api 层做一次 snake_case -> camelCase 的映射，外部只用 ApiTask
+  return list.map((t: any): ApiTask => ({
+    id: String(t.id),
+    title: t.title,
+    deadline: t.deadline,
+    brief: t.brief,
+    percentContribution: t.percentContribution ?? t.percent_contribution ?? 0,
+    url: t.url ?? null, 
+  }));
+}
   // 获取学习材料列表
   async getCourseMaterials(courseId: string): Promise<Array<{
     id: string;

@@ -166,7 +166,7 @@ def course_tasks(request, course_code):
         return JsonResponse({"error": "Auth required"}, status=401)
     code = (course_code or "").upper()
     qs = CourseTask.objects.filter(course_code=code).values(
-        "id", "course_code", "title", "deadline", "brief", "percent_contribution"
+        "id", "course_code", "title", "deadline", "brief", "percent_contribution","url"
     )
     data = list(qs)
     return JsonResponse({"success": True, "data": data})
