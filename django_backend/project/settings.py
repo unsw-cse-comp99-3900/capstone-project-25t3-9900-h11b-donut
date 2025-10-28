@@ -125,7 +125,14 @@ AUTH_PASSWORD_VALIDATORS = [
         "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
-
+LOGIN_EXEMPT_PREFIXES = (
+    '/task/',
+    '/material/',
+    '/media/',
+    '/api/task/',
+    '/api/material/',
+    '/api/media/',
+)
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
