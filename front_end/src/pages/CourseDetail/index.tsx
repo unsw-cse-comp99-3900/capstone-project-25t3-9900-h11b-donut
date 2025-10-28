@@ -99,7 +99,9 @@ export function CourseDetail() {
           const data = { 
             tasks: await coursesStore.getCourseTasksAsync(id), 
             materials 
+            
           }
+         
           setDetailData(data)
         } catch (error) {
           console.error('Failed to load materials:', error)

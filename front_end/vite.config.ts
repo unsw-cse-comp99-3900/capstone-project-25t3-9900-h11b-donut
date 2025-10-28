@@ -15,7 +15,19 @@ export default defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000', // Django 后端
         changeOrigin: true,
-      }
+      },
+      '/task': {
+        target: 'http://127.0.0.1:8000', // 或你的服务器内网地址
+        changeOrigin: true,
+      },
+      '/material': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+      '/media': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
     }
   },
 })

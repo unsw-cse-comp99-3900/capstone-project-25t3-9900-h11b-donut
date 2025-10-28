@@ -179,7 +179,7 @@ class CoursesStore {
 
   // 按需加载任务（首次从后端获取并缓存）
   async getCourseTasksAsync(courseId: string): Promise<Task[]> {
-    console.log("!!!!",courseId)
+    
     if (!this.tasksByCourse[courseId]) {
       const apiTasks = await apiService.getCourseTasks(courseId);
       this.tasksByCourse[courseId] = apiTasks.map(t => ({
@@ -190,6 +190,7 @@ class CoursesStore {
         percentContribution: (t as any).percent_contribution ?? t.percentContribution,
         url: (t as any).url ?? null, 
       }));
+      
       await this.syncDeadlinesFromCourses();
       this.notify();
     }
