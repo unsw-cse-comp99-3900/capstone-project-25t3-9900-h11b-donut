@@ -45,7 +45,6 @@ export function CourseDetail() {
   const [course, setCourse] = useState<Course | null>(null)
   const [detailData, setDetailData] = useState<CourseDetailData | null>(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [courseProgress, setCourseProgress] = useState(0)
 
   const uid = localStorage.getItem('current_user_id');
   const user: { studentId?: string; name?: string; email?: string } | null = (() => {
@@ -115,10 +114,6 @@ export function CourseDetail() {
       }
       
       loadCourseData()
-      
-      // 计算课程整体进度
-      const progress = coursesStore.getCourseProgress(id)
-      setCourseProgress(progress)
     }
   }, [])
 
@@ -174,7 +169,7 @@ export function CourseDetail() {
           <div className="ai-icon"><img src={UserWhite} width={24} height={24} alt="" /></div>
           <div className="ai-title">AI Coach</div>
           <div className="ai-sub">Chat with your AI Coach!</div>
-          <button className="btn-primary ghost ai-start">
+          <button className="btn-primary ghost ai-start" onClick={() => window.location.hash = '#/chat-window'}>
             <span className="spc"></span>
             <span className="label">Start Chat</span>
             <img src={ArrowRight} width={16} height={16} alt="" className="chev" />
@@ -208,13 +203,7 @@ export function CourseDetail() {
                   <div className="course-title-section">
                     <h1 className="course-title">{course.id}</h1>
                     <p className="course-subtitle">{course.desc}</p>
-                    <div className="course-overall-progress">
-                      <div className="progress-label">Overall Progress</div>
-                      <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: `${courseProgress}%` }}></div>
-                      </div>
-                      <div className="progress-percent">{courseProgress}%</div>
-                    </div>
+
                   </div>
                 </div>
               </div>

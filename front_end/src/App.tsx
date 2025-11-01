@@ -17,6 +17,7 @@ import { AdminMonitor } from './pages/AdminMonitor'
 import { AdminProgressTrend } from './pages/AdminProgressTrend'
 import { AdminRiskReport } from './pages/AdminRiskReport'
 import { AdminProfile } from './pages/AdminProfile'
+import { ChatWindow } from './pages/ChatWindow'
 
 
 // 登录状态检查（只用本地）
@@ -35,6 +36,7 @@ const PROTECTED_PREFIXES = [
   '#/student-courses',
   '#/course-detail/',
   '#/student-plan',
+  '#/chat-window',
 ]
 
 //  判断当前 hash 是否受保护
@@ -84,6 +86,7 @@ function App() {
   if (hash.startsWith('#/student-courses')) return <StudentCourses />
   if (hash.startsWith('#/course-detail/')) return <CourseDetail />
   if (hash.startsWith('#/student-plan')) return <StudentPlan />
+  if (hash.startsWith('#/chat-window')) return <ChatWindow />
   if (hash.startsWith('#/login-student')) return <LoginStudent />
   if (hash.startsWith('#/login-admin')) return <LoginAdmin />
   if (hash.startsWith('#/signup-student')) return <SignupStudent />

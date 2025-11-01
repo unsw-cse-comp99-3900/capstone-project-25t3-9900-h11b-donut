@@ -10,7 +10,14 @@ export function installErrorGuards() {
       
       // 安全处理所有getBoundingClientRect错误，包括内部错误
       if (msg.includes('getBoundingClientRect') || msg.includes('Cannot read properties of null')) {
-        console.debug('[guard] Silenced getBoundingClientRect error:', msg);
+        // 记录更详细的上下文，帮助定位来源文件与行号
+        const err = e as ErrorEvent;
+        console.error('[guard] getBoundingClientRect error:', msg, {
+          filename: err.filename,
+          lineno: err.lineno,
+          colno: err.colno,
+          stack: (err.error && (err.error as any).stack) || 'no stack'
+        });
         e.preventDefault();
         return;
       }

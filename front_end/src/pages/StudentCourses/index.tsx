@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+import { MessageModal } from '../../components/MessageModal'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconSettings from '../../assets/icons/settings-24.svg'
@@ -10,6 +11,7 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import UserWhite from '../../assets/icons/user-24-white.svg'
 import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import { coursesStore } from '../../store/coursesStore'
+import apiService from '../../services/api'
 import illoOrange from '../../assets/images/illustration-orange.png'
 import illoStudent from '../../assets/images/illustration-student.png'
 import illoAdmin from '../../assets/images/illustration-admin.png'
@@ -43,6 +45,23 @@ export function StudentCourses() {
     courseTitle: string
   } | null>(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [messageModalOpen, setMessageModalOpen] = useState(false)
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  // 页面加载时获取未读消息数量
+  useEffect(() => {
+    const loadUnreadMessageCount = async () => {
+      try {
+        const messages = await apiService.getMessages();
+        const unreadCount = messages.filter(msg => !msg.isRead).length;
+        setUnreadMessageCount(unreadCount);
+      } catch (error) {
+        console.error('加载未读消息数量失败:', error);
+      }
+    };
+
+    loadUnreadMessageCount();
+  }, []);
+
   useEffect(() => {
     const unsub = coursesStore.subscribe(() => setV(s => s + 1))
     return unsub
@@ -109,7 +128,7 @@ export function StudentCourses() {
           <div className="ai-icon"><img src={UserWhite} width={24} height={24} alt="" /></div>
           <div className="ai-title">AI Coach</div>
           <div className="ai-sub">Chat with your AI Coach!</div>
-          <button className="btn-primary ghost ai-start">
+          <button className="btn-primary ghost ai-start" onClick={() => window.location.hash = '#/chat-window'}>
             <span className="spc"></span>
             <span className="label">Start Chat</span>
             <img src={ArrowRight} width={16} height={16} alt="" className="chev" />
@@ -129,7 +148,10 @@ export function StudentCourses() {
           </div>
           <div className="sc-actions global-actions">
             <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
-            <button className="icon-btn" aria-label="Notifications"><img src={IconBell} width={20} height={20} alt="" /></button>
+            <button className="icon-btn message-btn" aria-label="Notifications" onClick={() => setMessageModalOpen(true)}>
+              <img src={IconBell} width={20} height={20} alt="" />
+              {unreadMessageCount > 0 && <span className="message-badge">{unreadMessageCount}</span>}
+            </button>
           </div>
         </header>
 
@@ -259,6 +281,12 @@ export function StudentCourses() {
           cancelText="Cancel"
         />
       )}
+
+      <MessageModal
+        isOpen={messageModalOpen}
+        onClose={() => setMessageModalOpen(false)}
+        onUnreadCountChange={setUnreadMessageCount}
+      />
     </div>
   )
 }
@@ -316,8 +344,38 @@ const css = `
 .sc-search{display:flex;align-items:center;gap:8px;border:1.5px solid #E5E8F0;border-radius:20px;padding:10px 12px;background:#fff;min-width:360px}
 .sc-search input{border:none;outline:none;flex:1;font-size:14px}
 .sc-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
-.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center}
+.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative}
 .global-actions{position:fixed;top:32px;right:32px;z-index:10;display:flex;gap:12px}
+
+/* 消息按钮小红点样式 */
+.message-btn {
+  position: relative;
+}
+
+.message-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #FF6B35;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
 .sc-board{margin-top:12px;border:none;border-radius:0;background:transparent;box-shadow:none;min-height:0;display:flex;flex-direction:column;padding:0;height:100%;overflow:hidden}
 .sc-board.empty{
   margin-top:14px;

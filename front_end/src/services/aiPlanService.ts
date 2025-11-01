@@ -62,9 +62,13 @@ export function mapAiPlanToWeeklyPlan(aiPlan: any): WeeklyPlan {
       const maybeIndex = parseInt(String(b.partId).replace(/\D+/g, ''), 10);
       const partIndex = Number.isFinite(maybeIndex) ? maybeIndex : undefined;
 
+      // 统一 ID 规范：`${courseId}-${taskId}`，确保可与 deadlines 的 `${courseId}-${taskId}` 匹配
+      // 后端 AI 返回的 taskId 可能是 "COMP9900_3"，需要提取其中的数字 3 作为真实任务ID
+      const numericIdMatch = String(taskId).match(/(\d+)$|_(\d+)$/);
+      const normalizedTaskId = numericIdMatch ? (numericIdMatch[1] || numericIdMatch[2]) : String(taskId);
+
       const item: PlanItem = {
-        // 你定义里说“同一任务多个 part 共享同一 id”，保持一致：
-        id: `${courseId}-${taskId}`,
+        id: `${courseId}-${normalizedTaskId}` + (Number.isFinite(partIndex as any) ? `-${partIndex}` : ''),
         courseId,
         courseTitle: meta.taskTitle,        // 例如 "COMP9900 - Final Presentation"
         partTitle: b.title,                 // "Part 1" 等

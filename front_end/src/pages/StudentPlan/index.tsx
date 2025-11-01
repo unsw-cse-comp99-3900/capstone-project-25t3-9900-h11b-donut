@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+import { MessageModal } from '../../components/MessageModal'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconSettings from '../../assets/icons/settings-24.svg'
@@ -16,6 +17,8 @@ import { fetchAndMapAiPlan } from '../../services/aiPlanService';
 export function StudentPlan() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
+  const [messageModalOpen, setMessageModalOpen] = useState(false)
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   
   const uid = localStorage.getItem('current_user_id');
   let user = {};
@@ -62,6 +65,21 @@ export function StudentPlan() {
     
     return Math.max(0, diffWeeks); // 确保非负数
   }
+
+  // 页面加载时获取未读消息数量
+  useEffect(() => {
+    const loadUnreadMessageCount = async () => {
+      try {
+        const messages = await apiService.getMessages();
+        const unreadCount = messages.filter(msg => !msg.isRead).length;
+        setUnreadMessageCount(unreadCount);
+      } catch (error) {
+        console.error('加载未读消息数量失败:', error);
+      }
+    };
+
+    loadUnreadMessageCount();
+  }, []);
 
   // 组件加载时从preferencesStore加载已保存的计划
   useEffect(() => {
@@ -209,7 +227,7 @@ export function StudentPlan() {
           <div className="ai-icon"><img src={UserWhite} width={24} height={24} alt="" /></div>
           <div className="ai-title">AI Coach</div>
           <div className="ai-sub">Chat with your AI Coach!</div>
-          <button className="btn-primary ghost ai-start">
+          <button className="btn-primary ghost ai-start" onClick={() => window.location.hash = '#/chat-window'}>
             <span className="spc"></span>
             <span className="label">Start Chat</span>
             <img src={ArrowRight} width={16} height={16} alt="" className="chev" />
@@ -223,7 +241,10 @@ export function StudentPlan() {
       <main className="sp-main">
         <div className="sp-actions global-actions">
           <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
-          <button className="icon-btn" aria-label="Notifications"><img src={IconBell} width={20} height={20} alt="" /></button>
+          <button className="icon-btn message-btn" aria-label="Notifications" onClick={() => setMessageModalOpen(true)}>
+            <img src={IconBell} width={20} height={20} alt="" />
+            {unreadMessageCount > 0 && <span className="message-badge">{unreadMessageCount}</span>}
+          </button>
         </div>
 
         <div className="sp-generate-bar">
@@ -293,26 +314,55 @@ export function StudentPlan() {
                             type="checkbox"
                             checked={!!it.completed}
                             onChange={(e) => {
-                              const checked = e.target.checked
+                              const checked = e.target.checked;
                               setWeeklyPlan(prev => {
-                                const clone: Record<number, PlanItem[]> = { ...prev }
-                                clone[dIdx] = (clone[dIdx] || []).map(ci => ci === it ? { ...ci, completed: checked } : ci)
+                                const clone: Record<number, PlanItem[]> = { ...prev };
+                                clone[dIdx] = (clone[dIdx] || []).map(ci => ci === it ? { ...ci, completed: checked } : ci);
 
-                                // 计算同一任务（同一 id）的所有 part 是否全部完成
-                                const allItemsSameTask = Object.values(clone).flat().filter(x => x.id === it.id)
-                                const allDone = allItemsSameTask.length > 0 && allItemsSameTask.every(x => !!x.completed)
+                                // 基于“任务”维度计算进度（跨所有周累计分钟数）
+                                const prefix = `${it.courseId}-`;
+                                let extracted = it.id.startsWith(prefix) ? it.id.slice(prefix.length) : it.id;
+                                extracted = extracted.replace(/-\d+$/, '');
+                                const baseKey = `${it.courseId}-${extracted}`; // deadline key
 
-                                // 同步 Deadlines 进度（全部完成才 100%，否则 0）
-                                coursesStore.setProgress(it.id, allDone ? 100 : 0)
+                                // 1) 计算该任务 totalMinutes（遍历 0..maxOffset 的所有周）
+                                const maxOffset = getMaxWeekOffset();
+                                let totalMinutes = 0;
+                                for (let o = 0; o <= maxOffset; o++) {
+                                  const items = preferencesStore.getWeeklyPlan(o) || [];
+                                  for (const p of items) {
+                                    if (p.id.startsWith(baseKey)) totalMinutes += p.minutes;
+                                  }
+                                }
+                                // 把当前周的 clone 覆盖回当前 offset，保证本次勾选立即生效
+                                const mergedItemsNow = Object.values(clone).flat();
+                                const otherWeeks: PlanItem[] = [];
+                                for (let o = 0; o <= maxOffset; o++) {
+                                  if (o === weekOffset) continue;
+                                  otherWeeks.push(...(preferencesStore.getWeeklyPlan(o) || []));
+                                }
+                                const allItems = [...otherWeeks, ...mergedItemsNow];
 
-                                // 保存更新后的计划到localStorage
-                                const planItems = Object.values(clone).flat()
-                                preferencesStore.setWeeklyPlan(weekOffset, planItems)
+                                // 2) 计算 completedMinutes（使用最新勾选状态）
+                                let completedMinutes = 0;
+                                for (const p of allItems) {
+                                  if (p.id.startsWith(baseKey) && p.completed) {
+                                    completedMinutes += p.minutes;
+                                  }
+                                }
+                                const progress = totalMinutes > 0 ? Math.min(100, Math.round((completedMinutes / totalMinutes) * 100)) : 0;
 
-                                return clone
-                              })
-                              
-                              // 计算并显示整体课程进度
+                                // 同步 Deadlines 进度（按比例更新）
+                                coursesStore.setProgress(baseKey, progress);
+
+                                // 保存更新后的“当前周”计划到 localStorage
+                                const planItemsCurrentWeek = mergedItemsNow;
+                                preferencesStore.setWeeklyPlan(weekOffset, planItemsCurrentWeek);
+
+                                return clone;
+                              });
+
+                              // 调试输出课程整体进度
                               const courseProgress = coursesStore.getCourseProgress(it.courseId);
                               console.log(`Course ${it.courseId} progress: ${courseProgress}%`);
                             }}
@@ -328,21 +378,20 @@ export function StudentPlan() {
                                 <div className="pct">{it.completed ? '100%' : '0%'}</div>
                               </div>
                               <div className="wp-part-percent">Part: {(() => {
-                                // 计算part%：当前任务卡分钟数 ÷ 完成该deadline的总时间
-                                const taskId = it.id.split('-')[1];
-                                const courseTasks = coursesStore.getCourseTasks(it.courseId);
-                                const currentTask = courseTasks.find(t => t.id === taskId);
-                                
-                                if (!currentTask) return 'N/A';
-                                
-                                // 获取该deadline的所有任务卡
-                                const allTaskItems = Object.values(weeklyPlan).flat().filter(item => 
-                                  item.id.startsWith(`${it.courseId}-${taskId}`)
-                                );
-                                
-                                const totalMinutes = allTaskItems.reduce((sum, item) => sum + item.minutes, 0);
+                                // 从 id 中稳健解析 taskId：去掉课程前缀，再去掉末尾的 -partIndex
+                                const prefix = `${it.courseId}-`;
+                                let taskId = it.id.startsWith(prefix) ? it.id.slice(prefix.length) : it.id;
+                                taskId = taskId.replace(/-\d+$/, '');
+
+                                const maxOffset = getMaxWeekOffset();
+                                let totalMinutes = 0;
+                                for (let o = 0; o <= maxOffset; o++) {
+                                  const items = preferencesStore.getWeeklyPlan(o) || [];
+                                  for (const p of items) {
+                                    if (p.id.startsWith(`${it.courseId}-${taskId}`)) totalMinutes += p.minutes;
+                                  }
+                                }
                                 const partPercent = totalMinutes > 0 ? Math.round((it.minutes / totalMinutes) * 100) : 0;
-                                
                                 return `${partPercent}%`;
                               })()}</div>
                             </div>
@@ -443,6 +492,12 @@ export function StudentPlan() {
           cancelText="Cancel"
         />
       )}
+
+      <MessageModal
+        isOpen={messageModalOpen}
+        onClose={() => setMessageModalOpen(false)}
+        onUnreadCountChange={setUnreadMessageCount}
+      />
     </div>
   )
 }
@@ -486,8 +541,38 @@ const css = `
 .btn-outline{padding:14px;border-radius:14px;background:#fff;border:1px solid var(--sh-border);font-weight:600;margin-top:auto}
 
 /* Global actions (same as StudentHome) */
-.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center}
+.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative}
 .global-actions{position:fixed;top:32px;right:32px;z-index:10;display:flex;gap:12px;will-change:transform}
+
+/* 消息按钮小红点样式 */
+.message-btn {
+  position: relative;
+}
+
+.message-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #FF6B35;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
 
 /* Start Chat 按钮（与 Generate 按钮一致） */
 .btn-primary.ghost{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:20px 36px;border-radius:24px;background:#F6B48E;color:#172239;border:none;font-weight:800;font-size:16px;width:100%;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,0.06);transition:all .2s ease}

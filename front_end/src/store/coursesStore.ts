@@ -241,13 +241,29 @@ class CoursesStore {
   }
 
   async setProgress(id: string, progress: number) {
-    const [_, taskId] = id.split('-');
-    if (taskId) {
-      await apiService.updateTaskProgress(taskId, progress);
+    // id 形如 `${courseId}-${taskId}`，taskId 内可能包含连字符，不要用固定 split 取第二段
+    const firstDash = id.indexOf('-');
+    const taskId = firstDash >= 0 ? id.substring(firstDash + 1) : id;
+    try {
+      if (taskId) {
+        await apiService.updateTaskProgress(taskId, progress);
+      }
+    } catch (e) {
+      console.warn('updateTaskProgress failed, continue locally:', e);
     }
+
+    // 1) 写入内存映射
     this.progressByDeadline[id] = progress;
+
+    // 2) 若现有 deadlines 中有对应项，直接就地更新；否则重建一次 deadlines 以带入最新进度
     const idx = this.deadlines.findIndex(d => d.id === id);
-    if (idx !== -1) this.deadlines[idx] = { ...this.deadlines[idx], progress };
+    if (idx !== -1) {
+      this.deadlines[idx] = { ...this.deadlines[idx], progress };
+    } else {
+      await this.syncDeadlinesFromCourses();
+    }
+
+    // 3) 通知订阅者（StudentHome 会据此刷新右栏）
     this.notify();
   }
 

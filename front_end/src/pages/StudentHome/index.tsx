@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+import { MessageModal } from '../../components/MessageModal'
 import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import Star from '../../assets/icons/star-32.svg'
@@ -17,6 +18,52 @@ import { coursesStore, type Deadline, type Course } from '../../store/coursesSto
 
 import { preferencesStore } from '../../store/preferencesStore';
 
+function getPlanBasedProgressByDeadlineId(deadlineId: string): number {
+  // 遵循可视范围：仅遍历到“最后一个 deadline 所在周”为止
+  const latest = coursesStore.getLatestDeadline();
+  const now = new Date();
+  const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() || 7) - 1));
+  let maxOffset = 0;
+  if (latest) {
+    const lm = new Date(latest);
+    const lmon = new Date(lm); lmon.setDate(lm.getDate() - ((lm.getDay() || 7) - 1));
+    maxOffset = Math.max(0, Math.floor((lmon.getTime() - monday.getTime()) / (7*24*60*60*1000)));
+  }
+
+  const firstDash = deadlineId.indexOf('-');
+  const courseIdOfDeadline = firstDash > 0 ? deadlineId.slice(0, firstDash) : '';
+  const normalizedDeadlineId = deadlineId; // `${courseId}-${numeric}`
+
+  let total = 0, done = 0;
+  for (let o = 0; o <= maxOffset; o++) {
+    const items = preferencesStore.getWeeklyPlan(o) || [];
+    if (!items || items.length === 0) continue;
+    for (const it of items) {
+      const base = it.id.replace(/-\d+$/, '');
+      if (base === normalizedDeadlineId) {
+        total += it.minutes;
+        if (it.completed) done += it.minutes;
+        continue;
+      }
+      const dash = base.indexOf('-');
+      if (dash > 0) {
+        const coursePart = base.slice(0, dash);
+        const tail = base.slice(dash + 1);
+        if (coursePart === courseIdOfDeadline) {
+          const m = tail.match(/(\d+)$/);
+          const numeric = m ? m[1] : '';
+          if (numeric && `${coursePart}-${numeric}` === normalizedDeadlineId) {
+            total += it.minutes;
+            if (it.completed) done += it.minutes;
+          }
+        }
+      }
+    }
+  }
+  if (total <= 0) return 0;
+  return Math.min(100, Math.round((done / total) * 100));
+}
+
 const illoMap: Record<string, string> = {
   orange: illoOrange,
   student: illoStudent,
@@ -27,7 +74,9 @@ export function StudentHome() {
   
   const [courses, setCourses] = useState(coursesStore.myCourses)
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+  const [messageModalOpen, setMessageModalOpen] = useState(false)
   const [lessons, setLessons] = useState<Deadline[]>(coursesStore.getDeadlines())
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const uid = localStorage.getItem('current_user_id') || '';
 const [user, setUser] = useState<any>(() => {
   if (!uid) return null;
@@ -82,6 +131,21 @@ const [user, setUser] = useState<any>(() => {
     setLessons(sortedDeadlines);
   });
 
+  // 订阅计划变化，打勾后立即刷新 Deadlines 显示
+  const unsubscribePrefs = preferencesStore.subscribe?.(() => {
+    const parseTime = (dueIn: string) => {
+      const isNegative = dueIn.startsWith('-');
+      const cleanDueIn = isNegative ? dueIn.substring(2) : dueIn;
+      const match = cleanDueIn.match(/(\d+)d\s+(\d+)h\s+(\d+)m/);
+      if (!match) return Number.POSITIVE_INFINITY;
+      const [, d, h, m] = match;
+      const total = parseInt(d) * 1440 + parseInt(h) * 60 + parseInt(m);
+      return isNegative ? Number.POSITIVE_INFINITY : total;
+    };
+    const sortedDeadlines = [...coursesStore.getDeadlines()].sort((a, b) => parseTime(a.dueIn) - parseTime(b.dueIn));
+    setLessons(sortedDeadlines);
+  });
+
   return () => {
     unsubCourses();
     unsubDeadlines();
@@ -99,6 +163,21 @@ const [user, setUser] = useState<any>(() => {
   }
 }, [uid]);
 
+
+  // 页面加载时获取未读消息数量
+  useEffect(() => {
+    const loadUnreadMessageCount = async () => {
+      try {
+        const messages = await apiService.getMessages();
+        const unreadCount = messages.filter(msg => !msg.isRead).length;
+        setUnreadMessageCount(unreadCount);
+      } catch (error) {
+        console.error('Failed to load the number of unread messages:', error);
+      }
+    };
+
+    loadUnreadMessageCount();
+  }, []);
 
   useEffect(() => {
     const parseTime = (dueIn: string) => {
@@ -171,7 +250,7 @@ const [user, setUser] = useState<any>(() => {
           <div className="ai-icon"><img src={UserWhite} width={24} height={24} alt="" /></div>
           <div className="ai-title">AI Coach</div>
           <div className="ai-sub">Chat with your AI Coach!</div>
-          <button className="btn-primary ghost ai-start">
+          <button className="btn-primary ghost ai-start" onClick={() => window.location.hash = '#/chat-window'}>
             <span className="spc"></span>
             <span className="label">Start Chat</span>
             <img src={ArrowRight} width={16} height={16} alt="" className="chev" />
@@ -189,7 +268,10 @@ const [user, setUser] = useState<any>(() => {
           </div>
           <div className="right global-actions">
             <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
-            <button className="icon-btn" aria-label="Notifications"><img src={IconBell} width={20} height={20} alt="" /></button>
+            <button className="icon-btn message-btn" aria-label="Notifications" onClick={() => setMessageModalOpen(true)}>
+              <img src={IconBell} width={20} height={20} alt="" />
+              {unreadMessageCount > 0 && <span className="message-badge">{unreadMessageCount}</span>}
+            </button>
           </div>
         </header>
 
@@ -215,8 +297,8 @@ const [user, setUser] = useState<any>(() => {
                   </div>
                   <div className="meta">
                     {'dueIn' in c && <div className="due">{(c as unknown as Deadline).dueIn}</div>}
-                    <div className="name">{c.title}</div>
-                    <div className="desc">{'desc' in c ? (c as unknown as Course).desc : 'Click to check your task.'}</div>
+                    <div className="name">{c.id}</div>
+                    <div className="desc">{('title' in c) ? (c as unknown as Course).title : ''}</div>
                   </div>
                 </article>
               ))}
@@ -229,21 +311,25 @@ const [user, setUser] = useState<any>(() => {
         <div className="section-title">Deadlines <span aria-hidden>📚</span></div>
         <div className="lessons-list-container">
           <div className="lessons-list">
-            {lessons.map((l) => (
-              <article key={l.id} className="lesson-card">
-                <div className="icon" style={{ background: l.color, boxShadow: `0 6px 16px ${l.color}33` }}>
-                  <img src={Star} width={24} height={24} alt="" />
-                </div>
-                <div className="content">
-                  <div className="due">{l.dueIn}</div>
-                  <div className="title">{l.course} {l.title}</div>
-                  <div className="bar">
-                    <div className="fill" style={{ width: `${l.progress}%`, background: l.color }} />
+            {lessons.map((l) => {
+              const planProgress = getPlanBasedProgressByDeadlineId(l.id);
+              const pct = planProgress; // 完全跟随计划勾选
+              return (
+                <article key={l.id} className="lesson-card">
+                  <div className="icon" style={{ background: l.color, boxShadow: `0 6px 16px ${l.color}33` }}>
+                    <img src={Star} width={24} height={24} alt="" />
                   </div>
-                </div>
-                <div className="percent">{l.progress}%</div>
-              </article>
-            ))}
+                  <div className="content">
+                    <div className="due">{l.dueIn}</div>
+                    <div className="title">{l.course} {l.title}</div>
+                    <div className="bar">
+                      <div className="fill" style={{ width: `${pct}%`, background: l.color }} />
+                    </div>
+                  </div>
+                  <div className="percent">{pct}%</div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </aside>
@@ -258,6 +344,12 @@ const [user, setUser] = useState<any>(() => {
         message="Are you sure you want to log out?"
         confirmText="Confirm"
         cancelText="Cancel"
+      />
+
+      <MessageModal
+        isOpen={messageModalOpen}
+        onClose={() => setMessageModalOpen(false)}
+        onUnreadCountChange={setUnreadMessageCount}
       />
     </div>
 
@@ -344,7 +436,37 @@ const css = `
 .sh-header .hello{color:var(--sh-muted);font-size:16px}
 .sh-header .title{font-size:32px;line-height:1.2;margin:4px 0 0;font-weight:700}
 .sh-header .right{display:flex;align-items:center;gap:12px} /* 使右上角按钮水平并排 */
-.sh-header .icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center}
+.sh-header .icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative}
+
+/* 消息按钮小红点样式 */
+.message-btn {
+  position: relative;
+}
+
+.message-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #FF6B35;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
 
 /* Courses */
 .section-title{font-weight:800;margin-bottom:12px;font-size:22px}
