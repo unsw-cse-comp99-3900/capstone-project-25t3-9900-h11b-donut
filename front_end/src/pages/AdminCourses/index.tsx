@@ -32,6 +32,13 @@ export function AdminCourses() {
   const [courseId, setCourseId] = useState('')
   const [courseName, setCourseName] = useState('')
   const [courseDescription, setCourseDescription] = useState('')
+  // ============================================
+  // 🚨 MOCK DATA SECTION - 管理员创建的课程数据 🚨
+  // ============================================
+  // TODO: 这里需要替换为真实的后端API调用
+  // 从localStorage读取管理员创建的课程数据
+  // ============================================
+  
   const [createdCourses, setCreatedCourses] = useState<Array<{
   id: string;
   title: string;
@@ -201,7 +208,7 @@ console.log("!!@#!@#",createdCourses)
     <div key={uid} className="admin-courses-layout">
       {/* 左侧导航栏 - 与AdminHome保持一致 */}
       <aside className="ac-sidebar">
-        <div className="ac-profile-card" onClick={() => (window.location.hash = '#/admin-profile')} role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
+        <div className="ac-profile-card">
           <div className="avatar">
             <img
               src={user?.avatarUrl || AvatarIcon}
@@ -216,7 +223,7 @@ console.log("!!@#!@#",createdCourses)
             <div className="name">{user?.name || 'Admin'}</div>
             <div className="email">{user?.email || 'admin@example.com'}</div>
           </div>
-          <button className="chevron" aria-label="Profile">
+          <button className="chevron" aria-label="Open profile" onClick={() => (window.location.hash = '#/admin-profile')}>
             <img src={ArrowRight} width={16} height={16} alt="" />
           </button>
         </div>
@@ -432,7 +439,8 @@ const css = `
 }
 .ac-profile-card .info .name{font-size:16px;font-weight:600}
 .ac-profile-card .info .email{color:var(--ac-muted);font-size:12px}
-.ac-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--ac-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center}
+.ac-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--ac-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:background-color 0.2s}
+.ac-profile-card .chevron:hover{background:var(--ac-primary-light)}
 
 /* 侧栏-导航 */
 .ac-nav{

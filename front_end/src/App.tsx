@@ -14,6 +14,9 @@ import { AdminHome } from './pages/AdminHome'
 import { AdminCourses } from './pages/AdminCourses'
 import { AdminManageCourse } from './pages/AdminManageCourse'
 import { AdminMonitor } from './pages/AdminMonitor'
+import { AdminProgressTrend } from './pages/AdminProgressTrend'
+import { AdminRiskReport } from './pages/AdminRiskReport'
+import { AdminProfile } from './pages/AdminProfile'
 
 
 // 登录状态检查（只用本地）
@@ -73,6 +76,9 @@ function App() {
   if (hash.startsWith('#/admin-courses')) return <AdminCourses />
   if (hash.startsWith('#/admin-manage-course')) return <AdminManageCourse />
   if (hash.startsWith('#/admin-monitor')) return <AdminMonitor />
+  if (hash.startsWith('#/admin-progress-trend')) return <AdminProgressTrend />
+  if (hash.startsWith('#/admin-risk-report')) return <AdminRiskReport />
+  if (hash.startsWith('#/admin-profile')) return <AdminProfile />
   if (hash.startsWith('#/student-profile')) return <StudentProfile />
   if (hash.startsWith('#/student-home')) return <StudentHome />
   if (hash.startsWith('#/student-courses')) return <StudentCourses />

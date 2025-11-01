@@ -36,6 +36,13 @@ const safeJSON = <T,>(key: string, fallback: T): T => {
     return fallback;
   }
 };
+// ============================================
+// 🚨 MOCK DATA SECTION - 管理员创建的课程和任务数据 🚨
+// ============================================
+// TODO: 这里需要替换为真实的后端API调用
+// 从localStorage读取管理员创建的课程和任务数据
+// ============================================
+
 const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
   if (!uid) return [];
   // 读取课程数组
@@ -128,16 +135,21 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
     // window.location.hash = `#/admin-monitor-dashboard?courseId=${selectedCourse}&taskId=${taskId}`;
   };
 
-  const handleViewSelect = (viewType: string) => {
-    setSelectedView(viewType);
-    // 这里可以加载对应的视图内容
+  const handleViewSelect = (viewType: 'progress' | 'risk') => {
+    if (!selectedCourse || !selectedTask) {
+      alert('Please select a course and task first.');
+      return;
+    }
+    
+    const base = viewType === 'progress' ? '#/admin-progress-trend' : '#/admin-risk-report';
+    window.location.hash = `${base}?courseId=${selectedCourse}&taskId=${selectedTask}`;
   };
 
   return (
     <div key={uid} className="admin-monitor-layout">
       {/* 左侧导航栏 - 与AdminHome和AdminCourses完全一致 */}
       <aside className="ah-sidebar">
-        <div className="ah-profile-card" role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
+        <div className="ah-profile-card">
           <div className="avatar">
             <img
               src={user?.avatarUrl || AvatarIcon}
@@ -152,7 +164,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
             <div className="name">{user?.name || 'Admin'}</div>
             <div className="email">{user?.email || 'admin@example.com'}</div>
           </div>
-          <button className="chevron" aria-label="Profile" onClick={() => (window.location.hash = '#/admin-profile')}>
+          <button className="chevron" aria-label="Open profile" onClick={() => (window.location.hash = '#/admin-profile')}>
             <img src={ArrowRight} width={16} height={16} alt="" />
           </button>
         </div>
@@ -205,30 +217,32 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
                     <h3 className="course-id">{course.id}</h3>
                     <p className="course-title">{course.title}</p>
                     
-                    {/* 始终显示该课程的task按钮 */}
-                    {course.tasks && course.tasks.length > 0 ? (
-                      <div className="tasks-section">
-                        <div className="tasks-label">Select a task:</div>
-                        <div className="tasks-list">
-                          {course.tasks.map((task) => (
-                            <button
-                              key={task.id}
-                              className={`task-btn ${selectedCourse === course.id && selectedTask === task.id ? 'selected' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation(); // 阻止事件冒泡到课程卡片
-                                handleCourseSelect(course.id); // 先选择课程
-                                handleTaskSelect(task.id); // 再选择task
-                              }}
-                            >
-                              {task.title}
-                              <span className="task-deadline">{task.deadline}</span>
-                            </button>
-                          ))}
+                    {/* 只在选中课程时渲染tasks */}
+                    {selectedCourse === course.id ? (
+                      course.tasks && course.tasks.length > 0 ? (
+                        <div className="tasks-section">
+                          <div className="tasks-label">Select a task:</div>
+                          <div className="tasks-list">
+                            {course.tasks.map((task) => (
+                              <button
+                                key={task.id}
+                                className={`task-btn ${selectedCourse === course.id && selectedTask === task.id ? 'selected' : ''}`}
+                                onClick={(e) => {
+                                  e.stopPropagation(); // 阻止事件冒泡到课程卡片
+                                  handleCourseSelect(course.id); // 先选择课程
+                                  handleTaskSelect(task.id); // 再选择task
+                                }}
+                              >
+                                {task.title}
+                                <span className="task-deadline">{task.deadline}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="no-tasks">No tasks available for this course</div>
-                    )}
+                      ) : (
+                        <div className="no-tasks">No tasks available for this course</div>
+                      )
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -236,15 +250,17 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
           )}
         </section>
 
-        {/* 添加新课程按钮 */}
-        <div className="add-course-section">
-          <button 
-            className="add-course-btn"
-            onClick={() => window.location.hash = '#/admin-courses'}
-          >
-            Add new course
-          </button>
-        </div>
+        {/* 添加新课程按钮 —— 仅在没有课程时显示 */}
+        {createdCourses.length === 0 && (
+          <div className="add-course-section">
+            <button
+              className="add-course-btn"
+              onClick={() => (window.location.hash = '#/admin-courses')}
+            >
+              Add new course
+            </button>
+          </div>
+        )}
 
         {/* 视图选择按钮 - 一直显示 */}
         <div className="view-selection-section">
@@ -290,6 +306,13 @@ const css = `
   --ah-shadow: 0 8px 24px rgba(0,0,0,0.04);
   --ah-primary: #BB87AC; /* 管理员紫色主题 */
   --ah-primary-light: rgba(187, 135, 172, 0.49); /* 半透明紫色 */
+  
+  /* NEW: 映射 am-* 到 ah-* */
+  --am-border: var(--ah-border);
+  --am-muted:  var(--ah-muted);
+  --am-text:   var(--ah-text);
+  --am-card-bg:var(--ah-card-bg);
+  --am-primary:var(--ah-primary);
 }
 
 .admin-monitor-layout{
@@ -321,7 +344,8 @@ const css = `
 }
 .ah-profile-card .info .name{font-size:16px;font-weight:600}
 .ah-profile-card .info .email{color:var(--ah-muted);font-size:12px}
-.ah-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--ah-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center}
+.ah-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--ah-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:background-color 0.2s}
+.ah-profile-card .chevron:hover{background:var(--ah-primary-light)}
 
 /* 侧栏-导航 - 与AdminHome完全一致 */
 .ah-nav{
@@ -505,7 +529,7 @@ const css = `
   background: #8A4B8C; /* 更深的紫色，与背景形成对比 */
   color: white;
   box-shadow: 0 2px 4px rgba(138, 75, 140, 0.3);
-  transform: scale(1.02);
+  transform: none; /* 移除scale避免reflow */
 }
 
 .task-deadline {
@@ -597,7 +621,6 @@ const css = `
 
 .view-btn:hover {
   background: #A57598; /* 深紫色悬停 */
-  border-color: #A57598;
   transform: translateY(-2px);
   box-shadow: 0px 4px 12px rgba(187, 135, 172, 0.3);
 }

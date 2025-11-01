@@ -13,6 +13,13 @@ import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import { apiService, type ApiQuestion } from '../../services/api'
 
+// ============================================
+// 🚨 MOCK DATA FUNCTION - 更新本地任务统计数据 🚨
+// ============================================
+// TODO: 这里需要替换为真实的后端API调用
+// 在localStorage中更新任务统计信息
+// ============================================
+
 function updateTaskStatsLocal(courseId: string, newTasks: any[]) {
   const adminId = localStorage.getItem('current_user_id');
   if (!adminId) return;
@@ -1153,7 +1160,7 @@ if (adminId) {
             <div className="name">{user?.name || 'Admin'}</div>
             <div className="email">{user?.email || 'admin@example.com'}</div>
           </div>
-          <button className="chevron">
+          <button className="chevron" aria-label="Open profile" onClick={() => (window.location.hash = '#/admin-profile')}>
             <img src={ArrowRight} width={16} height={16} alt="" />
           </button>
         </div>
@@ -2008,6 +2015,12 @@ const css = `
   height: 36px;
   display: grid;
   place-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.amc-profile-card .chevron:hover{
+  background: var(--amc-primary-light);
   cursor: pointer;
 }
 

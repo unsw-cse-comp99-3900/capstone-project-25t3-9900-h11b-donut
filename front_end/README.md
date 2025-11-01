@@ -35,7 +35,13 @@ ai-web/
 │   │   ├── SignupStudent/
 │   │   ├── LoginAdmin/
 │   │   ├── SignupAdmin/
-│   │   └── StudentProfile/
+│   │   ├── StudentProfile/
+│   │   ├── AdminHome/
+│   │   ├── AdminCourses/
+│   │   ├── AdminManageCourse/
+│   │   ├── AdminMonitor/
+│   │   ├── AdminProgressTrend/
+│   │   └── AdminRiskReport/
 │   ├── services/
 │   │   ├── api.ts             # REST API 封装（认证、课程、任务、偏好、周计划、资料下载）
 │   │   └── planGenerator.ts   # 前端计划生成器（将逐步迁移为后端算法/或仅作前端校验）

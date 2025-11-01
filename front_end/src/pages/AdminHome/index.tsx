@@ -41,6 +41,14 @@ export function AdminHome() {
       activeTasks: 0,
       atRiskStudents: 0
     })
+  
+  // ============================================
+  // 🚨 MOCK DATA SECTION - 管理员创建的课程数据 🚨
+  // ============================================
+  // TODO: 这里需要替换为真实的后端API调用
+  // 从localStorage读取管理员创建的课程数据
+  // ============================================
+  
   //展示创建的课程 
   const [createdCourses, setCreatedCourses] = useState<Array<{
   id: string;
@@ -152,6 +160,46 @@ export function AdminHome() {
     }));
   }, [createdCourses]);
 
+  // 统计Risk Student数量（橙色和红色学生）
+  useEffect(() => {
+    const calculateRiskStudents = () => {
+      try {
+        // 从localStorage获取所有课程的风险学生数据
+        const adminId = localStorage.getItem('current_user_id');
+        if (!adminId) return 0;
+
+        // 获取管理员创建的所有课程
+        const savedCourses = localStorage.getItem(`admin:${adminId}:courses`);
+        if (!savedCourses) return 0;
+
+        const courses = JSON.parse(savedCourses);
+        let totalRiskStudents = 0;
+
+        // 遍历所有课程，统计风险学生
+        courses.forEach((course: any) => {
+          if (course.students && Array.isArray(course.students)) {
+            // 统计橙色和红色的学生
+            const riskStudents = course.students.filter((student: any) => 
+              student.riskTier === 'Orange' || student.riskTier === 'Red'
+            );
+            totalRiskStudents += riskStudents.length;
+          }
+        });
+
+        return totalRiskStudents;
+      } catch (error) {
+        console.error('Error calculating risk students:', error);
+        return 0;
+      }
+    };
+
+    // 更新统计数据
+    setStats(prev => ({
+      ...prev,
+      atRiskStudents: calculateRiskStudents()
+    }));
+  }, [uid, createdCourses]);
+
   const handleLogout = () => {
     setLogoutModalOpen(true)
   }
@@ -167,7 +215,7 @@ export function AdminHome() {
   return (
     <div key={uid} className="admin-home-layout">
       <aside className="ah-sidebar">
-        <div className="ah-profile-card" role="button" aria-label="Open profile" style={{cursor:'pointer'}}>
+        <div className="ah-profile-card">
           <div className="avatar">
             <img
               src={user?.avatarUrl || AvatarIcon}
@@ -182,7 +230,7 @@ export function AdminHome() {
             <div className="name">{user?.name || 'Admin'}</div>
             <div className="email">{user?.email || 'admin@example.com'}</div>
           </div>
-          <button className="chevron" aria-label="Profile" onClick={() => (window.location.hash = '#/admin-profile')}>
+          <button className="chevron" aria-label="Open profile" onClick={() => (window.location.hash = '#/admin-profile')}>
             <img src={ArrowRight} width={16} height={16} alt="" />
           </button>
         </div>
@@ -324,7 +372,8 @@ const css = `
 }
 .ah-profile-card .info .name{font-size:16px;font-weight:600}
 .ah-profile-card .info .email{color:var(--ah-muted);font-size:12px}
-.ah-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--ah-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center}
+.ah-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--ah-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:background-color 0.2s}
+.ah-profile-card .chevron:hover{background:var(--ah-primary-light)}
 
 /* 侧栏-导航 */
 .ah-nav{

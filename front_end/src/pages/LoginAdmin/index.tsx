@@ -42,7 +42,7 @@ export function LoginAdmin() {
 
       <section className="role-section">
         <div className="header">
-          <button className="back-btn" aria-label="Back" onClick={() => history.back()}>
+          <button className="back-btn" aria-label="Back" onClick={() => window.location.hash = '#/login'}>
             <img src={ArrowRight} width={16} height={16} alt="" style={{ transform: 'scaleX(-1)' }} />
           </button>
           <Header title="Login Now" subtitle="Admin" />
