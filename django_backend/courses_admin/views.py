@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from .models import CourseAdmin  # 假设你的表名是 courses_admin
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import OuterRef, Exists,Count
-from courses.models import CourseCatalog,StudentEnrollment,TaskProgress,CourseTask,Material,Question,QuestionChoice,QuestionKeyword,QuestionKeywordMap
+from courses.models import CourseCatalog,StudentEnrollment,CourseTask,Material,Question,QuestionChoice,QuestionKeyword,QuestionKeywordMap
 from django.db import transaction,IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
@@ -167,9 +167,13 @@ def delete_course(request):
             task_ids = list(
                 CourseTask.objects.filter(course_code=code).values_list("id", flat=True)
             )
-            # 先删进度
-            if task_ids:
-                TaskProgress.objects.filter(task_id__in=task_ids).delete()
+            # 先删进度（如果 task_progress 应用存在）
+            try:
+                from task_progress.models import TaskProgress as TP2
+                if task_ids:
+                    TP2.objects.filter(task_id__in=task_ids).delete()
+            except Exception:
+                pass
             # 再删任务
             CourseTask.objects.filter(course_code=code).delete()
             # 删管理员关联
@@ -203,6 +207,94 @@ def course_tasks(request, course_id):
     except Exception as e:
         print("[course_tasks] error:", e)
         return JsonResponse({"success": False, "message": str(e)}, status=500)
+
+@csrf_exempt
+def course_students_progress(request, course_id: str):
+    """管理员视角：获取课程下所有学生的加权进度与逾期数量。
+    支持 query 参数 task_id：当提供时，返回该任务维度的进度与逾期；否则返回课程加权汇总。
+    """
+    if request.method != "GET":
+        return JsonResponse({"success": False, "message": "GET method required"}, status=405)
+    try:
+        # 可选单任务视角
+        task_id_qs = request.GET.get("task_id")
+        task_filter = {"course_code": course_id}
+        if task_id_qs:
+            try:
+                task_filter["id"] = int(task_id_qs)
+            except Exception:
+                pass
+        # 课程任务列表（id, deadline, percent_contribution）
+        tasks = list(CourseTask.objects.filter(**task_filter).values("id", "deadline", "percent_contribution"))
+        task_ids = [t["id"] for t in tasks]
+
+        # 选课学生列表（即使没有任务也返回学生占位数据）
+        enrolls = list(StudentEnrollment.objects.filter(course_code=course_id).values("student_id"))
+        student_ids = [e["student_id"] for e in enrolls]
+        if not student_ids:
+            return JsonResponse({"success": True, "data": []})
+
+        # 学生姓名映射（可选）
+        try:
+            from stu_accounts.models import StudentAccount
+            name_map = {
+                s["student_id"]: s.get("name") or ""
+                for s in StudentAccount.objects.filter(student_id__in=student_ids).values("student_id", "name")
+            }
+        except Exception:
+            name_map = {}
+
+        # 进度映射：student_id -> {task_id -> progress}
+        try:
+            from task_progress.models import TaskProgress as TP
+        except Exception:
+            TP = None
+        rows = []
+        if TP:
+            rows = TP.objects.filter(task_id__in=task_ids, student_id__in=student_ids).values("student_id", "task_id", "progress")
+        prog_map: dict[str, dict[int, int]] = {}
+        for r in rows:
+            sid = r["student_id"]
+            tid = int(r["task_id"])  # 保证是 int
+            prog_map.setdefault(sid, {})[tid] = int(r["progress"]) or 0
+
+        today = date.today()
+        result = []
+        for sid in student_ids:
+            task_prog = prog_map.get(sid, {})
+            weight_sum = 0
+            completed_weight = 0
+            overdue_cnt = 0
+            for t in tasks:
+                w = int(t.get("percent_contribution") or 0)
+                if w < 0:
+                    w = 0
+                weight_sum += w
+                p = int(task_prog.get(int(t["id"]), 0))
+                if p > 0:
+                    completed_weight += w * min(p, 100) / 100.0
+                # 逾期：截至今天过去的任务未满 100
+                dl = t.get("deadline")
+                if dl and dl < today:
+                    if p < 100:
+                        overdue_cnt += 1
+            progress_pct = 0
+            if weight_sum > 0:
+                progress_pct = int(round(100.0 * completed_weight / weight_sum))
+                progress_pct = max(0, min(100, progress_pct))
+            result.append({
+                "student_id": sid,
+                "name": name_map.get(sid, ""),
+                "progress": progress_pct,
+                "overdue_count": overdue_cnt,
+            })
+        # 按姓名排序，空名用学号
+        result.sort(key=lambda x: (x["name"] or x["student_id"]))
+        return JsonResponse({"success": True, "data": result})
+    except Exception as e:
+        print("[course_students_progress] error:", e)
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
+
 @csrf_exempt
 def course_materials(request, course_id):
     
@@ -581,8 +673,12 @@ def delete_course_task(request, course_id, task_id):
             if not task:
                 return JsonResponse({"success": False, "message": "Task not found"}, status=404)
 
-            # 删除进度
-            TaskProgress.objects.filter(task_id=task_id).delete()
+            # 删除进度（如果 task_progress 应用存在）
+            try:
+                from task_progress.models import TaskProgress as TP3
+                TP3.objects.filter(task_id=task_id).delete()
+            except Exception:
+                pass
 
             # 附件路径
             file_path = None

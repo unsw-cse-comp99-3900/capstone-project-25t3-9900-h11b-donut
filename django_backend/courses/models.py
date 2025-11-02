@@ -41,18 +41,7 @@ class StudentEnrollment(models.Model):
         unique_together = ("student_id", "course_code")
 
 
-# 任务进度（按学生-任务）
-class TaskProgress(models.Model):
-    id = models.AutoField(primary_key=True)
-    student_id = models.CharField(max_length=64)
-    task_id = models.PositiveIntegerField()
-    progress = models.PositiveIntegerField(default=0)  # 0..100
-
-    class Meta:
-        db_table = "task_progress"
-        unique_together = ("student_id", "task_id")
-
-
+# 任务进度功能已迁移到独立的task_progress应用
 # 学习材料（保持不变：与课程关联并提供下载）
 class Material(models.Model):
     course_code = models.CharField(max_length=16)

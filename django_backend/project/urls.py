@@ -28,7 +28,7 @@ urlpatterns = [
     path('api/', include('api.urls')),
     path('api/', include('plans.urls')),
     path("api/admin/", include("adm_accounts.urls")),
-   
+    path("api/", include("task_progress.urls")),
 ] 
 if settings.DEBUG:
     # 已有的 /media/ 映射

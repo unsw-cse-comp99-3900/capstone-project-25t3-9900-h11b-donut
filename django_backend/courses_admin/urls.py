@@ -25,4 +25,7 @@ urlpatterns = [
     path('courses_admin/upload/task-file', views.upload_task_file, name='upload_task_file'),
     path('courses_admin/upload/material-file', views.upload_material_file, name='upload_material_file'),
     path('materials/<str:filename>/download', views.download_material),
+
+    path('courses_admin/<str:course_id>/students/progress', views.course_students_progress, name='course_students_progress'),
+    path('courses_admin/<str:course_id>/students/progress/', views.course_students_progress, name='course_students_progress_slash'),
 ]

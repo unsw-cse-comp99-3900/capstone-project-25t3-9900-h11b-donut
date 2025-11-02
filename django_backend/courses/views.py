@@ -10,7 +10,6 @@ from .models import (
     CourseCatalog,
     CourseTask,
     StudentEnrollment,
-    TaskProgress,
     Material,
 )
 
@@ -198,33 +197,6 @@ def course_materials(request, course_code):
             "uploadDate": "unknown",
         })
     return JsonResponse({"success": True, "data": data})
-@csrf_exempt
-def task_progress(request, task_id):
-    sid = _require_student(request)
-    if sid is None:
-        return JsonResponse({"error": "Auth required"}, status=401)
-
-    if request.method == "GET":
-        row = TaskProgress.objects.filter(student_id=sid, task_id=int(task_id)).first()
-        value = row.progress if row else 0
-        return JsonResponse({"success": True, "data": {"task_id": int(task_id), "progress": value}})
-
-    if request.method == "PUT":
-        import json
-        try:
-            payload = json.loads(request.body.decode("utf-8"))
-        except Exception:
-            payload = {}
-        progress = int(payload.get("progress") or 0)
-        progress = max(0, min(100, progress))
-        TaskProgress.objects.update_or_create(
-            student_id=sid,
-            task_id=int(task_id),
-            defaults={"progress": progress}
-        )
-        return JsonResponse({"success": True})
-
-    return JsonResponse({"error": "Method not allowed"}, status=405)
 
 def download_material(request, material_id):
     sid = _require_student(request)

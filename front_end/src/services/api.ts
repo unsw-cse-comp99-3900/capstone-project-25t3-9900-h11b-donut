@@ -355,6 +355,12 @@ async adminGetCourseTasks(courseId: string): Promise<ApiTask[]> {
   return res.data ?? [];
 }
 
+async adminGetCourseStudentsProgress(courseId: string, taskId?: string): Promise<Array<{ student_id: string; name?: string; progress: number; overdue_count: number }>> {
+  const q = taskId ? `?task_id=${encodeURIComponent(taskId)}` : '';
+  const res = await this.request<Array<{ student_id: string; name?: string; progress: number; overdue_count: number }>>(`/courses_admin/${encodeURIComponent(courseId)}/students/progress${q}`);
+  return res.data ?? [];
+}
+
 async adminCreateTask(
   courseId: string,
   payload: Omit<ApiTask, 'id'> & { url?: string | null; percent_contribution?: number }
@@ -573,6 +579,50 @@ async adminCreateCourse(payload: {
       method: 'PUT',
       body: JSON.stringify({ progress }),
     });
+  }
+
+  // 获取学生所有任务的进度
+  async getStudentTaskProgress(): Promise<Array<{
+    task_id: number;
+    progress: number;
+    updated_at?: string;
+  }>> {
+    const res = await this.request<Array<{
+      task_id: number;
+      progress: number;
+      updated_at?: string;
+    }>>('/student/progress');
+    return res.data ?? [];
+  }
+
+  // 获取特定课程下所有任务的进度
+  async getCourseTasksProgress(courseCode: string): Promise<Array<{
+    task_id: number;
+    task_title: string;
+    progress: number;
+    deadline?: string;
+  }>> {
+    const res = await this.request<Array<{
+      task_id: number;
+      task_title: string;
+      progress: number;
+      deadline?: string;
+    }>>(`/courses/${courseCode}/tasks/progress`);
+    return res.data ?? [];
+  }
+
+  // 获取单个任务进度详情
+  async getTaskProgressDetail(taskId: string): Promise<{
+    task_id: number;
+    progress: number;
+    student_id: string;
+  }> {
+    const res = await this.request<{
+      task_id: number;
+      progress: number;
+      student_id: string;
+    }>(`/tasks/${taskId}/progress`);
+    return res.data ?? { task_id: parseInt(taskId), progress: 0, student_id: '' };
   }
 
   // 用户偏好

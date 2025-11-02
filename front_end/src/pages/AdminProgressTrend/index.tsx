@@ -419,7 +419,7 @@ export function AdminProgressTrend() {
   // 后端就绪后：修改useMock为false，切换到API调用
   // ============================================
   
-  const useMock = true; // 开发阶段设为true，后端就绪后设为false
+  const useMock = false; // 后端接入：姓名/学号/Completion% 从后端，逾期与趋势仍用前端模拟
   
   const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
@@ -440,12 +440,28 @@ export function AdminProgressTrend() {
         setParts(mockParts);
         console.log('使用前端Mock数据，基于所选Course+Task，已存储到localStorage');
       } else {
-        // TODO: 后端就绪后，调用真实API
-        // const rosterData = await apiService.getRoster(selectedCourse);
-        // const partsData = await apiService.getParts(selectedCourse, selectedTask);
-        // setRoster(rosterData);
-        // setParts(partsData);
-        console.log('使用后端API数据');
+        (async () => {
+          try {
+            if (!selectedCourse) return;
+            const list = await apiService.adminGetCourseStudentsProgress(selectedCourse, selectedTask);
+            const mockPartsNow = generateMockParts(selectedCourse, selectedTask);
+            setParts(mockPartsNow);
+            const mapped = list.map((it, idx) => ({
+              id: String(idx + 1),
+              name: it.name,
+              studentId: it.student_id,
+              completionPercent: it.progress,
+              overdueCount: it.overdue_count ?? 0,
+            } as StudentProgress));
+            const sorted = [...mapped].sort((a, b) => a.name.localeCompare(b.name));
+            setStudents(sorted);
+            setFilteredStudents(sorted);
+          } catch (e) {
+            console.error('[AdminProgressTrend] load backend progress failed:', e);
+            setStudents([]);
+            setFilteredStudents([]);
+          }
+        })();
       }
     };
     
@@ -470,12 +486,12 @@ export function AdminProgressTrend() {
   // ============================================
   
   useEffect(() => {
-    // 无论studentProgressData是否为空都要设置状态
-    // 这样当选中的Course+Task没有数据时，表格会正确显示空状态而不会残留旧数据
+    // 当使用前端Mock数据时才根据 studentProgressData 更新展示；后端模式由加载逻辑直接设置
+    if (!useMock) return;
     const sorted = [...studentProgressData].sort((a, b) => a.name.localeCompare(b.name));
     setStudents(sorted);
     setFilteredStudents(sorted);
-  }, [studentProgressData]);
+  }, [studentProgressData, useMock]);
   
   // ============================================
   // 🚨 TASK B: 排序语义修复 - 过滤/搜索时先复制再排序 🚨

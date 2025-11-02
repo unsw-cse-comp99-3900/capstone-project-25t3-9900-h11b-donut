@@ -16,5 +16,4 @@ urlpatterns = [
     path("courses/<str:course_code>/tasks", views.course_tasks),
     path("courses/<str:course_code>", views.remove_course),  # DELETE
     path("materials/<str:material_id>/download", views.download_material),
-    path("tasks/<int:task_id>/progress", views.task_progress),
 ]
