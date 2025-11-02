@@ -35,3 +35,5 @@
 3) 新增资源
 	•	新增 2 个资源文件夹（图标与插图），用于上述页面的 UI 展示。
 
+11.3更新：
+	新增 course_admin 的download_material(request, filename)函数 用于下载课程资料

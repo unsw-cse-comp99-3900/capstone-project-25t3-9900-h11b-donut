@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './DownloadButton.css';
+import { apiService } from '../services/api';
 
 interface DownloadButtonProps {
   materialId: string;

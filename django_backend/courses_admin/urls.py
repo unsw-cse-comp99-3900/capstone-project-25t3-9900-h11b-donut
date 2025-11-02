@@ -24,4 +24,5 @@ urlpatterns = [
     
     path('courses_admin/upload/task-file', views.upload_task_file, name='upload_task_file'),
     path('courses_admin/upload/material-file', views.upload_material_file, name='upload_material_file'),
+    path('materials/<str:filename>/download', views.download_material),
 ]

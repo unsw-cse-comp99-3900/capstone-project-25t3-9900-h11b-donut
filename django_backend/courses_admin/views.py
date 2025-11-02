@@ -12,6 +12,10 @@ from courses.models import CourseCatalog,StudentEnrollment,TaskProgress,CourseTa
 from django.db import transaction,IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
+from django.http import FileResponse, Http404
+import urllib.parse
+import os
+
 logger = logging.getLogger(__name__)
 def ok(data): 
     return JsonResponse({"success": True, "data": data, "message": ""})
@@ -843,4 +847,37 @@ def update_course_material(request, course_id: str, materials: int):
         return JsonResponse({"success": False, "message": "material not found"}, status=404)
     except Exception as e:
         print("[update_course_material] error:", e)
+        return JsonResponse({"success": False, "message": str(e)}, status=500)
+    
+
+
+
+import os
+import urllib.parse
+from django.http import FileResponse, JsonResponse
+from django.conf import settings
+from django.utils.encoding import escape_uri_path
+##下载material
+def download_material(request, filename):
+    decoded_name = urllib.parse.unquote(filename).strip()
+    print(f"[DEBUG] Looking for file: '{decoded_name}' in {settings.MAT_ROOT}")
+
+    try:
+        for root, _, files in os.walk(settings.MAT_ROOT):
+            for f in files:
+                name_without_ext, ext = os.path.splitext(f)
+                if decoded_name == f or decoded_name == name_without_ext:
+                    file_path = os.path.join(root, f)
+                    print(f"[download_material] Serving file: {file_path}")
+                    response = FileResponse(open(file_path, "rb"), as_attachment=True)
+                    safe_name = escape_uri_path(f)
+                    response["Content-Disposition"] = f"attachment; filename*=UTF-8''{safe_name}"
+
+                    return response
+
+        print(f"[download_material] error: file not found ({decoded_name})")
+        return JsonResponse({"success": False, "message": "File not found"}, status=404)
+
+    except Exception as e:
+        print(f"[download_material] error: {e}")
         return JsonResponse({"success": False, "message": str(e)}, status=500)

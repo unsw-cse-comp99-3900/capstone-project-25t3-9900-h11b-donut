@@ -17,3 +17,6 @@ db.sqlite3
 
 # 你不想提交的 PDF 文件（非常重要！）
 django_backend/ai_module/*.pdf
+
+# 忽略 Python 虚拟环境
+.venv/
