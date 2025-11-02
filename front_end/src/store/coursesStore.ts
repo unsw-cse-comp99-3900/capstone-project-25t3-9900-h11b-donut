@@ -39,11 +39,11 @@ class CoursesStore {
   private progressByDeadline: Record<string, number> = {};
 
   private listeners: Listener[] = [];
-  
+  private _inited = false;
+  private _loading = false;
   constructor() {
-    const token = localStorage.getItem('auth_token');
+    // const token = localStorage.getItem('auth_token');
     // 启动时拉取我的课程与可用课程
-
     const uid = localStorage.getItem('current_user_id');
   if (uid) {
     const raw = localStorage.getItem(`u:${uid}:myCourses:v1`);
@@ -52,8 +52,27 @@ class CoursesStore {
       this.notify(); 
     }
   }
-    this.loadAvailableCourses();
-    if (token) this.loadMyCoursesFromAPI(); 
+    // this.loadAvailableCourses();
+    // if (token) this.loadMyCoursesFromAPI(); 
+  }
+
+async ensureLoaded() {
+    if (this._inited || this._loading) {
+      return;
+    }
+    this._loading = true;
+    const token = localStorage.getItem('auth_token');
+
+    // 先拉可选课程
+    await this.loadAvailableCourses();
+    // 如果当前有 token，就顺便拉“我的课程”
+    if (token) {
+      await this.loadMyCoursesFromAPI();
+    }
+
+    this._inited = true;
+    this._loading = false;
+    this.notify();
   }
 
   subscribe(fn: Listener) {

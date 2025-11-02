@@ -97,7 +97,7 @@ const [user, setUser] = useState<any>(() => {
   if (uid) {
   preferencesStore.loadWeeklyPlans?.(uid); // 如果支持传 uid，最好显式传入
 }
-
+  coursesStore.ensureLoaded();
   const unsubCourses = coursesStore.subscribe(() => {
     setCourses([...coursesStore.myCourses]);
     const sortedDeadlines = [...coursesStore.getDeadlines()].sort((a, b) => {
@@ -156,10 +156,10 @@ const [user, setUser] = useState<any>(() => {
   if (!uid) return;
 
   if (coursesStore.myCourses.length === 0) {
-    void coursesStore.refreshMyCourses();        // ✅ 没数据就拉一次
+    void coursesStore.refreshMyCourses();        //  没数据就拉一次
   }
   if (coursesStore.availableCourses.length === 0) {
-    void coursesStore.refreshAvailableCourses(true); // ✅ 搜索页依赖的目录也拉
+    void coursesStore.refreshAvailableCourses(true); //  搜索页依赖的目录也拉
   }
 }, [uid]);
 
@@ -204,7 +204,9 @@ const [user, setUser] = useState<any>(() => {
   }
 
   const confirmLogout = async () => {
-  try { await apiService.logout(); }
+  try { await apiService.logout();
+   coursesStore.reset();
+  }
   finally {
     window.location.hash = '#/login-student';
     setLogoutModalOpen(false);

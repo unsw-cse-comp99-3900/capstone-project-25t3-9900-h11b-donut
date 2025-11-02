@@ -13,7 +13,6 @@ import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
 import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import apiService from '../../services/api'
-import { coursesStore } from '../../store/coursesStore'
 import { courseAdmin } from '../../store/coursesAdmin'
 
 // 图片映射 - 循环使用4张图片

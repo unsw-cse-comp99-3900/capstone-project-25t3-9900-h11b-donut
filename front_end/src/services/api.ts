@@ -1,6 +1,5 @@
 // API服务层 - 后端集成接口
-import { coursesStore } from '../store/coursesStore';
-import { preferencesStore } from '../store/preferencesStore'; 
+
 import {
   validateEmail, validateId, validateName, validatePassword
 } from '../components/validators';
@@ -261,9 +260,7 @@ if (result.success && result.data?.token) {
     localStorage.setItem('current_user_id', uid);
     localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
   }
-  await coursesStore.refreshAvailableCourses();
-  await coursesStore.refreshMyCourses();
-  await preferencesStore.loadPreferencesFromAPI();
+  
   return result.data;
 }
 throw new Error(result.message || 'wrong password/id');
@@ -304,7 +301,7 @@ async logout(): Promise<void> {
   const uid = localStorage.getItem('current_user_id');
   localStorage.removeItem('current_user_id');
   // 清空前端“内存”状态（避免下个账号看到旧内存）
-  try { coursesStore.reset(); } catch {}
+ 
 }
 
 async logout_adm(): Promise<void> {

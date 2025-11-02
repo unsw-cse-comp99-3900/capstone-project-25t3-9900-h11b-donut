@@ -4,6 +4,8 @@ import { TextInput } from '../../components/TextInput'
 import illustration from '../../assets/images/illustration-student.png'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import apiService from '../../services/api'
+import { coursesStore } from '../../store/coursesStore';
+import { preferencesStore } from '../../store/preferencesStore';
 
 export function LoginStudent() {
   const [password, setPassword] = useState('')
@@ -20,6 +22,10 @@ export function LoginStudent() {
     try {
       setLoading(true)
       await apiService.login(studentId, password)
+      await coursesStore.refreshAvailableCourses();
+      await coursesStore.refreshMyCourses();
+      await preferencesStore.loadPreferencesFromAPI();
+      
       window.location.hash = '/student-home'
     } catch (e: any) {
       setError(e?.message || 'FAIL TO SIGNIN')

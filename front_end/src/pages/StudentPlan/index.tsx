@@ -80,7 +80,9 @@ export function StudentPlan() {
 
     loadUnreadMessageCount();
   }, []);
-
+useEffect(() => {
+  coursesStore.ensureLoaded();
+}, []);
   // 组件加载时从preferencesStore加载已保存的计划
   useEffect(() => {
   const savedPlan = preferencesStore.getWeeklyPlan(weekOffset);
