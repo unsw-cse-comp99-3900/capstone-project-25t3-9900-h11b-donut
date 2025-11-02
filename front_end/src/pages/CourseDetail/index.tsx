@@ -79,7 +79,9 @@ export function CourseDetail() {
     }
   }
 
-
+  useEffect(() => {
+    coursesStore.ensureLoaded();
+  }, []);
   useEffect(() => {
     // 从 URL 获取课程 ID
     const hash = window.location.hash

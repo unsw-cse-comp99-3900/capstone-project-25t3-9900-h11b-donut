@@ -61,7 +61,9 @@ export function StudentCourses() {
 
     loadUnreadMessageCount();
   }, []);
-
+useEffect(() => {
+  coursesStore.ensureLoaded();
+}, []);
   useEffect(() => {
     const unsub = coursesStore.subscribe(() => setV(s => s + 1))
     return unsub
