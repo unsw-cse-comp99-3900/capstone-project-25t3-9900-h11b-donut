@@ -13,6 +13,7 @@ load_dotenv()
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 use_gemini: bool = bool(GEMINI_KEY)
 _split_model: Any = None
+print("[Gemini Check] GEMINI_KEY found?", bool(GEMINI_KEY)) 
 
 if use_gemini:
     try:
@@ -22,8 +23,13 @@ if use_gemini:
             "gemini-2.5-flash",
             generation_config={"temperature": 0.2, "max_output_tokens": 1024}
         )
+        print("[Gemini Check] Gemini model loaded successfully ✅")
     except Exception:
         use_gemini = False
+        print("[Gemini Check] Failed to load Gemini ❌:")
+else:
+    print("[Gemini Check] No GEMINI_API_KEY found, using fallback mode ⚙️")
+
 
 def _equal_split(minutes_total: int, parts: int = 3) -> List[int]:
     """等分拆分，确保每个 part 在 30-60 分钟范围内"""
@@ -123,8 +129,10 @@ def _parts_from_summary_or_fallback(task_title: str, due_date: str,
     优先使用 LLM 摘要的 suggestedParts（含 notes），minutes 用等分分配；
     否则用 LLM 拆分；再否则等分。返回 (parts, explanation)
     """
+    print("summary keys:", list(summary.keys()) if summary else None)
     explanation = "Split into ordered parts to progress from setup to implementation to validation."
     if summary and isinstance(summary.get("suggestedParts"), list) and len(summary["suggestedParts"]) >= 2:
+        print("[parts] from summary.suggestedParts") 
         parts_raw = summary["suggestedParts"][:6]
         mins = _equal_split(est_minutes, len(parts_raw))
         out: List[Part] = []
@@ -138,7 +146,8 @@ def _parts_from_summary_or_fallback(task_title: str, due_date: str,
             ))
         explanation = summary.get("explanation") or explanation
         return out, explanation
-
+    else:
+        print("[parts] from ai_split or equal_split") 
     # 没有摘要：尝试 LLM 直接拆分；否则等分
     parts = _ai_split_parts(task_title, due_date, est_minutes)
     return parts, explanation
@@ -150,6 +159,7 @@ def _estimate_minutes(est_hours_meta, summary, detail_text: Optional[str]) -> in
         return int(round(float(summary["estimatedHours"]) * 60))
     if detail_text:
         return _heuristic_minutes_from_text(detail_text)
+    
     return 6 * 60  # 兜底 6 小时
 
 def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, Any]]:
@@ -160,11 +170,12 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
       "parts":[{"partId","order","title","minutes","notes","percent"}]
     }
     """
+    
     # 1) 提取详情文本
     detail_text = meta.get("detailText")
     if not detail_text and meta.get("detailPdfPath"):
         detail_text = extract_text_from_pdf(meta["detailPdfPath"])
-
+    
     # 2) LLM 摘要（可选）
     summary = summarize_task_details(meta["task"], meta["dueDate"], detail_text) if detail_text else None
 
@@ -194,6 +205,10 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
         "explanation": explanation,
         "parts": ai_parts
     }
+    print("[debug] meta keys:", list(meta.keys()))
+    print("[debug] detailText len:", len(meta.get("detailText","")) if meta.get("detailText") else None)
+    print("[debug] detailPdfPath:", meta.get("detailPdfPath"))
+    print("[debug] summary type:", type(summary))
 
     return TaskWithParts(
         taskId=str(meta["id"]),
@@ -209,19 +224,6 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
     "avoid_days": preferences.get("avoidDays"),
 }
     
-    """
-    输入：
-      preferences = {
-        "daily_hour_cap": 3,
-        "weekly_study_days": 5,
-        "avoid_days": [6]   # 周六不学
-      }
-      tasks_meta: 每项至少含 id/task/dueDate；可选 detailPdfPath
-    输出：{
-      ok, relaxation, weekStart, days[], taskSummary[],
-      aiSummary: { tasks: [ {taskId, taskTitle, totalMinutes, explanation, parts[]} ] }
-    }
-    """
     # 预检：必须存在带合法 dueDate 的任务，否则不生成计划
     from datetime import datetime
     valid_tasks = []
@@ -241,7 +243,6 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
         t, info = _to_task_with_parts(m)
         task_objs.append(t)
         ai_summaries.append(info)
-    
     prefs = Preferences(
         daily_hour_cap=int(preferences.get("daily_hour_cap", 3)),
         weekly_study_days=int(preferences.get("weekly_study_days", 5)),

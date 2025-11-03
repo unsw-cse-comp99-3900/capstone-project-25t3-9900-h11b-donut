@@ -10,7 +10,8 @@ from stu_accounts.models import StudentAccount
 from preferences.models import StudentPreference, StudentPreferenceDefault
 from courses.models import StudentEnrollment, CourseTask
 from decimal import Decimal
-
+from ai_module.plan_generator import generate_plan
+ 
 def _auth(request: HttpRequest) -> Optional[str]:
     """
     返回当前已登录学生ID。
@@ -195,9 +196,10 @@ def generate_ai_plan(request):
         return JsonResponse({"success": False, "message": "No tasks found"}, status=404)
     
     # 4️⃣ 调用 AI 模块生成学习计划
-    from ai_module.plan_generator import generate_plan
+   
 
     try:
+        print(tasks_meta)
         ai_result = generate_plan(preferences, tasks_meta)
         print("🤖 AI generate!：")
         from pprint import pprint
