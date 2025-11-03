@@ -10,7 +10,7 @@ __pycache__/
 
 # 虚拟环境 (如果它在项目根目录)
 venv/
-.env
+
 
 # 数据库文件 (Django 默认)
 db.sqlite3
