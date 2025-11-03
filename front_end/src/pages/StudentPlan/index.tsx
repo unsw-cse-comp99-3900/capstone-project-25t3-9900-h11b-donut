@@ -118,24 +118,24 @@ useEffect(() => {
     }
   }
 
-  const generateWeeklyPlan = (offset = weekOffset): Record<number, PlanItem[]> => {
-    // 使用 preferencesStore 生成计划数据
-    const planItems =  preferencesStore.generateWeeklyPlan();
+  // const generateWeeklyPlan = (offset = weekOffset): Record<number, PlanItem[]> => {
+  //   // 使用 preferencesStore 生成计划数据
+  //   const planItems =  preferencesStore.generateWeeklyPlan();
     
-    // 按天分组
-    const result: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
-    planItems.forEach(item => {
-      const { monday, sunday } = getWeekRange(offset);
-      const itemDate = new Date(item.date);
-      // 过滤掉不在当前周范围内的项
-      if (itemDate < monday || itemDate > sunday) return;
-      const dayDiff = Math.floor((itemDate.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24));
-      const dayIdx = Math.max(0, Math.min(6, dayDiff));
-      result[dayIdx] = [...result[dayIdx], item];
-    });
+  //   // 按天分组
+  //   const result: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
+  //   planItems.forEach(item => {
+  //     const { monday, sunday } = getWeekRange(offset);
+  //     const itemDate = new Date(item.date);
+  //     // 过滤掉不在当前周范围内的项
+  //     if (itemDate < monday || itemDate > sunday) return;
+  //     const dayDiff = Math.floor((itemDate.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24));
+  //     const dayIdx = Math.max(0, Math.min(6, dayDiff));
+  //     result[dayIdx] = [...result[dayIdx], item];
+  //   });
 
-    return result;
-  }
+  //   return result;
+  // }
 
   const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
@@ -151,14 +151,20 @@ useEffect(() => {
     saveAsDefault,
     description
   }
-   await preferencesStore.setPreferences(toSave)
+  const check = preferencesStore.validatePreferences(toSave as Preferences);
+  if (!check.isValid) {
+    alert(check.errors.join('\n'));
+
+    return;
+  }
+  await preferencesStore.setPreferences(toSave)
 
   try {
     // 1) 后端生成 + 映射
     const weeklyPlan = await fetchAndMapAiPlan();
     console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
 
-    // 2) 写入 store（按你的逻辑保持不变）
+    // 2) 写入 store
     preferencesStore.setWeeklyPlan(0, weeklyPlan[0] || []);
     for (const [offsetStr, items] of Object.entries(weeklyPlan)) {
       preferencesStore.setWeeklyPlan(Number(offsetStr), items);

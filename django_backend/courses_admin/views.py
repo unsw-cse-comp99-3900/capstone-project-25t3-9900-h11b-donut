@@ -136,53 +136,108 @@ def create_course(request):
         return JsonResponse({"success": False, "message": f"系统错误：{e}"}, status=500)
 @csrf_exempt
 def delete_course(request):
-    """
-    删除课程及其所有关联数据
-    """
-    # 1) 取参
+    # ---- Step 0. Method check ----
+    if request.method not in ("DELETE", "POST"):
+        return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
+    # ---- Step 1. 获取参数 ----
     admin_id = request.POST.get("admin_id") or request.GET.get("admin_id")
-    code = request.POST.get("code") or request.GET.get("code")
+    course_code = request.POST.get("code") or request.GET.get("code")
 
-    if (not admin_id or not code) and request.body:
+    if (not admin_id or not course_code) and request.body:
         try:
             data = json.loads(request.body.decode("utf-8"))
             admin_id = admin_id or data.get("admin_id")
-            code = code or data.get("code")
+            course_code = course_code or data.get("code")
         except Exception:
             pass
 
-    if not admin_id or not code:
+    if not admin_id or not course_code:
         return JsonResponse({"success": False, "message": "wrong!"}, status=400)
 
-    # 2) 基本对象与权限
-    course = get_object_or_404(CourseCatalog, code=code)
+    course = get_object_or_404(CourseCatalog, code=course_code)
 
-    if not CourseAdmin.objects.filter(admin_id=admin_id, code__code=code).exists():
+    # 必须是这个课程的管理员
+    if not CourseAdmin.objects.filter(admin_id=admin_id, code__code=course_code).exists():
         return JsonResponse({"success": False, "message": "wrong!"}, status=403)
 
-    # 3) （TaskProgress -> CourseTask -> CourseAdmin -> CourseCatalog）
     try:
+        task_file_paths = []      # 任务附件 (TASK_ROOT/...)
+        material_file_paths = []  # 课程资料 (MAT_ROOT/<course_code>/filename)
+
         with transaction.atomic():
-            # 找到所有任务 id
-            task_ids = list(
-                CourseTask.objects.filter(course_code=code).values_list("id", flat=True)
-            )
-            # 先删进度（如果 task_progress 应用存在）
-            try:
-                from task_progress.models import TaskProgress as TP2
-                if task_ids:
-                    TP2.objects.filter(task_id__in=task_ids).delete()
-            except Exception:
-                pass
-            # 再删任务
-            CourseTask.objects.filter(course_code=code).delete()
-            # 删管理员关联
-            CourseAdmin.objects.filter(admin_id=admin_id, code__code=code).delete()
-            # 最后删课程
+            tasks = list(CourseTask.objects.filter(course_code=course_code))
+
+            for t in tasks:
+                task_id = t.id
+
+                try:
+                    from task_progress.models import TaskProgress as TPModel
+                    TPModel.objects.filter(task_id=task_id).delete()
+                except Exception:
+
+                    pass
+
+                task_url = getattr(t, "url", "") or ""
+                if (
+                    task_url
+                    and hasattr(settings, "TASK_URL")
+                    and hasattr(settings, "TASK_ROOT")
+                    and task_url.startswith(settings.TASK_URL)
+                ):
+                    rel_path = task_url[len(settings.TASK_URL):].lstrip("/")
+                    file_path = os.path.join(settings.TASK_ROOT, rel_path)
+                    task_file_paths.append(file_path)
+
+                t.delete()
+
+            materials = list(Material.objects.filter(course_code=course_code))
+
+            for m in materials:
+
+                mat_url = (getattr(m, "url", "") or "").strip()
+                mat_url = unquote(mat_url)
+
+                filename = os.path.basename(mat_url)
+                if filename and hasattr(settings, "MAT_ROOT"):
+                    course_dir = os.path.join(settings.MAT_ROOT, course_code)
+                    mat_file_path = os.path.join(course_dir, filename)
+                    material_file_paths.append(mat_file_path)
+
+                m.delete()
+
+            questions = list(Question.objects.filter(course_code=course_code))
+            for q in questions:
+                q.delete()
+
+
+            QuestionKeyword.objects.filter(
+                ~Exists(
+                    QuestionKeywordMap.objects.filter(keyword_id=OuterRef('pk'))
+                )
+            ).delete()
+            StudentEnrollment.objects.filter(course_code=course_code).delete()
+            CourseAdmin.objects.filter(code__code=course_code).delete()
+
             course.delete()
 
-        return JsonResponse({"success": True, "message": f"课程 {code} 已成功删除"})
+        for fpath in task_file_paths:
+            try:
+                if fpath and os.path.isfile(fpath):
+                    os.remove(fpath)
+            except Exception as fe:
+                print(f"[delete_course] task file delete failed: {fpath} err={fe}")
+
+        for fpath in material_file_paths:
+            try:
+                if fpath and os.path.isfile(fpath):
+                    os.remove(fpath)
+            except Exception as fe:
+                print(f"[delete_course] material file delete failed: {fpath} err={fe}")
+
+        return JsonResponse({"success": True, "message": f"课程 {course_code} 已成功删除"})
+
     except Exception as e:
+        print("[delete_course] error:", e)
         return JsonResponse({"success": False, "message": f"删除失败：{e}"}, status=500)
 @csrf_exempt
 def course_tasks(request, course_id):

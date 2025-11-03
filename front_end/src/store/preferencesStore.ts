@@ -186,12 +186,12 @@ class PreferencesStore {
     
     // 验证每日学习时长
     if (preferences.dailyHours < 1 || preferences.dailyHours > 12) {
-      errors.push('每日学习时长必须在1-12小时之间');
+      errors.push('Daily study hours must be between 1 and 12.');
     }
     
     // 验证每周学习天数
     if (preferences.weeklyStudyDays < 1 || preferences.weeklyStudyDays > 7) {
-      errors.push('每周学习天数必须在1-7天之间');
+      errors.push('Weekly study days must be between 1 and 7.');
     }
     
     // 验证避免天数不冲突
@@ -199,7 +199,7 @@ class PreferencesStore {
     const availableDays = allDays.filter(day => !preferences.avoidDays.includes(day));
     
     if (availableDays.length < preferences.weeklyStudyDays) {
-      errors.push(`选择的避免天数过多，剩余可用天数(${availableDays.length})少于每周学习天数(${preferences.weeklyStudyDays})`);
+      errors.push(`Too many avoid days selected — remaining available days (${availableDays.length}) are fewer than the desired weekly study days (${preferences.weeklyStudyDays}).`);
     }
     
     return {
@@ -269,9 +269,10 @@ class PreferencesStore {
   // 生成学习计划（使用AI功能）
   async generateWeeklyPlan(): Promise<PlanItem[]> {
     const preferences = this.getPreferences();
-    
+    console.log('[DEBUG] 当前获取的偏好:', preferences);
     // 验证偏好设置
     const validation = this.validatePreferences(preferences);
+    console.log('[DEBUG] 校验结果:', validation);
     if (!validation.isValid) {
       console.error('偏好设置验证失败:', validation.errors);
       return [];

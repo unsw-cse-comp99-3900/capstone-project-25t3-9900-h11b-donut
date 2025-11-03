@@ -286,8 +286,6 @@ async login_adm(adminId: string, password: string): Promise<{ token: string; use
     window.location.hash = '/admin/home';
     return result.data;
   }
-
-
   throw new Error(result.message || 'Invalid admin ID or password');
 }
 async logout(): Promise<void> {
@@ -643,7 +641,6 @@ async adminCreateCourse(payload: {
 
   // 学习计划
   async getWeeklyPlan(weekOffset: number): Promise<ApiPlanItem[]> {
-
     const res = await this.request<ApiPlanItem[]>(`/plans/weekly/${weekOffset}`);
     return res.data ?? [];
   }
@@ -673,9 +670,9 @@ async adminCreateCourse(payload: {
   async generateAIPlan(): Promise<any> {
   try {
     const res = await this.request<any>('/generate', { method: 'POST' });
-    console.log("✅ AI 计划已从后端获取:", res);
 
-    // 🔧 关键修复：兼容后端直接返回JSON而非 {data: ...}
+    console.log("✅ AI 计划已从后端获取:", res);
+    //  关键修复：兼容后端直接返回JSON而非 {data: ...}
     const aiPlan = (res && res.data) ? res.data : res;
 
     console.log("🧩 实际可用的 AI 计划:", aiPlan);

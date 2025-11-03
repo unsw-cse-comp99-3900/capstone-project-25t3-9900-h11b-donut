@@ -43,21 +43,10 @@ def _err(msg, status=400):
 
 @csrf_exempt
 def preferences_entry(request: HttpRequest):
-    """
-    - GET  /api/preferences      读取：优先 default，再用 current；无则返回 data=None
-    - PUT  /api/preferences      保存：saveAsDefault 为真存入 Default 表，否则存入 Current 表
-      
-        dailyHours: number (0.25~24)
-        weeklyStudyDays: number (1~7)
-        avoidDays: string[] in ["Sun","Mon",...,"Sat"]  (也兼容数字 0..6)
-        saveAsDefault: boolean
-        description: string | null
-    """
     # 1) 鉴权：从 Bearer Token 中解析 student_id
     student_id = get_student_id_from_request(request)
     if not student_id:
         return _err("Unauthorized", 401)
-
     # 2) 获取学生
     try:
         student = StudentAccount.objects.get(student_id=student_id)
@@ -125,6 +114,16 @@ def preferences_entry(request: HttpRequest):
         mask = labels_to_bitmask(avoid_days_list)
     except ValueError as ve:
         return _err(str(ve), 400)
+
+
+    all_days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    available_days = [d for d in all_days if d not in avoid_days_list]
+    if len(available_days) < wsd:
+        # 直接拒绝，不写库
+        return _err(
+            f"weeklyStudyDays={wsd} exceeds available days {len(available_days)} after avoidDays={avoid_days_list}",
+            400
+        )
 
     # 5) 落库：根据 saveAsDefault 决定写哪张表（默认 or 当前）
     try:
