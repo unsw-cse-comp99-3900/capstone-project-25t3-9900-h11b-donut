@@ -13,12 +13,7 @@ import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import { apiService, type ApiQuestion } from '../../services/api'
 
-// ============================================
-// 🚨 MOCK DATA FUNCTION - 更新本地任务统计数据 🚨
-// ============================================
-// TODO: 这里需要替换为真实的后端API调用
-// 在localStorage中更新任务统计信息
-// ============================================
+
 
 function updateTaskStatsLocal(courseId: string, newTasks: any[]) {
   const adminId = localStorage.getItem('current_user_id');
@@ -52,6 +47,7 @@ type NewTask = {
   deadline: string;
   brief: string;
   attachment: File | null;
+  percentContribution: number;
 };
 
 export function AdminManageCourse() {
@@ -79,6 +75,7 @@ export function AdminManageCourse() {
   deadline: '',
   brief: '',
   attachment: null,   
+  percentContribution: 100,
 });
   const [materialModalOpen, setMaterialModalOpen] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<any>(null)
@@ -195,6 +192,7 @@ export function AdminManageCourse() {
       deadline: '',
       brief: '',
       attachment: null,
+      percentContribution: 100,
     });
     resetUpload(); 
   };
@@ -217,7 +215,16 @@ export function AdminManageCourse() {
   const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     .toISOString()
     .slice(0, 10); 
-
+  const pct = newTask.percentContribution;
+  if (
+    typeof pct !== 'number' ||
+    Number.isNaN(pct) ||
+    pct < 1 ||
+    pct > 100
+  ) {
+    alert('Percentage must be a number between 1 and 100');
+    return;
+  }
   if (newTask.deadline < todayStr) {
     alert('Deadline ahead of today!');
     return;
@@ -262,7 +269,7 @@ export function AdminManageCourse() {
     title: newTask.title.trim(),
     deadline: newTask.deadline,        // 必须 YYYY-MM-DD
     brief: (newTask.brief ?? '').trim(),
-    percent_contribution: 100,
+    percent_contribution: newTask.percentContribution ?? 100,
     url: fileUrl,                      // 没有附件则为 null
   };
 
@@ -301,7 +308,7 @@ export function AdminManageCourse() {
     allObj[selectedCourse.id] = updated;
     localStorage.setItem(allKey, JSON.stringify(allObj));
 
-    // 6) 关闭并重置（用你提供的版本）
+    // 6) 关闭并重置
     handleCloseTaskModal();
   } catch (e: any) {
     console.error('Create task error:', e);
@@ -319,6 +326,11 @@ export function AdminManageCourse() {
     deadline: task.deadline && task.deadline !== 'none' ? task.deadline : '',
     brief: task.brief || '', 
     attachment: null,  
+    percentContribution: (
+    task.percentContribution ??
+    task.percent_contribution ??
+    100
+  ),
   });
   setUploadedUrl(task.url || null);
   setUploadStatus('idle');
@@ -358,7 +370,7 @@ export function AdminManageCourse() {
       title: newTask.title.trim(),
       deadline: newTask.deadline,
       brief: (newTask.brief ?? '').trim(),
-      percent_contribution: 100,   
+      percent_contribution: newTask.percentContribution ?? 100,
     };
     if (uploadedUrl) {
       payload.url = uploadedUrl;   // 仅当用户换了附件才覆盖
@@ -1243,7 +1255,7 @@ if (adminId) {
                                 <h4 className="task-title">{task.title}</h4>
                                 <p className="task-brief">{task.brief}</p>
                                 <div className="task-meta">
-                                  <span className="meta-chip">Task ID: {task.id}</span>
+                                  <span className="meta-chip">Task Proportion: {task.percentContribution}%</span>
                                   <span className="meta-chip">Deadline: {task.deadline}</span>
                                 </div>
                                 {task.attachment && (
@@ -1420,6 +1432,22 @@ if (adminId) {
                 {!newTask.title.trim() && (
                   <span className="task-error">Title is required</span>
                 )}
+              </div>
+
+              <div className="task-input-group">
+                <label className="task-label">Percentage (%):</label>
+                <input
+                  type="number"
+                  className="task-input"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={newTask.percentContribution}
+                  onChange={(e) => {
+                    const num = Number(e.target.value);
+                    handleTaskInputChange('percentContribution', num);
+                  }}
+                />
               </div>
 
               {/* Task ID */}
