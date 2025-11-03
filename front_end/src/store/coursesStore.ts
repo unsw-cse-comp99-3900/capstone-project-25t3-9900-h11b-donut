@@ -198,7 +198,6 @@ async ensureLoaded() {
 
   // 按需加载任务（首次从后端获取并缓存）
   async getCourseTasksAsync(courseId: string): Promise<Task[]> {
-    
     if (!this.tasksByCourse[courseId]) {
       const apiTasks = await apiService.getCourseTasks(courseId);
       this.tasksByCourse[courseId] = apiTasks.map(t => ({

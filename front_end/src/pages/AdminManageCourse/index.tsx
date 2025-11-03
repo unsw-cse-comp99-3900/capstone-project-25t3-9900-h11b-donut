@@ -24,7 +24,7 @@ function updateTaskStatsLocal(courseId: string, newTasks: any[]) {
   const countsByCourse = JSON.parse(localStorage.getItem(countsKey) || '{}');
   countsByCourse[courseId] = newTasks.length;
   localStorage.setItem(countsKey, JSON.stringify(countsByCourse));
-
+  
   // 更新总任务数
   const total = Object.values(countsByCourse).reduce<number>(
   (sum, n) => sum + Number(n || 0),

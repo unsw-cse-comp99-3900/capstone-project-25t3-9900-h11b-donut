@@ -715,16 +715,6 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
     description: string;
     uploadDate: string;
   }>> {
-    // const result = await this.request<ApiResponse<Array<{
-    //   id: string;
-    //   title: string;
-    //   fileType: string;
-    //   fileSize: string;
-    //   description: string;
-    //   uploadDate: string;
-    // }>>>(`/courses/${courseId}/materials`);
-    
-    // return result.data || [];
       const res = await this.request<Array<{
       id: string;
       title: string;
