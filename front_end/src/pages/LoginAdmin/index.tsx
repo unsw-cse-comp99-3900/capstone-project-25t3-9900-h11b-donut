@@ -4,7 +4,7 @@ import { TextInput } from '../../components/TextInput'
 import illustration from '../../assets/images/illustration-admin.png'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import apiService from '../../services/api'
-
+import { courseAdmin } from '../../store/coursesAdmin'
 
 export function LoginAdmin() {
   const [adminId, setID] = useState('')
@@ -20,7 +20,10 @@ export function LoginAdmin() {
       try {
         setLoading(true)
         await apiService.login_adm(adminId, password)
-        
+        await courseAdmin.getMyCourses(true)
+        await courseAdmin.getMyTasks(true)
+        await courseAdmin.getMyMaterials(true)
+        await courseAdmin.getMyQuestions(true)
         window.location.hash = '/admin-home'
       } catch (e: any) {
         setError(e?.message || 'FAIL TO SIGNIN')

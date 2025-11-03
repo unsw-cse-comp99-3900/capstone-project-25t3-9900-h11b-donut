@@ -31,12 +31,6 @@ export function AdminCourses() {
   const [courseId, setCourseId] = useState('')
   const [courseName, setCourseName] = useState('')
   const [courseDescription, setCourseDescription] = useState('')
-  // ============================================
-  // 🚨 MOCK DATA SECTION - 管理员创建的课程数据 🚨
-  // ============================================
-  // TODO: 这里需要替换为真实的后端API调用
-  // 从localStorage读取管理员创建的课程数据
-  // ============================================
   
   const [createdCourses, setCreatedCourses] = useState<Array<{
   id: string;
@@ -54,7 +48,6 @@ export function AdminCourses() {
     return [];
   }
 });
-console.log("!!@#!@#",createdCourses)
 
   // 删除课程函数
   const handleDeleteCourse = async(courseId: string) => {
@@ -294,30 +287,6 @@ console.log("!!@#!@#",createdCourses)
                       onClick={() => handleDeleteCourse(course.id)}
                     >
                       Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-              
-              {/* 显示原有的课程 */}
-              {courses.map((course) => (
-                <div key={course.id} className="course-card">
-                  <div className="course-thumb">
-                    <img src={adminIllustrations[0]} alt="" />
-                  </div>
-                  <div className="course-info">
-                    <h3 className="course-id">{course.id}</h3>
-                    <p className="course-title">{course.title}</p>
-                    <p className="course-description">
-                      {'desc' in course ? (course as any).desc : '    '}
-                    </p>
-                  </div>
-                  <div className="course-actions">
-                    <button 
-                      className="manage-btn"
-                      onClick={() => window.location.hash = `#/admin-manage-course?courseId=${course.id}`}
-                    >
-                      Manage
                     </button>
                   </div>
                 </div>

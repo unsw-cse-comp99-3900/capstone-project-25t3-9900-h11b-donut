@@ -42,13 +42,6 @@ export function AdminHome() {
       atRiskStudents: 0
     })
   
-  // ============================================
-  // 🚨 MOCK DATA SECTION - 管理员创建的课程数据 🚨
-  // ============================================
-  // TODO: 这里需要替换为真实的后端API调用
-  // 从localStorage读取管理员创建的课程数据
-  // ============================================
-  
   //展示创建的课程 
   const [createdCourses, setCreatedCourses] = useState<Array<{
   id: string;
@@ -89,7 +82,6 @@ export function AdminHome() {
     await courseAdmin.getMyMaterials();   // 再拉材料
     await courseAdmin.getMyQuestions();   // 再拉question
   })();
-  
     // 监听localStorage变化来更新课程数据
     const handleStorageChange = () => {
       try {

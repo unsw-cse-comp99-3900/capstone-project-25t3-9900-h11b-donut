@@ -283,7 +283,6 @@ async login_adm(adminId: string, password: string): Promise<{ token: string; use
     const uid = user.adminId ?? user.id ?? String(adminId);
     localStorage.setItem('current_user_id', uid);
     localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
-    window.location.hash = '/admin/home';
     return result.data;
   }
   throw new Error(result.message || 'Invalid admin ID or password');
@@ -313,10 +312,10 @@ async logout_adm(): Promise<void> {
 }
 
   // 课程管理
-  async getAvailableCourses(): Promise<ApiCourse[]> {
-    const res = await this.request<ApiCourse[]>('/courses/available');
-    return res.data ?? [];
-  }
+async getAvailableCourses(): Promise<ApiCourse[]> {
+  const res = await this.request<ApiCourse[]>('/courses/available');
+  return res.data ?? [];
+}
 
       
 async adminGetMyCourses(): Promise<ApiCourse[]> {
