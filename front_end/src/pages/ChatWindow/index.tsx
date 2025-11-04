@@ -5,8 +5,8 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconSettings from '../../assets/icons/settings-24.svg'
-import UserWhite from '../../assets/icons/user-24-white.svg'
 import { preferencesStore } from '../../store/preferencesStore'
+import { aiChatService, type ChatMessage } from '../../services/aiChatService'
 
 /** ChatWindow
  *  - 左侧：完全复用 StudentHome 的侧栏结构（用户卡/导航/AI卡/登出按钮）
@@ -15,12 +15,43 @@ import { preferencesStore } from '../../store/preferencesStore'
  */
 export function ChatWindow() {
   const uid = localStorage.getItem('current_user_id') || ''
+  
+  // 调试：显示当前用户信息
+  console.log('🔍 ChatWindow初始化 - 用户信息:', {
+    uid,
+    localStorage_current_user_id: localStorage.getItem('current_user_id'),
+    auth_token: localStorage.getItem('auth_token') ? 'exists' : 'missing',
+    login_time: localStorage.getItem('login_time')
+  })
   const [user, setUser] = useState<any>(() => {
     if (!uid) return null
     try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null') }
     catch { return null }
   })
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+  
+  // 聊天状态管理
+  const [showChat, setShowChat] = useState(false)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [currentInput, setCurrentInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [isAiHealthy, setIsAiHealthy] = useState(true)
+  const messagesRef = useRef<HTMLDivElement | null>(null)
+  const [practiceOpen, setPracticeOpen] = useState(false)
+  const [practiceStage, setPracticeStage] = useState<'intro' | 'quiz'>('intro')
+  const [showLoadHistory, setShowLoadHistory] = useState(false)
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false) // 标记是否已加载过历史
+  
+  // 幂等保护ref，防止StrictMode下副作用重复执行
+  const initializedRef = useRef(false)
+
+  // 辅助函数：创建默认消息
+  const createFallbackMessage = (content: string): ChatMessage => ({
+    id: Date.now(),
+    type: 'ai',
+    content,
+    timestamp: new Date().toISOString()
+  })
 
   useEffect(() => {
     if (uid) {
@@ -32,6 +63,153 @@ export function ChatWindow() {
     preferencesStore.loadWeeklyPlans?.()
   }, [uid])
 
+  // 初始化AI服务和对话状态管理
+  useEffect(() => {
+    if (initializedRef.current) return
+    initializedRef.current = true
+
+    const initializeAI = async () => {
+      console.log('🚀 初始化 AI 聊天窗口', { uid })
+
+      if (!uid) {
+        console.log('⚠️ 没有用户ID，跳过初始化')
+        return
+      }
+
+      const healthy = await aiChatService.healthCheck()
+      setIsAiHealthy(healthy)
+      if (!healthy) {
+        console.log('⚠️ AI 服务不可用')
+        return
+      }
+
+      // 检查是否是本次登录后第一次进入chat页面
+      const loginTime = localStorage.getItem('login_time')
+      const chatSessionKey = `chat_visited_${uid}_${loginTime}`
+      const hasVisitedChatThisLogin = sessionStorage.getItem(chatSessionKey)
+      
+      console.log('🔍 检查聊天访问状态:', {
+        uid,
+        loginTime,
+        chatSessionKey,
+        hasVisitedChatThisLogin,
+        isFirstVisit: !hasVisitedChatThisLogin
+      })
+      
+      if (!hasVisitedChatThisLogin) {
+        // 首次进入：隐藏历史，发送问候消息
+        console.log('✅ 首次进入chat页面，发送问候消息')
+        sessionStorage.setItem(chatSessionKey, 'true')
+        
+        // 清空之前的聊天消息，确保只显示问候消息
+        setChatMessages([])
+        setHasLoadedHistory(false)
+        setShowLoadHistory(true) // 显示加载历史按钮
+        
+        console.log('📝 设置初始状态: showLoadHistory=true, hasLoadedHistory=false')
+        
+        // 防止重复发送问候消息
+        setTimeout(async () => {
+          // 再次检查是否已经有消息了（防止竞态条件）
+          const currentMessages = JSON.parse(sessionStorage.getItem(`chat_state_${uid}`) || '{}').messages || [];
+          if (currentMessages.length === 0) {
+            await sendWelcomeMessage();
+          }
+        }, 100);
+      } else {
+        // 非首次进入：尝试恢复之前的状态
+        console.log('🔄 非首次进入，恢复之前的聊天状态')
+        const savedState = sessionStorage.getItem(`chat_state_${uid}`)
+        console.log('💾 保存的状态:', savedState)
+        
+        if (savedState) {
+          try {
+            const { messages, hasLoadedHistory: savedHasLoadedHistory } = JSON.parse(savedState)
+            console.log('📋 恢复状态:', { 
+              messagesCount: messages?.length || 0, 
+              savedHasLoadedHistory,
+              willShowLoadHistory: !savedHasLoadedHistory 
+            })
+            setChatMessages(messages || [])
+            setHasLoadedHistory(savedHasLoadedHistory || false)
+            setShowLoadHistory(!savedHasLoadedHistory) // 如果还没加载过历史，显示按钮
+          } catch (error) {
+            console.error('❌ 恢复聊天状态失败:', error)
+            // 如果恢复失败，回退到发送问候消息
+            setChatMessages([])
+            setHasLoadedHistory(false)
+            setShowLoadHistory(true)
+            await sendWelcomeMessage()
+          }
+        } else {
+          // 没有保存的状态，发送问候消息
+          console.log('📝 没有保存的状态，发送问候消息')
+          setChatMessages([])
+          setHasLoadedHistory(false)
+          setShowLoadHistory(true)
+          await sendWelcomeMessage()
+        }
+      }
+
+      setShowChat(true)
+    }
+
+    initializeAI()
+  }, [uid])
+
+  // 发送欢迎消息的函数（首次进入）
+  const sendWelcomeMessage = async () => {
+    setIsLoading(true)
+    try {
+      const response = await aiChatService.sendMessage('welcome')
+      if (response.success && response.ai_response) {
+        const aiReply: ChatMessage = {
+          id: response.ai_response.id,
+          type: 'ai',
+          content: response.ai_response.content,
+          timestamp: response.ai_response.timestamp,
+        }
+        setChatMessages([aiReply])
+      } else {
+        setChatMessages([createFallbackMessage('Hello! I\'m your Learning Coach. I\'m here to help you with your studies. How can I assist you today?')])
+      }
+    } catch (error) {
+      console.error('Error sending welcome message:', error)
+      setChatMessages([createFallbackMessage('Hello! I\'m your Learning Coach. I\'m here to help you with your studies. How can I assist you today?')])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 保存聊天状态到sessionStorage
+  const saveChatState = () => {
+    if (uid) {
+      const stateToSave = {
+        messages: chatMessages,
+        hasLoadedHistory: hasLoadedHistory
+      }
+      sessionStorage.setItem(`chat_state_${uid}`, JSON.stringify(stateToSave))
+      
+      // 同时尝试保存到后端数据库（如果后端支持）
+      try {
+        // 这里可以调用后端API来保存聊天状态
+        // 但目前后端可能还没有实现这个功能
+        console.log('💾 聊天状态已保存到sessionStorage')
+      } catch (error) {
+        console.warn('⚠️ 保存到后端失败，但sessionStorage已保存:', error)
+      }
+    }
+  }
+
+  // 当聊天消息或历史加载状态改变时，保存状态
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      saveChatState()
+    }
+  }, [chatMessages, hasLoadedHistory, uid])
+
+
+
   const handleLogout = () => {
     setLogoutModalOpen(true)
   }
@@ -41,11 +219,20 @@ export function ChatWindow() {
       // 调用后端 /api/auth/logout
       // await apiService.logout();
 
-      // ✅ 只清除登录状态相关数据
+      // ✅ 清除所有状态数据
       localStorage.removeItem('auth_token');
       localStorage.removeItem('login_time');
       localStorage.removeItem('current_user_id');
-      // 清除本地 token
+      localStorage.removeItem('ai_chat_session_started');
+      
+      // 清除所有用户相关的localStorage数据
+      if (uid) {
+        localStorage.removeItem(`u:${uid}:user`);
+        localStorage.removeItem(`u:${uid}:weekly_plans`);
+      }
+      
+      // 清除sessionStorage中的聊天状态
+      sessionStorage.clear();
 
       console.log('User logged out');
       window.location.hash = '#/login-student'; // 跳回登录页
@@ -62,250 +249,214 @@ export function ChatWindow() {
     else window.location.hash = '#/student-home'
   }
 
-  const [showChat, setShowChat] = useState(false)
-  const [chatMessages, setChatMessages] = useState<any[]>([])
-  const [currentInput, setCurrentInput] = useState('')
-  const messagesRef = useRef<HTMLDivElement | null>(null) // 聊天消息容器引用，用于自动滚动
-  const [practiceOpen, setPracticeOpen] = useState(false)
-  // 练习阶段状态：intro（介绍）或 quiz（答题）
-  const [practiceStage, setPracticeStage] = useState<'intro' | 'quiz'>('intro')
+  const loadHistoryMessages = async () => {
+    console.log('📜 开始加载历史消息')
+    const currentUserId = localStorage.getItem('current_user_id')
+    console.log('🔍 当前用户ID:', currentUserId)
+    console.log('🔍 uid变量:', uid)
+    setIsLoading(true)
+    try {
+      const historyResponse = await aiChatService.getChatHistory(50)
+      console.log('📡 历史消息响应:', { 
+        success: historyResponse.success, 
+        messageCount: historyResponse.messages?.length || 0,
+        userId: currentUserId
+      })
+      
+      if (historyResponse.success && historyResponse.messages.length > 0) {
+        // 获取历史消息并排序
+        const historyMessages = historyResponse.messages.sort((a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+
+        // 合并历史消息和当前会话的消息，避免覆盖新消息
+        setChatMessages(prev => {
+          // 创建消息ID的Set来去重
+          const existingIds = new Set(prev.map(msg => msg.id));
+          const newHistoryMessages = historyMessages.filter(msg => !existingIds.has(msg.id));
+          
+          // 合并并按时间排序
+          const allMessages = [...prev, ...newHistoryMessages].sort((a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+          
+          return allMessages;
+        });
+        
+        setHasLoadedHistory(true) // 标记已加载历史
+        setShowLoadHistory(false) // 隐藏加载历史按钮
+        console.log('✅ 历史消息已合并，保留当前会话消息')
+      } else {
+        console.log('⚠️ 没有历史消息，隐藏加载按钮')
+        setShowLoadHistory(false)
+      }
+    } catch (error) {
+      console.error('❌ 加载历史消息失败:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   // 占位题库（前端 mock，不接后端）- 包含选择题和简答题
   const quizQuestions = [
-    { 
+    {
       type: 'multiple-choice' as const,
-      q: 'What is the time complexity of binary search?', 
-      options: ['O(n)', 'O(log n)', 'O(1)', 'O(n^2)'], 
-      correct: 1 
+      q: 'What is the time complexity of binary search?',
+      options: ['O(n)', 'O(log n)', 'O(1)', 'O(n^2)'] as const,
+      correct: 1
     },
-    { 
+    {
       type: 'multiple-choice' as const,
-      q: 'Which data structure is best for FIFO?', 
-      options: ['Stack', 'Queue', 'Tree', 'Graph'], 
-      correct: 1 
+      q: 'Which data structure is best for FIFO?',
+      options: ['Stack', 'Queue', 'Tree', 'Graph'] as const,
+      correct: 1
     },
-    { 
+    {
       type: 'essay' as const,
       q: 'Explain the difference between stack and queue data structures.',
       placeholder: 'Write your answer here...'
     },
-    { 
+    {
       type: 'essay' as const,
       q: 'Describe how binary search works and when it should be used.',
       placeholder: 'Provide a detailed explanation...'
     }
-  ] as const
+  ]
+
   const [quizIndex, setQuizIndex] = useState(0)
   const [answers, setAnswers] = useState<(number | string | null)[]>(Array(quizQuestions.length).fill(null))
 
-  const onSend = (e?: React.FormEvent) => {
+  const onSend = async (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!currentInput.trim()) return
+    if (!currentInput.trim() || isLoading || !isAiHealthy) return
     
-    // 保存用户输入内容，因为setTimeout回调中currentInput已经为空
     const userInput = currentInput.trim()
-    
-    // 进入聊天态
+    setCurrentInput('')
+    setIsLoading(true)
     setShowChat(true)
+    // 发送消息时不改变Load History按钮状态，保持用户的选择
     
-    // 添加用户消息
-    const newUserMessage = {
+    // 先添加一个临时的用户消息（使用临时ID）
+    const tempUserMessage: ChatMessage = {
       id: Date.now(),
       type: 'user',
       content: userInput,
-      timestamp: new Date()
+      timestamp: new Date().toISOString()
     }
     
-    setChatMessages(prev => [...prev, newUserMessage])
-    setCurrentInput('')
+    setChatMessages(prev => [...prev, tempUserMessage])
     
-    // 根据不同的输入内容生成对应的AI回复
-    setTimeout(() => {
-      let aiResponse;
+    try {
+      // 发送消息到AI服务 - 现在会根据用户的具体内容进行智能回复
+      const currentUserId = localStorage.getItem('current_user_id')
+      console.log('🚀 发送消息:', { 
+        userInput, 
+        currentUserId, 
+        uid,
+        localStorage_keys: Object.keys(localStorage),
+        localStorage_current_user_id: localStorage.getItem('current_user_id'),
+        all_localStorage: Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))
+      })
       
-      if (userInput.toLowerCase().includes('explain') || userInput.toLowerCase().includes('plan')) {
-        aiResponse = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: (
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                Hi! Here's a detailed explanation of your personalized learning plan.
-              </div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>How your plan was created:</div>
-              <ul style={{ paddingLeft: 18, margin: 0 }}>
-                <li><strong>Study preferences:</strong> 3 hours per day, 5 days a week (avoiding Sundays)</li>
-                <li><strong>Course deadlines:</strong> All assignments and project due dates are considered</li>
-                <li><strong>Task structure:</strong> Sequential completion (Part 1 → Part 2 → Part 3) for each task</li>
-                <li><strong>Learning pace:</strong> Balanced workload with regular review sessions</li>
-              </ul>
-              <div style={{ marginTop: 12, padding: 10, background: '#f8f9fa', borderRadius: 8 }}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>💡 Tip:</div>
-                <div>Your plan automatically adjusts if you miss a day - it will reschedule unfinished tasks for the next available study session.</div>
-              </div>
-            </div>
-          ),
-          timestamp: new Date()
-        };
-      } else if (userInput.toLowerCase().includes('practice') || userInput.toLowerCase().includes('weak') || userInput.toLowerCase().includes('topic') || userInput.toLowerCase().includes('hard')) {
-        aiResponse = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: (
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                I understand this topic feels challenging! That's completely normal. 🎯
-              </div>
-              <div style={{ marginBottom: 10 }}>
-                Based on your progress, I've created a focused 10-minute practice session targeting the areas you're finding difficult.
-              </div>
-              <button
-                className="cw-cta-btn"
-                onClick={() => { setPracticeStage('intro'); setQuizIndex(0); setAnswers(Array(quizQuestions.length).fill(null)); setPracticeOpen(true) }}
-                aria-label="Start practice"
-              >
-                Start 10-minute practice session
-                <img src={ArrowRight} width={16} height={16} alt="" style={{ marginLeft: 8 }} />
-              </button>
-              <div style={{ marginTop: 12, fontSize: 13, color: '#666' }}>
-                This practice will help reinforce key concepts and build your confidence!
-              </div>
-            </div>
-          ),
-          timestamp: new Date()
-        };
-      } else if (userInput.toLowerCase().includes('encouragement') || userInput.toLowerCase().includes('encourage') || userInput.toLowerCase().includes('motivation')) {
-        aiResponse = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: (
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                You're doing amazing! 🌟
-              </div>
-              <div style={{ lineHeight: 1.6 }}>
-                Learning new things can be challenging, but every step you take is building your knowledge and skills.
-                <br /><br />
-                Remember: Progress isn't always linear. Some days will feel easier than others, and that's perfectly okay!
-                <br /><br />
-                You've already shown great dedication by seeking help and working through difficult concepts. Keep going - you've got this! 💪
-              </div>
-            </div>
-          ),
-          timestamp: new Date()
-        };
-      } else if (userInput.toLowerCase().includes('part') || userInput.toLowerCase().includes('task') || userInput.toLowerCase().includes('approach')) {
-        // 检测具体的任务和部分
-        let taskName = "Final Project Report";
-        let partNumber = "2";
-        
-        if (userInput.toLowerCase().includes('part 1') || userInput.toLowerCase().includes('part1')) {
-          partNumber = "1";
-          taskName = "Research Proposal";
-        } else if (userInput.toLowerCase().includes('part 3') || userInput.toLowerCase().includes('part3')) {
-          partNumber = "3";
-          taskName = "Presentation Preparation";
-        }
-        
-        aiResponse = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: (
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                Great question! Let me explain Part {partNumber} of "{taskName}" for you.
-              </div>
-              <div style={{ lineHeight: 1.6 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>For Part {partNumber} of this task:</div>
-                <ul style={{ paddingLeft: 18, margin: 0, marginBottom: 12 }}>
-                  <li><strong>Focus on:</strong> {partNumber === "1" ? "Research question formulation and literature review" : partNumber === "2" ? "Data analysis and methodology section" : "Presentation slides and delivery practice"}</li>
-                  <li><strong>Key steps:</strong> {partNumber === "1" ? "Define research objectives, gather relevant sources, outline structure" : partNumber === "2" ? "Clean dataset, run statistical tests, document methodology" : "Create slides, practice timing, prepare Q&A"}</li>
-                  <li><strong>Expected outcome:</strong> {partNumber === "1" ? "Clear research proposal with supporting literature" : partNumber === "2" ? "Comprehensive methodology section with data analysis" : "Polished presentation ready for delivery"}</li>
-                  <li><strong>Time estimate:</strong> {partNumber === "1" ? "2-3 hours" : partNumber === "2" ? "3-4 hours" : "1-2 hours"} of focused work</li>
-                </ul>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>Tips for success:</div>
-                <ul style={{ paddingLeft: 18, margin: 0 }}>
-                  <li>Start by reviewing the specific assignment requirements</li>
-                  <li>Break the work into 30-45 minute focused sessions</li>
-                  <li>Take short breaks between sessions to maintain focus</li>
-                  <li>Save your work frequently and document your progress</li>
-                </ul>
-              </div>
-            </div>
-          ),
-          timestamp: new Date()
-        };
-      } else if (userInput.toLowerCase().includes('hello') || userInput.toLowerCase().includes('hi') || userInput.toLowerCase().includes('hey')) {
-        aiResponse = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: (
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                Hello! 👋 I'm your AI Learning Coach.
-              </div>
-              <div style={{ lineHeight: 1.6 }}>
-                I'm here to help you with your study plan, answer questions about your assignments, 
-                provide practice exercises, and offer encouragement when you need it!
-                <br /><br />
-                How can I assist you with your learning today?
-              </div>
-            </div>
-          ),
-          timestamp: new Date()
-        };
-      } else {
-        aiResponse = {
-          id: Date.now() + 1,
-          type: 'ai',
-          content: (
-            <div>
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                I'd love to help you with that! 🤔
-              </div>
-              <div style={{ lineHeight: 1.6 }}>
-                To give you the best assistance, could you tell me a bit more about what you're working on?
-                <br /><br />
-                You can ask me about:
-                <ul style={{ paddingLeft: 18, margin: '8px 0' }}>
-                  <li>Your study plan and schedule</li>
-                  <li>Specific tasks or assignments</li>
-                  <li>Practice exercises for difficult topics</li>
-                  <li>Or just ask for some encouragement!</li>
-                </ul>
-              </div>
-            </div>
-          ),
-          timestamp: new Date()
-        };
+      // 如果没有用户ID，这是一个严重问题，不应该设置随机ID
+      if (!currentUserId) {
+        console.error('❌ 严重错误：没有找到用户ID！')
+        console.error('localStorage内容:', Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])))
+        alert('用户未登录或登录信息丢失，请重新登录')
+        window.location.hash = '/login-student'
+        return
       }
       
-      setChatMessages(prev => [...prev, aiResponse])
-    }, 1000)
+      const response = await aiChatService.sendMessage(userInput)
+      
+      if (response.success && response.ai_response) {
+        // 更新用户消息为后端返回的真实消息，然后添加AI回复
+        const realUserMessage: ChatMessage = response.user_message ? {
+          id: response.user_message.id,
+          type: 'user',
+          content: response.user_message.content,
+          timestamp: response.user_message.timestamp,
+        } : tempUserMessage;
+        
+        const aiReply: ChatMessage = {
+          id: response.ai_response.id,
+          type: 'ai',
+          content: response.ai_response.content,
+          timestamp: response.ai_response.timestamp,
+        }
+        
+        // 替换临时用户消息为真实消息，并添加AI回复
+        setChatMessages(prev => {
+          const withoutTemp = prev.slice(0, -1); // 移除临时用户消息
+          return [...withoutTemp, realUserMessage, aiReply];
+        })
+
+        // 如果AI回复包含练习按钮，设置全局函数
+        if (response.ai_response.content.includes('Start 10-minute practice session')) {
+          (window as any).startPracticeSession = () => {
+            setPracticeStage('intro')
+            setQuizIndex(0)
+            setAnswers(Array(quizQuestions.length).fill(null))
+            setPracticeOpen(true)
+          }
+        }
+      } else {
+        setChatMessages(prev => [
+          ...prev,
+          createFallbackMessage(`Sorry, I encountered an error: ${response.error || 'Unknown error'}. Please try again.`)
+        ])
+      }
+      
+      // 不再自动同步后端数据，避免覆盖新消息
+      // 用户可以通过"Load History"按钮手动加载历史消息
+      
+    } catch (error) {
+      console.error('Error sending message:', error)
+      setChatMessages(prev => [
+        ...prev,
+        createFallbackMessage('Sorry, I\'m having trouble connecting right now. Please try again in a moment.')
+      ])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSuggestionClick = (suggestion: string) => {
-    // 进入聊天态
+    if (isLoading || !isAiHealthy) return
+
+    let message = ''
+    switch (suggestion) {
+      case 'Explain my plan':
+        message = 'Please explain my plan for me.'
+        break
+      case 'Practice my weak topics':
+        message = 'I really couldn\'t understand some topics and they are so hard for me. I want to do a practice of this part.'
+        break
+      case 'How to do for Part N of Task X':
+        message = 'How should I approach Part 2 of Task "Final Project Report"?'
+        break
+      case 'Give me some encouragement':
+        message = 'Give me some encouragement.'
+        break
+      default:
+        message = suggestion
+    }
+
+    setCurrentInput(message)
     setShowChat(true)
 
-    // 根据不同的suggestion设置对应的输入内容
-    let inputText = '';
-    
-    if (suggestion === 'Practice my weak topics') {
-      inputText = 'I really couldn’t understand how to xxx and xxx is so hard for me. I want to do a practice of this part.';
-    } else if (suggestion === 'Give me some encouragement') {
-      inputText = 'Give me some encouragement.';
-    } else if (suggestion === 'How to do for Part N of Task X') {
-      inputText = 'How should I approach Part 2 of Task "Final Project Report"?';
-    } else {
-      // 默认：Explain my plan
-      inputText = 'Please explain my plan for me.';
-    }
-    
-    // 将文字填入输入框
-    setCurrentInput(inputText);
+    setTimeout(() => {
+      const inputElement = document.querySelector('.cw-input') as HTMLInputElement
+      inputElement?.focus()
+      inputElement?.setSelectionRange(message.length, message.length)
+    }, 50)
   }
 
   // 新消息出现时自动滚动到底部
+  useEffect(() => {
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+    }
+  }, [chatMessages])
+
   useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight
@@ -395,6 +546,24 @@ export function ChatWindow() {
             <div className="cw-title">AI Coach</div>
           </div>
 
+          {/* 加载历史消息按钮 - 放在对话框上方中间 */}
+          {showLoadHistory && (
+            <div className="cw-load-history-container">
+              <button 
+                className="cw-load-history-btn"
+                onClick={loadHistoryMessages}
+                disabled={isLoading}
+                aria-label="Load chat history"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 1C4.134 1 1 4.134 1 8s3.134 7 7 7 7-3.134 7-7-3.134-7-7-7zm0 12.5c-3.038 0-5.5-2.462-5.5-5.5S4.962 2.5 8 2.5s5.5 2.462 5.5 5.5-2.462 5.5-5.5 5.5z" fill="currentColor"/>
+                  <path d="M8 4v4l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {isLoading ? 'Loading...' : 'Load History'}
+              </button>
+            </div>
+          )}
+
           <section className={`cw-area ${showChat ? 'is-chatting' : ''}`}>
             {/* 顶部装饰与标题：始终展示 */}
             <div className="cw-sparkles" aria-hidden>✦✦</div>
@@ -411,9 +580,12 @@ export function ChatWindow() {
                       </div>
                       <div className="cw-message-content">
                         <div className="cw-message-label">{message.type === 'ai' ? 'COACH' : 'ME'}</div>
-                        <div className="cw-message-text">{message.content}</div>
+                        <div 
+                          className="cw-message-text"
+                          dangerouslySetInnerHTML={{ __html: message.content }}
+                        />
                         <div className="cw-message-time">
-                          {message.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                          {aiChatService.formatTimestamp(message.timestamp)}
                         </div>
                       </div>
                     </div>
@@ -426,13 +598,25 @@ export function ChatWindow() {
             <form className="cw-input-row" onSubmit={onSend}>
               <input
                 className="cw-input"
-                placeholder="Ask me anything about your projects"
+                placeholder={
+                  !isAiHealthy 
+                    ? "AI service is currently unavailable..." 
+                    : isLoading 
+                      ? "Sending message..." 
+                      : "Ask me anything about your projects"
+                }
                 aria-label="Message to AI Coach"
                 value={currentInput}
                 onChange={(e) => setCurrentInput(e.target.value)}
+                disabled={isLoading || !isAiHealthy}
               />
-              <button className="cw-send" type="submit" aria-label="Send">
-                ➤
+              <button 
+                className="cw-send" 
+                type="submit" 
+                aria-label="Send"
+                disabled={isLoading || !isAiHealthy || !currentInput.trim()}
+              >
+                {isLoading ? '⏳' : '➤'}
               </button>
             </form>
           </section>
@@ -485,6 +669,7 @@ export function ChatWindow() {
                   <div style={{display:'grid', gap:12, margin:'14px 0 18px'}}>
                     {['A','B','C','D'].map((label, i) => {
                       const isSelected = answers[quizIndex] === i
+                      const question = quizQuestions[quizIndex]
                       return (
                         <button
                           key={label}
@@ -499,7 +684,7 @@ export function ChatWindow() {
                           aria-label={`Option ${label}`}
                         >
                           <span style={{fontWeight:700, color:'#172239'}}>{label}.</span>
-                          <span style={{color:'#172239'}}>{quizQuestions[quizIndex].options[i]}</span>
+                          <span style={{color:'#172239'}}>{question.type === 'multiple-choice' ? question.options[i] : ''}</span>
                         </button>
                       )
                     })}
@@ -542,7 +727,7 @@ export function ChatWindow() {
                       if (quizIndex === quizQuestions.length - 1) {
                         // 计算得分并关闭弹窗，然后在聊天窗口里连续追加两条 COACH 消息
                         const total = quizQuestions.filter(q => q.type === 'multiple-choice').length;
-                        const score = answers.reduce((acc, ans, idx) => {
+                        const score = answers.reduce((acc: number, ans, idx) => {
                           if (quizQuestions[idx].type === 'multiple-choice') {
                             return acc + (((ans ?? -1) === quizQuestions[idx].correct) ? 1 : 0);
                           }
@@ -555,37 +740,17 @@ export function ChatWindow() {
                         // 确保聊天窗口可见
                         setShowChat(true);
                         const now = Date.now();
-                        const fetchingMsg = {
+                        const fetchingMsg: ChatMessage = {
                           id: now,
-                          type: 'ai' as const,
-                          content: (
-                            <div>
-                              <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                                Got it! I’m fetching your answers and generating explanations (about 10–15s)…
-                              </div>
-                              <div>You can stay here—I’ll post the summary once it’s ready.</div>
-                            </div>
-                          ),
-                          timestamp: new Date()
+                          type: 'ai',
+                          content: `Got it! I'm fetching your answers and generating explanations (about 10–15s)…\nYou can stay here—I'll post the summary once it's ready.`,
+                          timestamp: new Date().toISOString()
                         };
-                        const summaryMsg = {
+                        const summaryMsg: ChatMessage = {
                           id: now + 1,
-                          type: 'ai' as const,
-                          content: (
-                            <div>
-                              <div style={{ marginBottom: 6 }}>
-                                All set! Score: {score}/{total} ({pct}%)
-                              </div>
-                              <div style={{ marginBottom: 6 }}>
-                                <strong>Strong:</strong> DP basics, overfitting concepts
-                              </div>
-                              <div style={{ marginBottom: 6 }}>
-                                <strong>Needs review:</strong> Cross‑validation, ROC/PR
-                              </div>
-                              <div>What would you like to do next?</div>
-                            </div>
-                          ),
-                          timestamp: new Date()
+                          type: 'ai',
+                          content: `All set! Score: ${score}/${total} (${pct}%)\n\n**Strong:** DP basics, overfitting concepts\n\n**Needs review:** Cross‑validation, ROC/PR\n\nWhat would you like to do next?`,
+                          timestamp: new Date().toISOString()
                         };
                         setChatMessages(prev => [...prev, fetchingMsg]);
                         setTimeout(() => {
@@ -873,6 +1038,50 @@ export function ChatWindow() {
           background: #ff9a6a;
         }
 
+        /* 加载历史消息按钮样式 */
+        .cw-load-history-container {
+          position: absolute;
+          top: 80px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 20;
+        }
+        
+        .cw-load-history-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 20px;
+          border: 1px solid #e7e9ef;
+          border-radius: 14px;
+          background: #fff;
+          color: #6D6D78;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+          transition: all 0.2s ease;
+          min-width: 140px;
+          justify-content: center;
+        }
+        
+        .cw-load-history-btn:hover:not(:disabled) {
+          background: #f9fafb;
+          border-color: #d1d5db;
+          transform: translateX(-50%) translateY(-1px);
+          box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+        
+        .cw-load-history-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        
+        .cw-load-history-btn:active:not(:disabled) {
+          transform: translateX(-50%) translateY(0);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
         /* 大屏进一步拉伸渐变容器高度 */
         @media (min-width: 1440px){
           .cw-area{ min-height: 680px; padding-top: 110px; }
@@ -887,6 +1096,7 @@ export function ChatWindow() {
           .cw-main{ max-width: 760px; }
           .cw-area{ min-height: 480px; padding: 72px 20px 20px; }
           .cw-input-row{ left:20px; right:20px; }
+          .cw-history-dropdown { right: 20px; }
         }
       `}</style>
       {/* Practice modal close button style aligned with Notifications */}

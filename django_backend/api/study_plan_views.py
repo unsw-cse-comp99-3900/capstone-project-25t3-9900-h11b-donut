@@ -77,11 +77,23 @@ class GenerateStudyPlanView(View):
         return tasks_meta
     
     def _save_plan_to_database(self, user, plan_data):
-        """保存计划到数据库（需要根据你的模型实现）"""
-        # TODO: 实现数据库保存逻辑
-        # 示例：
-        # StudyPlan.objects.create(user=user, plan_data=plan_data)
-        pass
+        """保存计划到数据库，同时保存到AI对话模块"""
+        try:
+            # 导入AI对话模块的服务
+            from ai_chat.chat_service import AIChatService
+            
+            # 保存到AI对话模块
+            chat_service = AIChatService()
+            success = chat_service.save_study_plan(user, plan_data)
+            
+            if success:
+                logger.info(f"Study plan saved to AI chat module for user {user.id}")
+            else:
+                logger.warning(f"Failed to save plan to AI chat module for user {user.id}")
+            
+        except Exception as e:
+            logger.error(f"Error saving plan to AI chat module for user {user.id}: {str(e)}")
+            # 不抛出异常，避免影响主要的计划生成流程
 
 @csrf_exempt
 def test_ai_module(request):
@@ -177,6 +189,20 @@ class GenerateStudyPlanFromDBView(View):
         return {'daily_hour_cap': 3, 'weekly_study_days': 5, 'avoid_days': [5, 6]}
     
     def _save_plan_to_database(self, user, plan_data):
-        """保存计划到数据库"""
-        # TODO: 实现保存逻辑
-        pass
+        """保存计划到数据库，同时保存到AI对话模块"""
+        try:
+            # 导入AI对话模块的服务
+            from ai_chat.chat_service import AIChatService
+            
+            # 保存到AI对话模块
+            chat_service = AIChatService()
+            success = chat_service.save_study_plan(user, plan_data)
+            
+            if success:
+                logger.info(f"Study plan saved to AI chat module for user {user.id}")
+            else:
+                logger.warning(f"Failed to save plan to AI chat module for user {user.id}")
+            
+        except Exception as e:
+            logger.error(f"Error saving plan to AI chat module for user {user.id}: {str(e)}")
+            # 不抛出异常，避免影响主要的计划生成流程

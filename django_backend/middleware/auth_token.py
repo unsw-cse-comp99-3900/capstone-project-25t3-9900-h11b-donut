@@ -12,6 +12,7 @@ class AuthTokenMiddleware(MiddlewareMixin):
         "/api/auth/register",   
         "/api/admin/register",
         "/api/admin/login",
+        "/api/ai/health/",  # AI健康检查不需要认证
     )
 
     # 静态文件白名单路径

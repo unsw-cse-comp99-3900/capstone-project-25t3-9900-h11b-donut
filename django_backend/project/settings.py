@@ -54,7 +54,8 @@ INSTALLED_APPS = [
     "adm_accounts",
     "courses",   
     "courses_admin",
-    "task_progress"
+    "task_progress",
+    "ai_chat",
     #"plans",
 ]
 

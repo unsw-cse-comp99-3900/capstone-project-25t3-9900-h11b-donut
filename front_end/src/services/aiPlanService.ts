@@ -2,6 +2,7 @@
 import type { PlanItem, WeeklyPlan } from '../store/preferencesStore';
 import { coursesStore } from '../store/coursesStore';
 import { apiService } from '../services/api';
+import { aiChatService } from '../services/aiChatService';
 
 // —— 工具：给定日期回到该周周一（本地时区）——
 function weekMonday(d: Date) {
@@ -93,6 +94,17 @@ export function mapAiPlanToWeeklyPlan(aiPlan: any): WeeklyPlan {
  */
 export async function fetchAndMapAiPlan(): Promise<WeeklyPlan> {
   const aiPlan = await apiService.generateAIPlan();
+  
+  // 如果成功获取到计划，同时保存到AI对话模块
+  if (aiPlan && aiPlan.ok) {
+    try {
+      await aiChatService.saveStudyPlan(aiPlan);
+    } catch (error) {
+      console.warn('Failed to save plan to AI chat module:', error);
+      // 不影响主要流程，继续执行
+    }
+  }
+  
   // 这里可以根据 aiPlan.ok / message 做一下校验
   return mapAiPlanToWeeklyPlan(aiPlan);
 }

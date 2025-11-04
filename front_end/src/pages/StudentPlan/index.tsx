@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+
+// 定义用户类型接口
+interface User {
+  name?: string;
+  studentId?: string;
+  avatarUrl?: string;
+  email?: string;
+}
 import { MessageModal } from '../../components/MessageModal'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
@@ -21,11 +29,11 @@ export function StudentPlan() {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   
   const uid = localStorage.getItem('current_user_id');
-  let user = {};
+  let user: User = {};
 
   if (uid) {
     try {
-      user = JSON.parse(localStorage.getItem(`u:${uid}:user`) || '{}');
+      user = JSON.parse(localStorage.getItem(`u:${uid}:user`) || '{}') as User;
     } catch {
       user = {};
     }
@@ -211,8 +219,8 @@ useEffect(() => {
     onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
   /></div>
           <div className="info">
-            <div className="name">{user.name}</div>
-            <div className="studentId">{user.studentId}</div>
+            <div className="name">{user?.name || 'Student'}</div>
+            <div className="studentId">{user?.studentId || 'ID'}</div>
           </div>
           <button className="chevron" aria-label="Profile">
             <img src={ArrowRight} width={16} height={16} alt="" />
