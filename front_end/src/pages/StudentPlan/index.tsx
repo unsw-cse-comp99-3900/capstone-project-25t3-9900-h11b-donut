@@ -496,17 +496,20 @@ useEffect(() => {
 
       {showLogoutConfirm && (
         <ConfirmationModal
-          isOpen={showLogoutConfirm}
-          onClose={() => setShowLogoutConfirm(false)}
-          onConfirm={() => {
-            setShowLogoutConfirm(false)
-            window.location.hash = '#/login-student'
-          }}
-          title="Log Out"
-          message="Are you sure you want to log out?"
-          confirmText="Confirm"
-          cancelText="Cancel"
-        />
+            isOpen={showLogoutConfirm}
+            onClose={() => setShowLogoutConfirm(false)}
+            onConfirm={async () => {
+              setShowLogoutConfirm(false);
+
+              await apiService.logout();
+
+              window.location.hash = '#/login-student';
+            }}
+            title="Log Out"
+            message="Are you sure you want to log out?"
+            confirmText="Confirm"
+            cancelText="Cancel"
+          />
       )}
 
       <MessageModal

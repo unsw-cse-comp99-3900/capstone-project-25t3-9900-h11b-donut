@@ -47,16 +47,13 @@ export function CourseDetail() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const uid = localStorage.getItem('current_user_id');
-  const user: { studentId?: string; name?: string; email?: string } | null = (() => {
-    if (!uid) return null;
-    try {
-      return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null');
-    } catch {
-      return null;
-    }
-  })();
+  const [user, setUser] = useState<any>(() => {
+  if (!uid) return null;
+  try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
+  catch { return null; }
+});
 
-  // （可选）如果必须已登录用户才可访问，则直接拦截
+  // 如果必须已登录用户才可访问，则直接拦截
   if (!uid || !user) {
     // 也可以返回一个占位 skeleton，或触发跳转
     return null;
@@ -79,53 +76,104 @@ export function CourseDetail() {
     }
   }
 
-  useEffect(() => {
-    coursesStore.ensureLoaded();
-  }, []);
-  useEffect(() => {
-    // 从 URL 获取课程 ID
-    const hash = window.location.hash
-    const match = hash.match(/#\/course-detail\/(.+)/)
-    if (match) {
-      const id = match[1]
+  // useEffect(() => {
+  //   coursesStore.ensureLoaded();
+  // }, []);
+  // useEffect(() => {
+  //   // 从 URL 获取课程 ID
+  //   const hash = window.location.hash
+  //   const match = hash.match(/#\/course-detail\/(.+)/)
+  //   if (match) {
+  //     const id = match[1]
       
-      // 查找课程信息
-      const foundCourse = coursesStore.availableCourses.find(c => c.id === id)
-      setCourse(foundCourse || null)
+  //     // 查找课程信息
+  //     const foundCourse = coursesStore.availableCourses.find(c => c.id === id)
+  //     setCourse(foundCourse || null)
       
-      // 获取课程详情数据：任务统一从 coursesStore 获取，材料从API获取
-      const loadCourseData = async () => {
-        try {
-          const materials = await apiService.getCourseMaterials(id)
-          const data = { 
-            tasks: await coursesStore.getCourseTasksAsync(id), 
-            materials 
-            
-          }
+  //     // 获取课程详情数据：任务统一从 coursesStore 获取，材料从API获取
+  //     const loadCourseData = async () => {
+  //       try {
+  //         const materials = await apiService.getCourseMaterials(id)
+  //         const data = { 
+  //           tasks: await coursesStore.getCourseTasksAsync(id), 
+  //           materials 
+  //         }
          
-          setDetailData(data)
-        } catch (error) {
-          console.error('Failed to load materials:', error)
-          // 如果API失败，使用空材料列表
-          const data = { 
-            tasks: await coursesStore.getCourseTasksAsync(id), 
-            materials: [] 
-          }
-          setDetailData(data)
-        }
-      }
+  //         setDetailData(data)
+  //       } catch (error) {
+  //         console.error('Failed to load materials:', error)
+  //         // 如果API失败，使用空材料列表
+  //         const data = { 
+  //           tasks: await coursesStore.getCourseTasksAsync(id), 
+  //           materials: [] 
+  //         }
+  //         setDetailData(data)
+  //       }
+  //     }
       
-      loadCourseData()
-    }
-  }, [])
+  //     loadCourseData()
+  //   }
+  // }, [])
+  useEffect(() => {
+  let mounted = true;
 
-  if (!course) {
-    return (
-      <div className="course-detail-layout">
-        <div className="loading">Course not found</div>
-      </div>
-    )
-  }
+  const load = async () => {
+    // 等待课程加载完成
+    await coursesStore.ensureLoaded?.();
+
+    if (!mounted) return;
+
+    // 从 hash 里取 id，并解码
+    const hash = window.location.hash;
+    const match = hash.match(/#\/course-detail\/(.+)/);
+    const id = match ? decodeURIComponent(match[1]).trim() : "";
+
+    const foundCourse =
+      [...coursesStore.availableCourses, ...(coursesStore.myCourses || [])]
+        .find(c => {
+          const key =
+            (c as any).id ??
+            (c as any).code ??
+            (c as any).course_code ??
+            "";
+          return String(key).toLowerCase() === id.toLowerCase();
+        }) || null;
+
+    setCourse(foundCourse);
+
+    if (!id) return;
+
+    try {
+      const [tasks, materials] = await Promise.all([
+        coursesStore.getCourseTasksAsync(id),
+        apiService.getCourseMaterials(id),
+      ]);
+      setDetailData({ tasks, materials });
+    } catch (err) {
+      console.error("Failed to load materials:", err);
+      const tasks = await coursesStore.getCourseTasksAsync(id);
+      setDetailData({ tasks, materials: [] });
+    }
+  };
+
+  load();
+  return () => { mounted = false; };
+}, []);
+  if (!course && !detailData) {
+  return (
+    <div className="course-detail-layout">
+      <div className="loading">Loading…</div>
+    </div>
+  );
+}
+
+if (!course) {
+  return (
+    <div className="course-detail-layout">
+      <div className="loading">Course not found</div>
+    </div>
+  );
+}
 
   return (
     <div className="course-detail-layout">
@@ -225,8 +273,8 @@ export function CourseDetail() {
                               <p>{task.brief}</p>
 
                               <div className="task-meta">
-                                <span className="meta-chip">Course ID: {course.id}</span>
-                                <span className="meta-chip">Task ID: {task.id}</span>
+                                <span className="meta-chip">Course Title: {course.id}</span>
+                                <span className="meta-chip">Task Proportion: {task.percentContribution}%</span>
                               </div>
 
                               <span className="deadline">Deadline: {task.deadline}</span>                      
@@ -298,17 +346,19 @@ export function CourseDetail() {
 
       {showLogoutConfirm && (
         <ConfirmationModal
-          isOpen={showLogoutConfirm}
-          onClose={() => setShowLogoutConfirm(false)}
-          onConfirm={() => {
-            alert('Logging out...')
-            setShowLogoutConfirm(false)
-          }}
-          title="Log Out"
-          message="Are you sure you want to log out?"
-          confirmText="Confirm"
-          cancelText="Cancel"
-        />
+            isOpen={showLogoutConfirm}
+            onClose={() => setShowLogoutConfirm(false)}
+            onConfirm={async () => {
+              setShowLogoutConfirm(false);
+              await apiService.logout();
+              window.location.hash = '#/login-student';
+            }}
+            title="Log Out"
+            message="Are you sure you want to log out?"
+            confirmText="Confirm"
+            cancelText="Cancel"
+          />
+
       )}
     </div>
   )

@@ -20,6 +20,7 @@ import { AdminProfile } from './pages/AdminProfile'
 import { ChatWindow } from './pages/ChatWindow'
 
 
+
 // 登录状态检查（只用本地）
 function isAuthed(maxAgeMs = 30 * 60 * 1000) {
   const token = localStorage.getItem('auth_token')
@@ -56,8 +57,6 @@ function useHash() {
 
 function App() {
   const hash = useHash()
-
-
   useEffect(() => {
     if (!window.location.hash) window.location.hash = '#/signup'
   }, [])

@@ -71,7 +71,7 @@ async getMyTasks(force = false) {
           title: t.title ?? '',
           deadline: t.deadline ?? '',
           brief: t.brief ?? '',
-          percentContribution: t.percentContribution ?? 0,
+          percentContribution: t.percent_contribution ?? 0,
         }));
 
         allTasks[course.id] = normalized;
