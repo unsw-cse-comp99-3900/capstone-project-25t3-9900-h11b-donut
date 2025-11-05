@@ -74,10 +74,12 @@ export function AIChatWidget({
       // 替换临时用户消息并添加AI回复
       setMessages(prev => {
         const newMessages = prev.slice(0, -1); // 移除临时消息
+        const messagesToAdd = [];
+        if (response.user_message) messagesToAdd.push(response.user_message);
+        if (response.ai_response) messagesToAdd.push(response.ai_response);
         return [
           ...newMessages,
-          response.user_message,
-          response.ai_response
+          ...messagesToAdd
         ];
       });
     } catch (error) {
@@ -122,9 +124,10 @@ export function AIChatWidget({
         {messages.length === 0 && !isLoadingHistory && (
           <div className="empty-state">
             <div className="empty-icon">🤖</div>
-            <div className="empty-title">Hi! I'm your AI Learning Coach</div>
+            <div className="empty-title">🌟 Hi there! I'm your AI Learning Coach</div>
             <div className="empty-subtitle">
-              Ask me about your study plan, assignments, or anything else you need help with!
+              How are you feeling today? 😊<br/>
+              I'm here to help you stay on track and feel confident about your studies!
             </div>
           </div>
         )}
@@ -145,10 +148,7 @@ export function AIChatWidget({
                 }}
               />
               <div className="message-time">
-                {new Date(message.timestamp).toLocaleTimeString([], {
-                  hour: '2-digit', 
-                  minute: '2-digit'
-                })}
+                {aiChatService.formatTimestamp(message.timestamp)}
               </div>
             </div>
           </div>

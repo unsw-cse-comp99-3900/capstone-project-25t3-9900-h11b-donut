@@ -1,11 +1,17 @@
 import os, json, importlib
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+# 确保加载正确的.env文件
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+# print(f"[DEBUG] 环境文件路径: {env_path}")
+# print(f"[DEBUG] GEMINI_KEY存在: {bool(GEMINI_KEY)}")
 use_gemini: bool = bool(GEMINI_KEY)
 genai: Any = None  # 动态导入以避免类型检查报错
+_model: Any = None  # 初始化模型变量
 
 if use_gemini:
     try:
@@ -15,7 +21,9 @@ if use_gemini:
             "gemini-2.5-flash",
             generation_config={"temperature": 0.2, "max_output_tokens": 2048}
         )
-    except Exception:
+        # print(f"[DEBUG] Gemini模型初始化成功: {_model}")
+    except Exception as e:
+        print(f"[DEBUG] Gemini模型初始化失败: {e}")
         use_gemini = False
 
 def summarize_task_details(task_title: str, due_date: str, raw_text: str) -> Optional[Dict[str, Any]]:
@@ -23,7 +31,8 @@ def summarize_task_details(task_title: str, due_date: str, raw_text: str) -> Opt
     让 LLM 从 PDF 文本中提取：estimatedHours、suggestedParts（含 notes）、explanation。
     失败返回 None（调用方兜底）。
     """
-    if not use_gemini or not raw_text or len(raw_text) < 50:
+    if not use_gemini or not _model or not raw_text or len(raw_text) < 50:
+        print(f"[DEBUG] 跳过Gemini分析: use_gemini={use_gemini}, _model={_model}, text_len={len(raw_text) if raw_text else 0}")
         return None
     # 限制输入长度，避免超出 token 限制
     text_limit = min(6000, len(raw_text))
@@ -60,7 +69,19 @@ JSON only, no markdown:"""
         if not raw:
             print("[DEBUG] 提取的文本为空")
             return None
-        data = json.loads(raw)
+            
+        # 清理可能的markdown格式
+        clean_json = raw.strip()
+        if clean_json.startswith('```json'):
+            clean_json = clean_json[7:]
+        if clean_json.startswith('```'):
+            clean_json = clean_json[3:]
+        if clean_json.endswith('```'):
+            clean_json = clean_json[:-3]
+        clean_json = clean_json.strip()
+        
+        print(f"[DEBUG] 清理后的JSON: {clean_json}")
+        data = json.loads(clean_json)
         print(f"[DEBUG] 解析的 JSON: {data}")
         # 简单校验
         if "suggestedParts" not in data or not isinstance(data["suggestedParts"], list):
@@ -69,4 +90,6 @@ JSON only, no markdown:"""
         return data
     except Exception as e:
         print(f"[DEBUG] Gemini 调用异常: {e}")
+        import traceback
+        traceback.print_exc()
         return None

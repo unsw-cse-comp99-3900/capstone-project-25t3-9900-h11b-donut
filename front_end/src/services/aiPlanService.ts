@@ -80,6 +80,10 @@ export function mapAiPlanToWeeklyPlan(aiPlan: any): WeeklyPlan {
         partIndex,
         partsCount: meta.partsCount,
       };
+      
+      // 调试信息：检查Gemini生成的标题
+      console.log(`🔍 [mapAiPlanToWeeklyPlan] 任务: ${meta.taskTitle}, Part标题: ${b.title}`);
+      console.log(`🎯 [GEMINI_TITLE_CHECK] 这是Gemini生成的特定标题: "${b.title}"`);
 
       weekly[offset].push(item);
     }
@@ -95,16 +99,34 @@ export function mapAiPlanToWeeklyPlan(aiPlan: any): WeeklyPlan {
 export async function fetchAndMapAiPlan(): Promise<WeeklyPlan> {
   const aiPlan = await apiService.generateAIPlan();
   
+  console.log('🔍 fetchAndMapAiPlan 收到的数据:', aiPlan);
+  console.log('🔍 AI计划的days数据:', aiPlan?.days);
+  console.log('🔍 AI计划的aiSummary数据:', aiPlan?.aiSummary);
+  
+  // 检查AI计划数据
+  if (!aiPlan) {
+    throw new Error('后端返回空的AI计划数据');
+  }
+  
+  if (aiPlan.ok === false) {
+    throw new Error(aiPlan.message || 'AI计划生成失败');
+  }
+  
   // 如果成功获取到计划，同时保存到AI对话模块
-  if (aiPlan && aiPlan.ok) {
+  if (aiPlan && aiPlan.ok && aiPlan.data) {
     try {
-      await aiChatService.saveStudyPlan(aiPlan);
+      // 保存实际的AI计划数据，而不是整个响应对象
+      await aiChatService.saveStudyPlan(aiPlan.data);
+      console.log('✅ 学习计划已保存到AI对话模块');
     } catch (error) {
       console.warn('Failed to save plan to AI chat module:', error);
       // 不影响主要流程，继续执行
     }
   }
   
-  // 这里可以根据 aiPlan.ok / message 做一下校验
-  return mapAiPlanToWeeklyPlan(aiPlan);
+  // 映射AI计划到周计划格式
+  const weeklyPlan = mapAiPlanToWeeklyPlan(aiPlan);
+  console.log('🗓️ 映射后的周计划:', weeklyPlan);
+  
+  return weeklyPlan;
 }

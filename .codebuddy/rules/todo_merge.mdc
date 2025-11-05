@@ -1,0 +1,9 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-11-05T03:15:34.675Z
+provider: 
+---
+
+Prior to edits, call todo_write with merge=true to reconcile.

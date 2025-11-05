@@ -27,6 +27,7 @@ export function StudentPlan() {
   const [showPrefs, setShowPrefs] = useState(false)
   const [messageModalOpen, setMessageModalOpen] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
   
   const uid = localStorage.getItem('current_user_id');
   let user: User = {};
@@ -152,7 +153,10 @@ useEffect(() => {
   }
 
   const applyPreferences = async () => {
-  const toSave: Partial<Preferences> = {
+    if (isGeneratingPlan) return; // 防止重复点击
+    setIsGeneratingPlan(true); // 开始加载
+    
+    const toSave: Partial<Preferences> = {
     dailyHours: Math.max(1, Math.min(12, Number(dailyHours) || 1)),
     weeklyStudyDays: Math.max(1, Math.min(7, Number(weeklyStudyDays) || 1)),
     avoidDays,
@@ -168,9 +172,26 @@ useEffect(() => {
   await preferencesStore.setPreferences(toSave)
 
   try {
+    // 清除旧的AI计划缓存，确保获取最新的Gemini生成数据
+    const uid = localStorage.getItem('current_user_id');
+    if (uid) {
+      const cacheKey = `u:${uid}:ai-web-weekly-plans`;
+      localStorage.removeItem(cacheKey);
+      console.log('🗑️ 已清除AI计划缓存，将重新生成');
+    }
+    
+    console.log('🚀 开始生成AI计划，期望看到Gemini生成的特定标题...');
+    
     // 1) 后端生成 + 映射
     const weeklyPlan = await fetchAndMapAiPlan();
     console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
+
+    // 检查是否成功获取到计划数据
+    if (!weeklyPlan || Object.keys(weeklyPlan).length === 0) {
+      console.warn('⚠️ AI计划为空，使用本地fallback');
+      alert('AI计划生成暂时不可用，请稍后重试或联系管理员。');
+      return;
+    }
 
     // 2) 写入 store
     preferencesStore.setWeeklyPlan(0, weeklyPlan[0] || []);
@@ -178,7 +199,7 @@ useEffect(() => {
       preferencesStore.setWeeklyPlan(Number(offsetStr), items);
     }
 
-    //  3) 立刻把“本周”的 PlanItem[] 分桶并喂给组件状态（不等 useEffect）
+    //  3) 立刻把"本周"的 PlanItem[] 分桶并喂给组件状态（不等 useEffect）
     const cur = preferencesStore.getWeeklyPlan(0) || [];
     const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
     for (const it of cur) {
@@ -194,8 +215,11 @@ useEffect(() => {
     setShowPrefs(false);
 
   } catch (err) {
-    console.error('❌ AI 计划失败，使用本地兜底:', err);
+    console.error('❌ AI 计划失败:', err);
+    alert(`AI计划生成失败: ${err instanceof Error ? err.message : '未知错误'}。请检查网络连接或稍后重试。`);
     return;
+  } finally {
+    setIsGeneratingPlan(false); // 结束加载
   }
 };
   
@@ -335,7 +359,7 @@ useEffect(() => {
                                 const clone: Record<number, PlanItem[]> = { ...prev };
                                 clone[dIdx] = (clone[dIdx] || []).map(ci => ci === it ? { ...ci, completed: checked } : ci);
 
-                                // 基于“任务”维度计算进度（跨所有周累计分钟数）
+                                // 基于"任务"维度计算进度（跨所有周累计分钟数）
                                 const prefix = `${it.courseId}-`;
                                 let extracted = it.id.startsWith(prefix) ? it.id.slice(prefix.length) : it.id;
                                 extracted = extracted.replace(/-\d+$/, '');
@@ -371,7 +395,7 @@ useEffect(() => {
                                 // 同步 Deadlines 进度（按比例更新）
                                 coursesStore.setProgress(baseKey, progress);
 
-                                // 保存更新后的“当前周”计划到 localStorage
+                                // 保存更新后的"当前周"计划到 localStorage
                                 const planItemsCurrentWeek = mergedItemsNow;
                                 preferencesStore.setWeeklyPlan(weekOffset, planItemsCurrentWeek);
 
@@ -424,7 +448,7 @@ useEffect(() => {
           ) : (
             <div className="sp-placeholder">
               <div className="sp-empty-title">When you have a deadline,</div>
-              <div className="sp-empty-sub">click ‘Generate’ button above to get your own plan!</div>
+              <div className="sp-empty-sub">click 'Generate' button above to get your own plan!</div>
             </div>
           )}
         </section>
@@ -485,7 +509,7 @@ useEffect(() => {
 
             <button className="btn-primary ghost ai-start sp-apply-mini" onClick={applyPreferences}>
               <span className="spc"></span>
-              <span className="label">Apply</span>
+              <span className="label">{isGeneratingPlan ? "Generating..." : "Apply"}</span>
               <img src={ArrowRight} width={16} height={16} alt="" className="chev" />
             </button>
           </div>

@@ -77,18 +77,18 @@ def _ai_split_parts(task_title: str, due_date: str, estimated_minutes: int) -> L
     """让 LLM 直接拆 2–6 段；失败回退等比分块。"""
     if not use_gemini or _split_model is None:
         mins = _equal_split(estimated_minutes, 3)
-        return [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1}", minutes=mins[i]) for i in range(len(mins))]
+        return [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1} - General Task", minutes=mins[i]) for i in range(len(mins))]
     prompt = f"""
 Split the task into 2–6 ordered parts whose minutes sum ≈ {estimated_minutes}.
 Each part should be 30-60 minutes (prefer 45 minutes as target).
-Return JSON ONLY with array "parts":
-{{
-  "parts": [
-    {{"partId":"p1","order":1,"title":"Part 1","minutes":45,"notes":"what to do"}},
-    ...
-  ]
-}}
-No extra text.
+Return ONLY valid JSON in this exact format:
+{{"parts":[{{"partId":"p1","order":1,"title":"Setup & Planning","minutes":45,"notes":"what to do"}},{{"partId":"p2","order":2,"title":"Implementation","minutes":45,"notes":"what to do"}}]}}
+
+IMPORTANT: 
+- The "title" field should be a descriptive name (like "Setup & Planning", "Implementation", "Testing"), NOT "Part 1", "Part 2"
+- Return ONLY the JSON, no markdown, no extra text
+- Ensure all commas and quotes are correct
+
 Task: "{task_title}"
 Due: {due_date}
 """
@@ -103,24 +103,51 @@ Due: {due_date}
         if not raw:
             raise ValueError("Empty model response")
 
-        data = json.loads(raw)
+        # 清理 Gemini 返回的 markdown 格式
+        clean_json = raw.strip()
+        if clean_json.startswith('```json'):
+            clean_json = clean_json[7:]  # 移除 ```json
+        if clean_json.endswith('```'):
+            clean_json = clean_json[:-3]  # 移除 ```
+        clean_json = clean_json.strip()
+        
+        # 修复常见的 JSON 格式问题
+        import re
+        # 在 "key":"value" 后面添加逗号（如果后面跟着 "key"）
+        clean_json = re.sub(r'(":\s*"[^"]*")\s*("[\w]+":)', r'\1,\2', clean_json)
+        # 在 "key":number 后面添加逗号（如果后面跟着 "key"）
+        clean_json = re.sub(r'(":\s*\d+)\s*("[\w]+":)', r'\1,\2', clean_json)
+        # 在对象结束 } 前面添加逗号（如果后面跟着 {）
+        clean_json = re.sub(r'}\s*{', r'},{', clean_json)
+        # 修复未终止的字符串：如果字符串没有结束引号，尝试添加
+        if clean_json.count('"') % 2 != 0:
+            clean_json += '"'
+        # 确保 JSON 对象正确关闭
+        open_braces = clean_json.count('{') - clean_json.count('}')
+        clean_json += '}' * open_braces
+        open_brackets = clean_json.count('[') - clean_json.count(']')
+        clean_json += ']' * open_brackets
+        
+        data = json.loads(clean_json)
         out: List[Part] = []
         for i, p in enumerate(data.get("parts", [])):
-            title = str(p.get("title") or f"Part {i+1}")
+            base_title = str(p.get("title") or f"General Task")
+            order = int(p.get("order") or (i+1))
+            formatted_title = f"Part {order} - {base_title}"
             out.append(Part(
                 partId=str(p.get("partId") or f"p{i+1}"),
-                order=int(p.get("order") or (i+1)),
-                title=title,
+                order=order,
+                title=formatted_title,
                 minutes=int(p.get("minutes") or 0),
-                notes=p.get("notes") or f"{title}: focus the next concrete step."
+                notes=p.get("notes") or f"{formatted_title}: focus the next concrete step."
             ))
         if not out or sum(max(0, x.minutes) for x in out) <= 0:
             mins = _equal_split(estimated_minutes, 3)
-            out = [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1}", minutes=mins[i]) for i in range(len(mins))]
+            out = [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1} - General Task", minutes=mins[i]) for i in range(len(mins))]
         return out
     except Exception:
-        mins = _equal_split(estimated_minutes, 3)
-        return [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1}", minutes=mins[i]) for i in range(len(mins))]
+        # Gemini 失败时，使用智能 fallback
+        return _intelligent_fallback_split(task_title, estimated_minutes)
 
 def _parts_from_summary_or_fallback(task_title: str, due_date: str,
                                     est_minutes: int,
@@ -137,10 +164,13 @@ def _parts_from_summary_or_fallback(task_title: str, due_date: str,
         mins = _equal_split(est_minutes, len(parts_raw))
         out: List[Part] = []
         for i, item in enumerate(parts_raw):
+            base_title = str(item.get("title") or "General Task")
+            order = int(item.get("order") or (i+1))
+            formatted_title = f"Part {order} - {base_title}"
             out.append(Part(
                 partId=f"p{i+1}",
-                order=int(item.get("order") or (i+1)),
-                title=str(item.get("title") or f"Part {i+1}"),
+                order=order,
+                title=formatted_title,
                 minutes=int(mins[i]),
                 notes=item.get("notes") or ""
             ))
@@ -192,7 +222,7 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
         ai_parts.append({
             "partId": p.partId,
             "order": p.order,
-            "title": p.title,
+            "title": p.title,  # 现在 p.title 已经包含了 "Part X - " 前缀
             "minutes": int(p.minutes),
             "notes": p.notes or "",
             "percent": round(int(p.minutes) / total * 100, 1)
@@ -218,11 +248,7 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
     ), ai_info
 
 def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]]) -> Dict[str, Any]:
-    preferences = {
-    "daily_hour_cap": preferences.get("dailyHours"),
-    "weekly_study_days": preferences.get("weeklyStudyDays"),
-    "avoid_days": preferences.get("avoidDays"),
-}
+    # 参数已经从 views.py 正确传入，不需要重新映射
     
     # 预检：必须存在带合法 dueDate 的任务，否则不生成计划
     from datetime import datetime
@@ -244,8 +270,8 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
         task_objs.append(t)
         ai_summaries.append(info)
     prefs = Preferences(
-        daily_hour_cap=int(preferences.get("daily_hour_cap", 3)),
-        weekly_study_days=int(preferences.get("weekly_study_days", 5)),
+        daily_hour_cap=int(preferences.get("daily_hour_cap", 3) or 3),
+        weekly_study_days=int(preferences.get("weekly_study_days", 5) or 5),
         avoid_days=preferences.get("avoid_days") or []
     )
 
@@ -254,3 +280,44 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
     # 合并 AI 解释信息
     result["aiSummary"] = {"tasks": ai_summaries}
     return result
+
+def _intelligent_fallback_split(task_title: str, estimated_minutes: int) -> List[Part]:
+    """智能fallback：根据任务类型生成有意义的部分标题"""
+    mins = _equal_split(estimated_minutes, 3)
+    
+    # 根据任务标题判断类型并生成相应的部分标题
+    title_lower = task_title.lower()
+    
+    if "assignment" in title_lower or "project" in title_lower:
+        if "front" in title_lower or "frontend" in title_lower or "ui" in title_lower:
+            # 前端项目
+            parts = [
+                Part(partId="p1", order=1, title="Part 1 - Setup & Planning", minutes=mins[0], 
+                     notes="Set up development environment, analyze requirements"),
+                Part(partId="p2", order=2, title="Part 2 - UI Implementation", minutes=mins[1], 
+                     notes="Build user interface components and layouts"),
+                Part(partId="p3", order=3, title="Part 3 - Testing & Polish", minutes=mins[2], 
+                     notes="Test functionality, fix bugs, and polish the interface")
+            ]
+        else:
+            # 通用项目
+            parts = [
+                Part(partId="p1", order=1, title="Part 1 - Research & Planning", minutes=mins[0], 
+                     notes="Research requirements and plan the approach"),
+                Part(partId="p2", order=2, title="Part 2 - Implementation", minutes=mins[1], 
+                     notes="Build the main functionality"),
+                Part(partId="p3", order=3, title="Part 3 - Review & Finalize", minutes=mins[2], 
+                     notes="Review work, test, and finalize submission")
+            ]
+    else:
+        # 默认通用结构
+        parts = [
+            Part(partId="p1", order=1, title="Part 1 - Preparation & Setup", minutes=mins[0], 
+                 notes="Prepare materials and understand requirements"),
+            Part(partId="p2", order=2, title="Part 2 - Main Work", minutes=mins[1], 
+                 notes="Complete the core tasks and objectives"),
+            Part(partId="p3", order=3, title="Part 3 - Review & Submission", minutes=mins[2], 
+                 notes="Review work and prepare for submission")
+        ]
+    
+    return parts

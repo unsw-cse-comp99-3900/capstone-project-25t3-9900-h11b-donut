@@ -49,7 +49,7 @@ class ChatView(View):
                             'error': 'User ID is required'
                         }, status=400)
                     
-                    print(f"[DEBUG] 处理用户消息: user_id={user_id}, message={message}")
+                    print(f"[DEBUG] 获取用户历史: user_id={user_id}")
                     
                     # 创建或获取对应的学生账户
                     account, created = StudentAccount.objects.get_or_create(
@@ -115,7 +115,7 @@ class ChatView(View):
                             'error': 'User ID is required'
                         }, status=400)
                     
-                    print(f"[DEBUG] 处理用户消息: user_id={user_id}, message={message}")
+                    print(f"[DEBUG] 获取用户历史: user_id={user_id}")
                     
                     # 创建或获取对应的学生账户
                     account, created = StudentAccount.objects.get_or_create(
@@ -140,7 +140,22 @@ class ChatView(View):
                     }, status=401)
             
             limit = int(request.GET.get('limit', 50))
-            history = self.chat_service.get_conversation_history(request.account, limit)
+            days = request.GET.get('days')
+            
+            # 如果指定了天数，直接使用
+            if days:
+                history = self.chat_service.get_conversation_history(request.account, limit, int(days))
+            else:
+                # 如果没有指定天数，先获取最近5天的消息数量
+                recent_messages = self.chat_service.get_conversation_history(request.account, 200, 5)
+                
+                # 如果最近5天的消息数量超过100条，则只加载最近3天的消息
+                if len(recent_messages) > 100:
+                    history = self.chat_service.get_conversation_history(request.account, limit, 3)
+                    print(f"[DEBUG] 消息数量较多 ({len(recent_messages)}条)，加载最近3天的历史")
+                else:
+                    history = self.chat_service.get_conversation_history(request.account, limit, 5)
+                    print(f"[DEBUG] 消息数量适中 ({len(recent_messages)}条)，加载最近5天的历史")
             
             return JsonResponse({
                 'success': True,
@@ -164,19 +179,34 @@ class StudyPlanView(View):
     def post(self, request):
         """保存学习计划数据"""
         try:
-            # 检查认证或创建临时账户用于测试
+            # 检查认证，使用真实的用户账户
             if not hasattr(request, 'account'):
-                # 临时解决方案：创建或获取测试账户
+                # 从请求参数获取用户ID
+                user_id = request.GET.get('user_id')
+                if not user_id:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'User ID is required'
+                    }, status=400)
+                
+                print(f"[DEBUG] 保存学习计划: user_id={user_id}")
+                
+                # 创建或获取对应的学生账户
                 from stu_accounts.models import StudentAccount
-                test_account, created = StudentAccount.objects.get_or_create(
-                    student_id='test_student',
+                account, created = StudentAccount.objects.get_or_create(
+                    student_id=user_id,
                     defaults={
-                        'name': 'Test Student',
-                        'email': 'test@example.com',
-                        'password': 'test_password'
+                        'name': f'User {user_id}',
+                        'email': f'{user_id}@example.com',
+                        'password': 'default_password'
                     }
                 )
-                request.account = test_account
+                if created:
+                    print(f"[DEBUG] 创建新用户账户: {user_id}")
+                else:
+                    print(f"[DEBUG] 使用现有用户账户: {user_id}")
+                
+                request.account = account
             
             data = json.loads(request.body)
             plan_data = data.get('plan_data')
@@ -208,19 +238,34 @@ class StudyPlanView(View):
     def get(self, request):
         """获取当前学习计划"""
         try:
-            # 检查认证或创建临时账户用于测试
+            # 检查认证，使用真实的用户账户
             if not hasattr(request, 'account'):
-                # 临时解决方案：创建或获取测试账户
+                # 从请求参数获取用户ID
+                user_id = request.GET.get('user_id')
+                if not user_id:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'User ID is required'
+                    }, status=400)
+                
+                print(f"[DEBUG] 获取学习计划: user_id={user_id}")
+                
+                # 创建或获取对应的学生账户
                 from stu_accounts.models import StudentAccount
-                test_account, created = StudentAccount.objects.get_or_create(
-                    student_id='test_student',
+                account, created = StudentAccount.objects.get_or_create(
+                    student_id=user_id,
                     defaults={
-                        'name': 'Test Student',
-                        'email': 'test@example.com',
-                        'password': 'test_password'
+                        'name': f'User {user_id}',
+                        'email': f'{user_id}@example.com',
+                        'password': 'default_password'
                     }
                 )
-                request.account = test_account
+                if created:
+                    print(f"[DEBUG] 创建新用户账户: {user_id}")
+                else:
+                    print(f"[DEBUG] 使用现有用户账户: {user_id}")
+                
+                request.account = account
             
             plan_data = self.chat_service.get_user_study_plan(request.account)
             

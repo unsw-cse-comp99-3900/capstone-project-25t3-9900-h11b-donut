@@ -171,11 +171,11 @@ export function ChatWindow() {
         }
         setChatMessages([aiReply])
       } else {
-        setChatMessages([createFallbackMessage('Hello! I\'m your Learning Coach. I\'m here to help you with your studies. How can I assist you today?')])
+        setChatMessages([createFallbackMessage('🌟 Hi there! I\'m your AI Learning Coach — great to see you!<br/>How are you feeling today? 😊<br/><br/>I\'m here to help you stay on track and feel confident about your studies.<br/>You can ask me about:<br/>• Your study plan or schedule 🗓️<br/>• Practice exercises for tricky topics 💡<br/>• Or just ask for a little motivation and encouragement! 💬✨<br/><br/>Let\'s make today a productive one! 🚀')])
       }
     } catch (error) {
       console.error('Error sending welcome message:', error)
-      setChatMessages([createFallbackMessage('Hello! I\'m your Learning Coach. I\'m here to help you with your studies. How can I assist you today?')])
+      setChatMessages([createFallbackMessage('🌟 Hi there! I\'m your AI Learning Coach — great to see you!<br/>How are you feeling today? 😊<br/><br/>I\'m here to help you stay on track and feel confident about your studies.<br/>You can ask me about:<br/>• Your study plan or schedule 🗓️<br/>• Practice exercises for tricky topics 💡<br/>• Or just ask for a little motivation and encouragement! 💬✨<br/><br/>Let\'s make today a productive one! 🚀')])
     } finally {
       setIsLoading(false)
     }
@@ -199,6 +199,21 @@ export function ChatWindow() {
         console.warn('⚠️ 保存到后端失败，但sessionStorage已保存:', error)
       }
     }
+  }
+
+  // 格式化消息内容，确保正确的段落和列表格式
+  const formatMessageContent = (content: string): string => {
+    // 首先清理多余的换行符
+    let formatted = content
+      .replace(/<br\/?>\s*<br\/?>/gi, '<br/>') // 合并连续的换行符
+      .replace(/\n\s*\n/gi, '<br/>') // 合并连续的普通换行符
+      .replace(/<br\/?>/gi, '<br/>') // 标准化换行符
+      .replace(/\n/g, '<br/>'); // 处理普通换行符
+    
+    // 处理列表项格式 - 移除原始的•字符，使用CSS添加圆点
+    formatted = formatted.replace(/•\s*(.+?)(?=<br|<br\/|$)/g, '<div class="list-item">$1</div>');
+    
+    return formatted;
   }
 
   // 当聊天消息或历史加载状态改变时，保存状态
@@ -256,7 +271,8 @@ export function ChatWindow() {
     console.log('🔍 uid变量:', uid)
     setIsLoading(true)
     try {
-      const historyResponse = await aiChatService.getChatHistory(50)
+      // 不指定days参数，让后端根据消息数量自动决定加载多少天的历史
+      const historyResponse = await aiChatService.getChatHistory(200)
       console.log('📡 历史消息响应:', { 
         success: historyResponse.success, 
         messageCount: historyResponse.messages?.length || 0,
@@ -268,9 +284,9 @@ export function ChatWindow() {
         const historyMessages = historyResponse.messages.sort((a, b) =>
           new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
-        // 合并历史消息和当前会话的消息，避免覆盖新消息
+        // 合并历史消息和当前会话的消息，允许内容重复（只要不是同一条消息）
         setChatMessages(prev => {
-          // 创建消息ID的Set来去重
+          // 创建消息ID的Set来去重（只去重完全相同的消息ID）
           const existingIds = new Set(prev.map(msg => msg.id));
           const newHistoryMessages = historyMessages.filter(msg => !existingIds.has(msg.id));
           
@@ -582,7 +598,7 @@ export function ChatWindow() {
                         <div className="cw-message-label">{message.type === 'ai' ? 'COACH' : 'ME'}</div>
                         <div 
                           className="cw-message-text"
-                          dangerouslySetInnerHTML={{ __html: message.content }}
+                          dangerouslySetInnerHTML={{ __html: formatMessageContent(message.content) }}
                         />
                         <div className="cw-message-time">
                           {aiChatService.formatTimestamp(message.timestamp)}
@@ -971,6 +987,34 @@ export function ChatWindow() {
           white-space: normal;
           hyphens: auto;
         }
+        
+        /* 消息内容的格式美化 */
+        .cw-message-text br {
+          display: block;
+          margin-bottom: 6px; /* 减小段落间距 */
+        }
+        
+        .cw-message-text br + br {
+          margin-bottom: 0; /* 连续两个换行只保留一个间距 */
+        }
+        
+        /* 列表项的美化 */
+        .cw-message-text .list-item {
+          display: block;
+          margin: 4px 0;
+          padding-left: 16px;
+          position: relative;
+          line-height: 1.5;
+        }
+        
+        .cw-message-text .list-item:before {
+          content: "•";
+          position: absolute;
+          left: 4px;
+          color: #ffa87a;
+          font-weight: bold;
+          font-size: 14px;
+        }
 
         .cw-message-time {
           font-size: 11px;
@@ -1129,7 +1173,7 @@ export function ChatWindow() {
 }
 
 const css = `
-:root{
+:root {
   --sh-border: #EAEAEA;
   --sh-muted: #6D6D78;
   --sh-text: #172239;
@@ -1141,118 +1185,391 @@ const css = `
   --peach-2: #F8C7AA;
 }
 
-.chat-layout{
-  display:grid;
+.chat-layout {
+  display: grid;
   grid-template-columns: 280px 1fr;
-  gap:24px;
-  padding:32px;
-  color:var(--sh-text);
-  background:#fff;
+  gap: 24px;
+  padding: 32px;
+  color: var(--sh-text);
+  background: #fff;
   font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  min-height:100vh;
+  min-height: 100vh;
 }
 
 /* 侧栏：直接复用 StudentHome 的样式命名以保持一致 */
-.sh-sidebar{display:flex;flex-direction:column;gap:24px;height:100%}
-.sh-profile-card{display:flex;align-items:center;gap:12px;padding:16px;border:1px solid var(--sh-border);border-radius:20px;background:#fff;box-shadow:var(--sh-shadow)}
-.sh-profile-card .avatar{width:48px;height:48px;border-radius:50%;overflow:hidden;background:#F4F6FA;display:grid;place-items:center;border:1px solid var(--sh-border)}
-.sh-profile-card .info .name{font-size:14px;font-weight:700}
-.sh-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--sh-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center}
-.sh-nav{display:flex;flex-direction:column;gap:12px;padding:16px;border:1px solid var(--sh-border);border-radius:20px;background:#fff;box-shadow:var(--sh-shadow)}
-.sh-nav .item{display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:12px;color:var(--sh-muted);text-decoration:none;font-weight:500}
-.sh-nav .item.active{background:#FFA87A;color:#172239;font-weight:800;border-radius:20px}
-.sh-nav .nav-icon{width:20px;height:20px}
-.sh-ai-card{padding:18px;border:1px solid var(--sh-border);border-radius:20px;background:#fff;box-shadow:var(--sh-shadow);display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;flex:1;min-height:240px}
-.sh-ai-card .ai-title{font-weight:800;font-size:18px}
-.sh-ai-card .ai-sub{color:var(--sh-muted);font-size:14px}
-.ai-center-icon{margin:16px 0;display:flex;justify-content:center;align-items:center}
-.sh-ai-card .ai-icon{width:56px;height:56px;border-radius:14px;background:var(--sh-blue);display:grid;place-items:center}
+.sh-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+}
+
+.sh-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--sh-border);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--sh-shadow);
+}
+
+.sh-profile-card .avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #F4F6FA;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sh-border);
+}
+
+.sh-profile-card .info .name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sh-profile-card .chevron {
+  margin-left: auto;
+  background: #fff;
+  border: 1px solid var(--sh-border);
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+
+.sh-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--sh-border);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--sh-shadow);
+}
+
+.sh-nav .item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  color: var(--sh-muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.sh-nav .item.active {
+  background: #FFA87A;
+  color: #172239;
+  font-weight: 800;
+  border-radius: 20px;
+}
+
+.sh-nav .nav-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.sh-ai-card {
+  padding: 18px;
+  border: 1px solid var(--sh-border);
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: var(--sh-shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  flex: 1;
+  min-height: 240px;
+}
+
+.sh-ai-card .ai-title {
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.sh-ai-card .ai-sub {
+  color: var(--sh-muted);
+  font-size: 14px;
+}
+
+.ai-center-icon {
+  margin: 16px 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.sh-ai-card .ai-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--sh-blue);
+  display: grid;
+  place-items: center;
+}
+
 /* 建议按钮块仅在 ChatWindow 使用 */
-.ai-suggestions{width:100%;display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:12px;margin-bottom:0}
-.ai-suggestions .ai-s-header{font-weight:800;font-size:19px;margin:6px 0 10px;color:#172239;text-align:center}
-.ai-s-btn{
-  width:100%;
-  height:52px;
-  padding:0 16px;
-  border:1px solid #FFA87A;
-  border-radius:16px;
-  background:linear-gradient(180deg,#FFF9F5,#FFF3E9);
-  color:#172239;
-  font-weight:700;
-  font-size:15px;
-  cursor:pointer;
-  box-shadow:0 3px 12px rgba(255,168,122,0.15);
-  transition:all .15s ease;
-  display:flex; align-items:center; justify-content:space-between;
+.ai-suggestions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  margin-bottom: 0;
 }
-.ai-s-label{flex:1; text-align:center}
-.ai-s-chev{opacity:.8; transition:transform .15s ease; filter: invert(46%) sepia(64%) saturate(500%) hue-rotate(340deg) brightness(100%) contrast(95%);}
-.ai-s-btn:hover{
-  background:linear-gradient(180deg,#FFF3E9,#FFEBDD);
-  box-shadow:0 6px 16px rgba(255,168,122,0.25);
-  transform:translateY(-1px);
-  border-color:#FF9A6A;
+
+.ai-suggestions .ai-s-header {
+  font-weight: 800;
+  font-size: 19px;
+  margin: 6px 0 10px;
+  color: #172239;
+  text-align: center;
 }
-.ai-s-btn:hover .ai-s-chev{ transform: translateX(2px); }
-.ai-s-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(255,168,122,0.12)}
-.ai-s-btn:last-child{margin-bottom:0}
-.ai-s-btn:focus{outline:none; box-shadow:0 0 0 4px rgba(255,168,122,0.3)}
-.ai-s-btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(255,168,122,0.12)}
-.btn-primary.ghost{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:20px 36px;border-radius:24px;background:#F6B48E;color:#172239;border:none;font-weight:800;font-size:16px;width:100%;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,0.06);transition:all .2s ease}
-.btn-primary.ghost:hover{background:#FFA87A;transform:translateY(-1px)}
-.btn-primary.ghost.ai-start{padding:20px 20px}
-.btn-primary.ghost .label{flex:1;text-align:center}
-.btn-primary.ghost.ai-start .spc{width:16px;height:16px;visibility:hidden}
-.btn-primary.ghost.ai-start .chev{width:16px;height:16px}
-.btn-outline{padding:14px;border-radius:14px;background:#fff;border:1px solid var(--sh-border);cursor:pointer;font-weight:600;margin-top:auto}
+
+.ai-s-btn {
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid #FFA87A;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #FFF9F5, #FFF3E9);
+  color: #172239;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(255,168,122,0.15);
+  transition: all .15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-s-label {
+  flex: 1;
+  text-align: center;
+}
+
+.ai-s-chev {
+  opacity: .8;
+  transition: transform .15s ease;
+  filter: invert(46%) sepia(64%) saturate(500%) hue-rotate(340deg) brightness(100%) contrast(95%);
+}
+
+.ai-s-btn:hover {
+  background: linear-gradient(180deg, #FFF3E9, #FFEBDD);
+  box-shadow: 0 6px 16px rgba(255,168,122,0.25);
+  transform: translateY(-1px);
+  border-color: #FF9A6A;
+}
+
+.ai-s-btn:hover .ai-s-chev {
+  transform: translateX(2px);
+}
+
+.ai-s-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255,168,122,0.12);
+}
+
+.ai-s-btn:last-child {
+  margin-bottom: 0;
+}
+
+.ai-s-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(255,168,122,0.3);
+}
+
+.btn-primary.ghost {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 20px 36px;
+  border-radius: 24px;
+  background: #F6B48E;
+  color: #172239;
+  border: none;
+  font-weight: 800;
+  font-size: 16px;
+  width: 100%;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  transition: all .2s ease;
+}
+
+.btn-primary.ghost:hover {
+  background: #FFA87A;
+  transform: translateY(-1px);
+}
+
+.btn-primary.ghost.ai-start {
+  padding: 20px 20px;
+}
+
+.btn-primary.ghost .label {
+  flex: 1;
+  text-align: center;
+}
+
+.btn-primary.ghost.ai-start .spc {
+  width: 16px;
+  height: 16px;
+  visibility: hidden;
+}
+
+.btn-primary.ghost.ai-start .chev {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-outline {
+  padding: 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid var(--sh-border);
+  cursor: pointer;
+  font-weight: 600;
+  margin-top: auto;
+}
 
 /* 右侧主区域 */
-.cw-main{display:flex;flex-direction:column;gap:24px}
-.cw-top{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center}
-.cw-back{
-  justify-self:center;
-  padding:10px 18px;border:1px solid var(--sh-border);border-radius:14px;background:#fff;cursor:pointer;font-weight:700;color:#172239;
+.cw-main {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
-.cw-title{
-  justify-self:end;
-  font-weight:800;color:#172239;
+
+.cw-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+}
+
+.cw-back {
+  justify-self: center;
+  padding: 10px 18px;
+  border: 1px solid var(--sh-border);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  color: #172239;
+}
+
+.cw-title {
+  justify-self: end;
+  font-weight: 800;
+  color: #172239;
 }
 
 /* 中间渐变容器 */
-.cw-area{
-  position:relative;
-  display:flex;flex-direction:column;align-items:center;
-  gap:24px;
-  padding:80px 24px 24px;
-  border:1px solid var(--sh-border);
-  border-radius:28px;
+.cw-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 80px 24px 24px;
+  border: 1px solid var(--sh-border);
+  border-radius: 28px;
   background: radial-gradient(120% 120% at 50% 10%, #FFF 0%, var(--peach-1) 40%, #fff 100%);
   box-shadow: var(--shadow);
   min-height: 520px;
 }
-.cw-sparkles{font-size:22px;color:#172239;opacity:.9;margin-top:-24px}
-.cw-sub{font-size:20px;font-weight:600;color:#172239;margin:0}
+
+.cw-sparkles {
+  font-size: 22px;
+  color: #172239;
+  opacity: .9;
+  margin-top: -24px;
+}
+
+.cw-sub {
+  font-size: 20px;
+  font-weight: 600;
+  color: #172239;
+  margin: 0;
+}
+
 .cw-area.is-chatting .cw-sparkles,
-.cw-area.is-chatting .cw-sub{
-  opacity:.18;           /* 降低存在感 */
-  filter: blur(0.6px);   /* 轻微虚化 */
+.cw-area.is-chatting .cw-sub {
+  opacity: .18;
+  filter: blur(0.6px);
   transition: opacity .25s ease, filter .25s ease;
-  pointer-events: none;  /* 防止误点 */
+  pointer-events: none;
 }
 
 /* 底部输入行 */
-.cw-input-row{
-  position:absolute;bottom:18px;left:24px;right:24px;
-  display:grid;grid-template-columns:1fr 48px;gap:10px;
+.cw-input-row {
+  position: absolute;
+  bottom: 18px;
+  left: 24px;
+  right: 24px;
+  display: grid;
+  grid-template-columns: 1fr 48px;
+  gap: 10px;
 }
-.cw-input{
-  height:44px;border-radius:12px;border:1px solid var(--sh-border);padding:0 14px;font-size:14px;color:#172239;background:#fff;
+
+.cw-input {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--sh-border);
+  padding: 0 14px;
+  font-size: 14px;
+  color: #172239;
+  background: #fff;
 }
-.cw-input::placeholder{color:#9aa0a6}
-.cw-send{
-  height:44px;border-radius:12px;border:1px solid var(--sh-border);background:#fff;cursor:pointer;font-size:18px;color:#6D6D78;
+
+.cw-input::placeholder {
+  color: #9aa0a6;
 }
-@media (max-width: 1200px){
-  .chat-layout{grid-template-columns:240px 1fr}
+
+.cw-send {
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--sh-border);
+  background: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  color: #6D6D78;
+}
+
+/* 日期分组样式 */
+.cw-message-group {
+  margin-bottom: 24px;
+}
+
+.cw-date-separator {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0 16px 0;
+}
+
+.cw-date-label {
+  background: #f0f2f6;
+  color: #6D6D78;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 1200px) {
+  .chat-layout {
+    grid-template-columns: 240px 1fr;
+  }
 }
 `

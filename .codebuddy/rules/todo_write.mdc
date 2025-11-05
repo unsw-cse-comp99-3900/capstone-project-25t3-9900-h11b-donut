@@ -1,0 +1,9 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-11-05T03:14:45.313Z
+provider: 
+---
+
+When you need to modify tasks, use todo_write with merge=true to reconcile first.
