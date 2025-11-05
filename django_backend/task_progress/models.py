@@ -18,6 +18,7 @@ class TaskProgress(models.Model):
 
     def __str__(self) -> str:
         return f"Student {self.student_id} - Task {self.task_id}: {self.progress}%"
+    
 class OverdueStudent(models.Model):
     """
     学生维度累计：某天“整天都未勾选”则 +1

@@ -112,7 +112,7 @@ export function AdminRiskReport() {
     if (overdueParts === 0 && consecutiveNotOnTimeDays === 0) {
       return 'Green';
     }
-    
+
     // Yellow — other non-Green cases (e.g., one overdue Part or 1 day not on time)
     return 'Yellow';
   };
@@ -131,19 +131,15 @@ export function AdminRiskReport() {
   const loadStudentRiskData = async (courseId: string, taskId: string) => {
   try {
     console.log('[RiskReport] fetching (aggregated):', { courseId, taskId });
-
     const rows = await apiService.adminGetStudentRisk(courseId, taskId);
     // rows: [{ student_id, student_name, overdue_parts, consecutive_not_on_time_days }]
-
     const mapped: StudentRisk[] = rows.map((r: any, idx: number) => {
       const studentId = r.student_id || '';
       const name = r.student_name || studentId || 'Unknown';
       const overdueParts = r.overdue_parts || 0;
-      const consecutiveNotOnTimeDays = r.consecutive_not_on_time_days || 0;
-
+      const consecutiveNotOnTimeDays = 0;//r.consecutive_not_on_time_days || 0;
       const riskTier = calculateRiskTier(overdueParts, consecutiveNotOnTimeDays);
       const suggestedAction = getSuggestedAction(riskTier);
-
       return {
         id: String(idx + 1),
         name,
