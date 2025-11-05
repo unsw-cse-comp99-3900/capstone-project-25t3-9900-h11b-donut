@@ -18,41 +18,65 @@ class Command(BaseCommand):
         now = timezone.now()
         alerts_created = 0
 
-        # 1️获取所有选课关系
+        # 固定提醒时间点（单位：小时）
+        ALERT_OFFSETS = [24, 12, 5]
+        WINDOW_SEC = 90  # 容错窗口（防止错过）
+        DEDUP_MINUTES = 10  # 去重窗口
+
         enrollments = StudentEnrollment.objects.all()
 
         for enroll in enrollments:
             student_id = enroll.student_id
             course_code = enroll.course_code
 
-            # 2️获取课程任务
             tasks = CourseTask.objects.filter(course_code=course_code)
 
             for task in tasks:
                 if not task.deadline:
                     continue
-                # 把 DateField 转成当天 23:59 的完整时间，避免和 timezone.now() 类型不匹配 （后期可以考虑给 task加具体时间点）
+
+                # deadline 是 DateField，转换为当天23:59:59的 datetime
                 deadline_dt = datetime.combine(task.deadline, time(23, 59, 59)).astimezone(timezone.get_current_timezone())
+
+                # 计算剩余时间
                 time_diff = deadline_dt - now
                 hours_left = time_diff.total_seconds() / 3600
 
-                # 3️ 检查学生进度  progress<100或者无记录都视为未完成 都会提醒
+                # 已经过期跳过
+                if hours_left <= 0:
+                    continue
+
+                # 检查学生是否已完成
                 progress = TaskProgress.objects.filter(student_id=student_id, task_id=task.id).first()
                 is_completed = progress and progress.progress >= 100
+                if is_completed:
+                    continue
 
-                # 4️ 判断是否接近DDL
-                if not is_completed and 0 < hours_left <= 24:
-                    # 检查是否已经有提醒
-                    exists = Notification.objects.filter(
-                        student_id=student_id,
-                        task_id=task.id,
-                        message_type="due_alert"
-                    ).exists()
+                # 针对三个固定提醒点：24h、12h、2h
+                for offset in ALERT_OFFSETS:
+                    alert_time = deadline_dt - timedelta(hours=offset)
+                    diff_sec = abs((alert_time - now).total_seconds())
 
-                    if not exists:
-                        # 生成提醒
-                        msg_title = f"Task Due Soon"
-                        msg_preview = f"Task '{task.title}' in course {course_code} is due in {int(hours_left)} hours."
+                    # 如果当前时间落在提醒点附近（±90秒）
+                    if diff_sec <= WINDOW_SEC:
+                        # 去重判断：在提醒时间前后10分钟是否已有该类型提醒
+                        dedup_start = alert_time - timedelta(minutes=DEDUP_MINUTES)
+                        dedup_end = alert_time + timedelta(minutes=DEDUP_MINUTES)
+
+                        exists = Notification.objects.filter(
+                            student_id=student_id,
+                            task_id=task.id,
+                            message_type="due_alert",
+                            created_at__gte=dedup_start,
+                            created_at__lte=dedup_end
+                        ).exists()
+
+                        if exists:
+                            continue
+
+                        # 创建提醒
+                        msg_title = f"Task due in {offset}h"
+                        msg_preview = f"Task '{task.title}' in course {course_code} is due in {offset} hours."
 
                         Notification.objects.create(
                             student_id=student_id,
@@ -62,14 +86,14 @@ class Command(BaseCommand):
                             title=msg_title,
                             preview=msg_preview,
                             content=msg_preview,
-                            due_time=task.deadline,
+                            due_time=task.deadline,  # 保持你的字段不改
                         )
                         alerts_created += 1
                         self.stdout.write(
-                            self.style.WARNING(f"[DueAlert] {student_id} - {task.title} ({int(hours_left)}h left)")
+                            self.style.WARNING(f"[DueAlert {offset}h] {student_id} - {task.title}")
                         )
 
         if alerts_created:
-            self.stdout.write(self.style.SUCCESS(f" 已生成 {alerts_created} 条提醒"))
+            self.stdout.write(self.style.SUCCESS(f"已生成 {alerts_created} 条提醒"))
         else:
             self.stdout.write(self.style.SUCCESS("暂无新的提醒生成"))
