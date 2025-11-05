@@ -127,8 +127,14 @@ def weekly_plan(request: HttpRequest, week_offset: int):
 @csrf_exempt
 def generate_ai_plan(request):
     """AI 计划生成调试接口：整合 courses + preferences + AI"""
+    print(f"🚀 [GENERATE_AI_PLAN] 收到请求: {request.method}")
+    print(f"🚀 [GENERATE_AI_PLAN] Headers: {dict(request.headers)}")
+    
     sid = get_student_id_from_request(request)
+    print(f"🚀 [GENERATE_AI_PLAN] 学生ID: {sid}")
+    
     if not sid:
+        print("❌ [GENERATE_AI_PLAN] 未授权访问")
         return JsonResponse({"success": False, "message": "Unauthorized"}, status=401)
     # 1️⃣ 获取当前学生对象
     try:
@@ -136,10 +142,18 @@ def generate_ai_plan(request):
     except StudentAccount.DoesNotExist:
         return JsonResponse({"success": False, "message": "Student not found"}, status=404)
     
-    # 2️⃣ 读取学生偏好（优先使用 default 表，没有则用 current 表）
-    pref = StudentPreferenceDefault.objects.filter(student=student).first()
+    # 2️⃣ 读取学生偏好（优先使用 current 表，没有则用 default 表）
+    pref = StudentPreference.objects.filter(student=student).first()
+    pref_source = "current"
     if not pref:
-        pref = StudentPreference.objects.filter(student=student).first()
+        pref = StudentPreferenceDefault.objects.filter(student=student).first()
+        pref_source = "default"
+    
+    print(f"📋 [GENERATE_AI_PLAN] 偏好来源: {pref_source}")
+    if pref:
+        print(f"📋 [GENERATE_AI_PLAN] 原始偏好数据: daily_hours={pref.daily_hours}, weekly_study_days={pref.weekly_study_days}, avoid_days_bitmask={pref.avoid_days_bitmask}")
+    else:
+        print(f"📋 [GENERATE_AI_PLAN] 未找到偏好数据，将使用默认值")
     
 
     # 解析偏好数据（如果学生没设置就用默认值）
@@ -147,7 +161,7 @@ def generate_ai_plan(request):
         WEEK_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
         preferences = {
-            "dailyHours": float(pref.daily_hours or 0),
+            "dailyHours": float(pref.daily_hours or 4),  # 默认4小时，不是0
             "weeklyStudyDays": int(pref.weekly_study_days or 5),
             "avoidDays": [],
         }
@@ -161,11 +175,12 @@ def generate_ai_plan(request):
     else:
         # 如果数据库里啥都没设置，给个默认偏好
         preferences = {
-        "dailyHours": 1,
-        "weeklyStudyDays": 3,
-        "avoidDays": ["Sun", "Sat"],
+        "dailyHours": 4,  # 默认4小时，与前端一致
+        "weeklyStudyDays": 5,  # 默认5天，与前端一致
+        "avoidDays": ["Sun", "Sat"],  # 默认避开周末
     }
-    print("Pre is：",preferences)
+    print(f"📋 [GENERATE_AI_PLAN] 最终偏好数据: {preferences}")
+    print(f"📋 [GENERATE_AI_PLAN] 偏好来源: {pref_source if 'pref_source' in locals() else 'unknown'}")
 
     # 3️⃣ 获取学生选的所有课程及任务
     from courses.models import StudentEnrollment, CourseTask
@@ -200,7 +215,14 @@ def generate_ai_plan(request):
 
     try:
         print(tasks_meta)
-        ai_result = generate_plan(preferences, tasks_meta)
+        # 转换偏好数据格式以匹配AI模块期望的字段名
+        ai_preferences = {
+            "daily_hour_cap": int(preferences.get("dailyHours", 4)),
+            "weekly_study_days": int(preferences.get("weeklyStudyDays", 5)),
+            "avoid_days": preferences.get("avoidDays", [])
+        }
+        print(f"🤖 [GENERATE_AI_PLAN] AI模块偏好参数: {ai_preferences}")
+        ai_result = generate_plan(ai_preferences, tasks_meta)
         print("🤖 AI generate!：")
         from pprint import pprint
         pprint(ai_result)

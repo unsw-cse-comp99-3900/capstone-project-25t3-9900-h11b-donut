@@ -103,24 +103,56 @@ class AIChatService:
         plan_data = self.get_user_study_plan(account)
         
         if not plan_data:
-            return """<div><div style="font-weight: 700; margin-bottom: 8px;">I don't see an active study plan for you yet. 📋</div><div style="line-height: 1.6;">To get a personalized explanation, please generate your study plan first from the "My Plan" section.<br /><br />Once you have a plan, I can explain:<ul style="padding-left: 18px; margin: 8px 0;"><li>Why tasks are scheduled in a specific order</li><li>How deadlines and workload are balanced</li><li>Tips for following your personalized schedule</li></ul></div></div>"""
+            return """
+            <div>
+                <div style="font-weight: 700; margin-bottom: 8px;">
+                    I don't see an active study plan for you yet. 📋
+                </div>
+                <div style="line-height: 1.6;">
+                    To get a personalized explanation, please generate your study plan first from the "My Plan" section.
+                    <br /><br />
+                    Once you have a plan, I can explain:
+                    <ul style="padding-left: 18px; margin: '8px 0';">
+
+                        <li>Why tasks are scheduled in a specific order</li>
+                        <li>How deadlines and workload are balanced</li>
+                        <li>Tips for following your personalized schedule</li>
+                    </ul>
+                </div>
+            </div>
+            """
         
         # 提取计划信息
         ai_summary = plan_data.get('aiSummary', {})
         tasks = ai_summary.get('tasks', [])
         
-        # 构建解释内容 - 使用更紧凑的格式
+        # 构建解释内容
         explanation_parts = []
         
         # 总体说明
-        explanation_parts.append("""<div><div style="font-weight: 700; margin-bottom: 8px;">Hi! Here's a detailed explanation of your personalized learning plan. ✨</div>""")
+        explanation_parts.append("""
+            <div style="font-weight: 700; margin-bottom: 8px;">
+                Hi! Here's a detailed explanation of your personalized learning plan. ✨
+            </div>
+        """)
         
         # 计划创建逻辑
-        explanation_parts.append("""<div style="font-weight: 600; margin-bottom: 4px;">How your plan was created:</div><ul style="padding-left: 18px; margin: 0;"><li><strong>Course analysis:</strong> AI analyzed all your course requirements and deadlines</li><li><strong>Task breakdown:</strong> Each assignment was intelligently split into manageable parts</li><li><strong>Time allocation:</strong> Hours distributed based on task complexity and your preferences</li><li><strong>Schedule optimization:</strong> Tasks arranged to avoid conflicts and maintain steady progress</li></ul>""")
+        explanation_parts.append("""
+            <div style="font-weight: 600; margin-bottom: 4px;">How your plan was created:</div>
+            <ul style="padding-left: 18px; margin: 0;">
+                <li><strong>Course analysis:</strong> AI analyzed all your course requirements and deadlines</li>
+                <li><strong>Task breakdown:</strong> Each assignment was intelligently split into manageable parts</li>
+                <li><strong>Time allocation:</strong> Hours distributed based on task complexity and your preferences</li>
+                <li><strong>Schedule optimization:</strong> Tasks arranged to avoid conflicts and maintain steady progress</li>
+            </ul>
+        """)
         
         # 任务详情
         if tasks:
-            explanation_parts.append(f"""<div style="font-weight: 600; margin: 8px 0 4px;">Your plan includes {len(tasks)} main tasks:</div><ul style="padding-left: 18px; margin: 0;">""")
+            explanation_parts.append(f"""
+                <div style="font-weight: 600; margin: 12px 0 4px;">Your plan includes {len(tasks)} main tasks:</div>
+                <ul style="padding-left: 18px; margin: 0;">
+            """)
             
             for task in tasks[:3]:  # 只显示前3个任务避免过长
                 task_title = task.get('taskTitle', 'Unknown Task')
@@ -128,7 +160,9 @@ class AIChatService:
                 total_minutes = task.get('totalMinutes', 0)
                 hours = total_minutes // 60
                 
-                explanation_parts.append(f"""<li><strong>{task_title}:</strong> {parts_count} parts, ~{hours} hours total</li>""")
+                explanation_parts.append(f"""
+                    <li><strong>{task_title}:</strong> {parts_count} parts, ~{hours} hours total</li>
+                """)
             
             if len(tasks) > 3:
                 explanation_parts.append(f"<li><em>...and {len(tasks) - 3} more tasks</em></li>")
@@ -136,7 +170,16 @@ class AIChatService:
             explanation_parts.append("</ul>")
         
         # 使用提示
-        explanation_parts.append("""<div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px;"><div style="font-weight: 600; margin-bottom: 4px;">💡 Pro Tips:</div><div>• Your plan automatically adapts if you miss a day<br/>• Each task is broken into focused work sessions<br/>• Ask me about specific parts for detailed guidance!</div></div></div>""")
+        explanation_parts.append("""
+            <div style="margin-top: 12px; padding: 10px; background: '#f8f9fa'; border-radius: 8px;">
+                <div style="font-weight: 600; margin-bottom: 4px;">💡 Pro Tips:</div>
+                <div>
+                    • Your plan automatically adapts if you miss a day<br/>
+                    • Each task is broken into focused work sessions<br/>
+                    • Ask me about specific parts for detailed guidance!
+                </div>
+            </div>
+        """)
         
         return ''.join(explanation_parts)
     
@@ -501,16 +544,10 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
                 'error': str(e)
             }
     
-    def get_conversation_history(self, account: StudentAccount, limit: int = 50, days: int = None) -> list[dict[str, Any]]:
-        """获取用户的对话历史
-        
-        Args:
-            account: 学生账户
-            limit: 限制返回的消息数量
-            days: 限制返回的天数范围，如果为None则返回所有消息
-        """
+    def get_conversation_history(self, account: StudentAccount, limit: int = 50) -> list[dict[str, Any]]:
+        """获取用户的对话历史"""
         try:
-            print(f"[DEBUG] 获取对话历史: user={account.student_id}, limit={limit}, days={days}")
+            print(f"[DEBUG] 获取对话历史: user={account.student_id}, limit={limit}")
             # 创建临时User对象用于查询
             user, _ = User.objects.get_or_create(  # type: ignore
                 username=account.student_id,
@@ -521,19 +558,8 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
                 print(f"[DEBUG] 没有找到对话记录: user={account.student_id}")
                 return []
             
-            # 构建查询条件
-            messages_query = conversation.messages.all()  # type: ignore
-            
-            # 如果指定了天数限制，添加时间过滤
-            if days is not None:
-                from django.utils import timezone
-                from datetime import timedelta
-                cutoff_date = timezone.now() - timedelta(days=days)
-                messages_query = messages_query.filter(timestamp__gte=cutoff_date)
-                print(f"[DEBUG] 时间过滤: 只显示 {days} 天内的消息 (从 {cutoff_date} 开始)")
-            
             # 获取最新的消息，按时间戳倒序排列，然后取前limit条
-            messages = messages_query.order_by('-timestamp')[:limit]  # type: ignore
+            messages = conversation.messages.order_by('-timestamp')[:limit]  # type: ignore
             print(f"[DEBUG] 找到 {len(messages)} 条消息: user={account.student_id}")
             
             return [
@@ -594,13 +620,16 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
     
     def generate_welcome_response(self) -> str:
         """生成固定的欢迎回复"""
-        return """🌟 Hi there! I'm your AI Learning Coach — great to see you!
-How are you feeling today? 😊
+        return """Hello! 👋 I'm your AI Learning Coach.
 
-I'm here to help you stay on track and feel confident about your studies.
+I'd love to help you with that! 🤔
+
+To give you the best assistance, could you tell me a bit more about what you're working on?
+
 You can ask me about:
-• Your study plan or schedule 🗓️
-• Practice exercises for tricky topics 💡
-• Or just ask for a little motivation and encouragement! 💬✨
 
-Let's make today a productive one! 🚀"""
+• Your study plan and schedule
+
+• Practice exercises for difficult topics
+
+• Or just ask for some encouragement!"""

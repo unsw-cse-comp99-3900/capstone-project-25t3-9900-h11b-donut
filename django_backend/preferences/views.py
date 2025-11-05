@@ -1,18 +1,25 @@
 # preferences/views.py
+# pyright: reportImplicitRelativeImport=false
 import json
 from decimal import Decimal
+from typing import Any, Iterable, Optional, Union, List
 from django.http import JsonResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
-from stu_accounts.models import StudentAccount
-from preferences.models import StudentPreference, StudentPreferenceDefault
-from utils.auth import get_student_id_from_request
+from .models import StudentPreference, StudentPreferenceDefault
+# 导入模块 - Django运行时需要绝对导入，类型检查器偏好相对导入
+try:
+    from stu_accounts.models import StudentAccount
+    from utils.auth import get_student_id_from_request
+except Exception:  # Fallback when executed from project root context
+    from django_backend.stu_accounts.models import StudentAccount  # type: ignore
+    from django_backend.utils.auth import get_student_id_from_request  # type: ignore
 
 # 注意：模型注释写的是 0..6 表示 周日..周六
 WEEK_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 LABEL_TO_INDEX = {name: i for i, name in enumerate(WEEK_LABELS)}
 
-def labels_to_bitmask(days):
+def labels_to_bitmask(days: Optional[Iterable[Union[str, int]]]) -> int:
     """['Mon','Sun'] -> bitmask (Sun=0, Mon=1, ..., Sat=6)"""
     mask = 0
     for d in days or []:
@@ -28,17 +35,17 @@ def labels_to_bitmask(days):
         mask |= (1 << idx)
     return mask
 
-def bitmask_to_labels(mask: int):
+def bitmask_to_labels(mask: int) -> List[str]:
     out = []
     for i, name in enumerate(WEEK_LABELS):
         if mask & (1 << i):
             out.append(name)
     return out
 
-def _ok(data=None):
+def _ok(data: Optional[dict[str, Any]] = None) -> JsonResponse:
     return JsonResponse({"success": True, "data": data})
 
-def _err(msg, status=400):
+def _err(msg: str, status: int = 400) -> JsonResponse:
     return JsonResponse({"success": False, "message": msg}, status=status)
 
 @csrf_exempt
@@ -55,13 +62,12 @@ def preferences_entry(request: HttpRequest):
 
     # ---------- GET ----------
     if request.method == "GET":
-        # 优先默认
-        pref = StudentPreferenceDefault.objects.filter(student=student).first()
-        source = "default"
+        # 优先读取 current 表，没有再回落到 default 表
+        pref = StudentPreference.objects.filter(student=student).first()
+        source = "current"
         if not pref:
-            # 其次当前
-            pref = StudentPreference.objects.filter(student=student).first()
-            source = "current"
+            pref = StudentPreferenceDefault.objects.filter(student=student).first()
+            source = "default"
 
         if not pref:
             return _ok(None)
@@ -127,28 +133,27 @@ def preferences_entry(request: HttpRequest):
 
     # 5) 落库：根据 saveAsDefault 决定写哪张表（默认 or 当前）
     try:
-        with transaction.atomic():
+        # 使用 transaction.atomic 作为上下文管理器
+        with transaction.atomic():  # pyright: ignore[reportGeneralTypeIssues]
+            payload = dict(
+                daily_hours=dh,
+                weekly_study_days=wsd,
+                avoid_days_bitmask=mask,
+                description=description,
+            )
             if save_as_default:
-                # 写默认表（OneToOne：每个学生最多一条）
                 StudentPreferenceDefault.objects.update_or_create(
                     student=student,
-                    defaults=dict(
-                        daily_hours=dh,
-                        weekly_study_days=wsd,
-                        avoid_days_bitmask=mask,
-                        description=description,
-                    ),
+                    defaults=payload,
                 )
-            else:
-                # 写当前表
                 StudentPreference.objects.update_or_create(
                     student=student,
-                    defaults=dict(
-                        daily_hours=dh,
-                        weekly_study_days=wsd,
-                        avoid_days_bitmask=mask,
-                        description=description,
-                    ),
+                    defaults=payload,
+                )
+            else:
+                StudentPreference.objects.update_or_create(
+                    student=student,
+                    defaults=payload,
                 )
     except Exception as e:
         print("[PREFERENCES_SAVE_ERROR]", repr(e))

@@ -1,0 +1,9 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-11-05T03:20:02.280Z
+provider: 
+---
+
+If tasks exist, todo_write must be used with merge=true before edits.
