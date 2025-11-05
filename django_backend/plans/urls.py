@@ -6,4 +6,6 @@ from . import views
 urlpatterns = [
     path('plans/weekly/<int:week_offset>', weekly_plan),
     path("generate", views.generate_ai_plan, name="generate_ai_plan"),
+    path("save", views.save_weekly_plans, name="save_weekly_plans"),
+
 ]

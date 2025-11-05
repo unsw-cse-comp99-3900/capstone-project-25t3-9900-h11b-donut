@@ -128,61 +128,40 @@ export function AdminRiskReport() {
     }
   };
 
-  const loadStudentRiskData = (courseId: string, taskId: string) => {
-    console.log('Loading student risk data for course:', courseId, 'task:', taskId);
-    
-    // ============================================
-    // 🚨 MOCK DATA SECTION - 学生风险数据 🚨
-    // ============================================
-    // TODO: 这里需要替换为真实的后端API调用
-    // 生成mock学生风险数据，用于测试各种风险等级情况
-    // ============================================
-    
-    // Mock数据 - 包含各种测试情况
-    const mockStudentData = [
-      // Red cases
-      { id: '1', name: 'Alice Johnson', studentId: 'z1234567', overdueParts: 5, consecutiveNotOnTimeDays: 6 },
-      { id: '6', name: 'Frank Miller', studentId: 'z6789012', overdueParts: 7, consecutiveNotOnTimeDays: 8 },
-      { id: '10', name: 'Jack Taylor', studentId: 'z0123456', overdueParts: 6, consecutiveNotOnTimeDays: 7 },
-      { id: '16', name: 'Paul Anderson', studentId: 'z6677889', overdueParts: 8, consecutiveNotOnTimeDays: 9 },
-      { id: '20', name: 'Tina Moore', studentId: 'z0011223', overdueParts: 5, consecutiveNotOnTimeDays: 6 },
-      
-      // Orange cases
-      { id: '2', name: 'Bob Smith', studentId: 'z2345678', overdueParts: 3, consecutiveNotOnTimeDays: 3 },
-      { id: '5', name: 'Eva Brown', studentId: 'z5678901', overdueParts: 2, consecutiveNotOnTimeDays: 2 },
-      { id: '9', name: 'Ivy Wang', studentId: 'z9012345', overdueParts: 4, consecutiveNotOnTimeDays: 4 },
-      { id: '13', name: 'Mia Rodriguez', studentId: 'z3344556', overdueParts: 3, consecutiveNotOnTimeDays: 2 },
-      { id: '17', name: 'Quinn Harris', studentId: 'z7788990', overdueParts: 2, consecutiveNotOnTimeDays: 3 },
-      
-      // Yellow cases
-      { id: '3', name: 'Carol Davis', studentId: 'z3456789', overdueParts: 1, consecutiveNotOnTimeDays: 1 },
-      { id: '7', name: 'Grace Lee', studentId: 'z7890123', overdueParts: 1, consecutiveNotOnTimeDays: 0 },
-      { id: '11', name: 'Karen White', studentId: 'z1122334', overdueParts: 1, consecutiveNotOnTimeDays: 1 },
-      { id: '14', name: 'Nathan Kim', studentId: 'z4455667', overdueParts: 1, consecutiveNotOnTimeDays: 0 },
-      { id: '18', name: 'Rachel Scott', studentId: 'z8899001', overdueParts: 1, consecutiveNotOnTimeDays: 1 },
-      
-      // Green cases
-      { id: '4', name: 'David Wilson', studentId: 'z4567890', overdueParts: 0, consecutiveNotOnTimeDays: 0 },
-      { id: '8', name: 'Henry Chen', studentId: 'z8901234', overdueParts: 0, consecutiveNotOnTimeDays: 0 },
-      { id: '12', name: 'Leo Garcia', studentId: 'z2233445', overdueParts: 0, consecutiveNotOnTimeDays: 0 },
-      { id: '15', name: 'Olivia Martin', studentId: 'z5566778', overdueParts: 0, consecutiveNotOnTimeDays: 0 },
-      { id: '19', name: 'Samuel Young', studentId: 'z9900112', overdueParts: 0, consecutiveNotOnTimeDays: 0 },
-    ];
-    
-    // 动态计算Risk tier和Suggested Action
-    const mockStudents: StudentRisk[] = mockStudentData.map(student => {
-      const riskTier = calculateRiskTier(student.overdueParts, student.consecutiveNotOnTimeDays);
+  const loadStudentRiskData = async (courseId: string, taskId: string) => {
+  try {
+    console.log('[RiskReport] fetching (aggregated):', { courseId, taskId });
+
+    const rows = await apiService.adminGetStudentRisk(courseId, taskId);
+    // rows: [{ student_id, student_name, overdue_parts, consecutive_not_on_time_days }]
+
+    const mapped: StudentRisk[] = rows.map((r: any, idx: number) => {
+      const studentId = r.student_id || '';
+      const name = r.student_name || studentId || 'Unknown';
+      const overdueParts = r.overdue_parts || 0;
+      const consecutiveNotOnTimeDays = r.consecutive_not_on_time_days || 0;
+
+      const riskTier = calculateRiskTier(overdueParts, consecutiveNotOnTimeDays);
       const suggestedAction = getSuggestedAction(riskTier);
-      
+
       return {
-        ...student,
+        id: String(idx + 1),
+        name,
+        studentId,
+        overdueParts,
+        consecutiveNotOnTimeDays,
         riskTier,
-        suggestedAction
+        suggestedAction,
       };
     });
-    
-    setStudents(mockStudents);
-    setFilteredStudents(mockStudents);
+
+    setStudents(mapped);
+    setFilteredStudents(mapped);
+  } catch (err) {
+    console.warn('[RiskReport] aggregated fetch failed:', err);
+    setStudents([]);
+    setFilteredStudents([]);
+  }
   };
 
   const handleLogout = () => {

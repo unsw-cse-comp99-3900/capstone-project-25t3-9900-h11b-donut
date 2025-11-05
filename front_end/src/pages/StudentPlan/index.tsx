@@ -21,6 +21,7 @@ import { preferencesStore, type Preferences, type PlanItem } from '../../store/p
 import { coursesStore } from '../../store/coursesStore'
 import { apiService } from '../../services/api';
 import { fetchAndMapAiPlan } from '../../services/aiPlanService';
+import { reportOverdueForYesterday } from '../../utils/overdueReport';
 
 export function StudentPlan() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -74,7 +75,16 @@ export function StudentPlan() {
     
     return Math.max(0, diffWeeks); // 确保非负数
   }
+useEffect(() => {
+  const uid = localStorage.getItem('current_user_id');
+  if (!uid) return;
 
+  const raw = localStorage.getItem(`u:${uid}:ai-web-weekly-plans`);
+  if (raw) {
+    // plan 已经生成并存在 localStorage，可以安全上报 overdue
+    reportOverdueForYesterday().catch((e) => console.warn('[overdue] failed:', e));
+  }
+}, []);
   // 页面加载时获取未读消息数量
   useEffect(() => {
     const loadUnreadMessageCount = async () => {

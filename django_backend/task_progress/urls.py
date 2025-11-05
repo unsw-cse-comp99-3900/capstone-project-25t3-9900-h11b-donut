@@ -10,4 +10,6 @@ urlpatterns = [
     
     # 课程下所有任务进度
     path("courses/<str:course_code>/tasks/progress", views.course_tasks_progress, name="course_tasks_progress"),
+    path("overdue/report-day", views.overdue_report_day, name="overdue_report_day"),
+
 ]

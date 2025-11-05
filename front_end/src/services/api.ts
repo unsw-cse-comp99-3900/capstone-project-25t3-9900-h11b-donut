@@ -548,6 +548,72 @@ async adminCreateCourse(payload: {
     body: form,
   });
 }
+async saveWeeklyPlansToServer(weeklyPlans: Record<string, any[]>) {
+  try {
+    const token = localStorage.getItem('auth_token');
+    const studentId = localStorage.getItem('current_user_id');
+    if (!token || !studentId) {
+      console.warn('[saveWeeklyPlansToServer] Missing token or student_id');
+      return { ok: false, error: 'unauthorized' };
+    }
+
+    const body = {
+      student_id: studentId,
+      weeklyPlans,
+      tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      source: 'ai'
+    };
+
+    const res = await fetch('/api/save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('[saveWeeklyPlansToServer] Server returned error:', data);
+      return { ok: false, error: data };
+    }
+
+    console.log('[saveWeeklyPlansToServer] Success:', data);
+    return data;
+
+  } catch (err) {
+    console.error('[saveWeeklyPlansToServer] Failed:', err);
+    return { ok: false, error: err };
+}
+}
+async adminGetStudentRisk(
+  courseId: string,
+  taskId: string,
+  asOfDate?: string   
+): Promise<Array<{
+  student_id: string;
+  student_name: string;
+  overdue_parts: number;
+  consecutive_not_on_time_days: number;
+}>> {
+  const body: any = { course_id: courseId, task_id: taskId };
+  if (asOfDate) body.as_of_date = asOfDate;
+
+  const resp = await this.request<any>('/admin/student_risk_summary', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const rows = Array.isArray(resp) ? resp : (resp?.data ?? []);
+  return (Array.isArray(rows) ? rows : []).map((r: any) => ({
+    student_id: String(r?.student_id ?? ''),
+    student_name: String(r?.student_name ?? ''),
+    overdue_parts: Number(r?.overdue_parts ?? 0) || 0,
+    consecutive_not_on_time_days: Number(r?.consecutive_not_on_time_days ?? 0) || 0,
+  }));
+}
   async getUserCourses(): Promise<ApiCourse[]> {
     const res = await this.request<ApiCourse[]>('/courses/my');
     return res.data ?? [];

@@ -1,6 +1,7 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,date
 from typing import Dict, List
+from django.utils import timezone
 from django.http import JsonResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 from utils.auth import get_student_id_from_request
@@ -11,7 +12,8 @@ from preferences.models import StudentPreference, StudentPreferenceDefault
 from courses.models import StudentEnrollment, CourseTask
 from decimal import Decimal
 from ai_module.plan_generator import generate_plan
- 
+from .models import StudyPlan, StudyPlanItem
+from django.db import transaction
 def _auth(request: HttpRequest) -> Optional[str]:
     """
     返回当前已登录学生ID。
@@ -235,6 +237,120 @@ def generate_ai_plan(request):
             "success": False,
             "message": f"AI Plan generation failed: {str(e)}"
         }, status=500)
+@csrf_exempt
+def save_weekly_plans(request: HttpRequest):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+
+    try:
+        body = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
+
+    student_id = body.get("student_id")
+    weekly_plans = body.get("weeklyPlans")
+    tz = body.get("tz") or "Australia/Sydney"
+    source = body.get("source") or "ai"
+
+    if not student_id or not isinstance(weekly_plans, dict):
+        return JsonResponse(
+            {"ok": False, "error": "student_id and weeklyPlans are required"},
+            status=400,
+        )
+
+    result = {"ok": True, "saved": [], "skipped": []}
+
+    # 逐个 week_offset 处理
+    for offset_key, items in weekly_plans.items():
+        try:
+            offset = int(offset_key)
+        except Exception:
+            result["skipped"].append({"offset_key": offset_key, "reason": "non-int key"})
+            continue
+
+        # 空周直接跳过（前端一般有 2、3 为空数组）
+        if not items:
+            result["skipped"].append({"offset": offset, "reason": "empty"})
+            continue
+
+        week_monday = _current_monday(offset).date()
+
+        with transaction.atomic():
+            # 1) upsert 头表
+            plan, created = StudyPlan.objects.update_or_create(
+                student_id=student_id,
+                week_start_date=week_monday,
+                defaults={
+                    "week_offset": offset,
+                    "tz": tz,
+                    "source": source,
+                },
+            )
+
+            # 2) 清空旧的明细（简单稳妥）
+            StudyPlanItem.objects.filter(plan=plan).delete()
+
+            # 3) 批量插入新的明细
+            objs = []
+            for it in items:
+                # 字段映射：严格跟你前端一致
+                external_item_id = str(it.get("id", "")).strip()
+                course_code = str(it.get("courseId", "")).strip()
+                course_title = (it.get("courseTitle") or "").strip()
+                scheduled_date_str = it.get("date")  # "YYYY-MM-DD"
+                try:
+                    scheduled_date = date.fromisoformat(scheduled_date_str) if scheduled_date_str else week_monday
+                except Exception:
+                    scheduled_date = week_monday  # 兜底
+
+                minutes = int(it.get("minutes") or 0)
+                part_index = int(it.get("partIndex") or 0)
+                parts_count = int(it.get("partsCount") or 0)
+                part_title = (it.get("partTitle") or "").strip() or None
+                color = (it.get("color") or "").strip() or None
+                completed = bool(it.get("completed"))
+                completed_at = timezone.now() if completed else None
+
+                try:
+                    parts = str(it.get("id", "")).split("-")
+                    if len(parts) >= 2:
+                        task_id = parts[1]  # 提取中间的编号
+                except Exception:
+                    task_id = None
+                    
+                objs.append(
+                    StudyPlanItem(
+                        plan=plan,
+                        external_item_id=external_item_id,
+                        course_code=course_code,
+                        course_title=course_title or None,
+                        scheduled_date=scheduled_date,
+                        minutes=minutes,
+                        part_index=part_index,
+                        parts_count=parts_count,
+                        part_title=part_title,
+                        color=color,
+                        completed=completed,
+                        completed_at=completed_at,
+                        task_id=task_id,
+                    )
+                )
+
+            if objs:
+                StudyPlanItem.objects.bulk_create(objs)
+
+            result["saved"].append(
+                {
+                    "offset": offset,
+                    "week_start_date": week_monday.isoformat(),
+                    "plan_id": plan.id,
+                    "created": created,
+                    "items": len(objs),
+                }
+            )
+
+    return JsonResponse(result, status=200)
+
 
 
 

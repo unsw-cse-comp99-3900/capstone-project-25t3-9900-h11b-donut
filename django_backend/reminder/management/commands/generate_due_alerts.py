@@ -19,7 +19,7 @@ class Command(BaseCommand):
         alerts_created = 0
 
         # 固定提醒时间点（单位：小时）
-        ALERT_OFFSETS = [4.83, 4.67, 4.49, 4.33]
+        ALERT_OFFSETS = [3.85,  3.70,3.67, 3.50]
         WINDOW_SEC = 90  # 容错窗口（防止错过）
         DEDUP_MINUTES = 10  # 去重窗口
 

@@ -9,12 +9,17 @@ from .models import CourseAdmin  # 假设你的表名是 courses_admin
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import OuterRef, Exists,Count
 from courses.models import CourseCatalog,StudentEnrollment,CourseTask,Material,Question,QuestionChoice,QuestionKeyword,QuestionKeywordMap
+from task_progress.models import OverdueCourseStudent,OverdueStudentDailyLog
+from stu_accounts.models import StudentAccount
 from django.db import transaction,IntegrityError
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from django.http import FileResponse, Http404
 import urllib.parse
 import os
+from datetime import date, timedelta
+from django.utils import timezone
+
 
 logger = logging.getLogger(__name__)
 def ok(data): 
@@ -1001,7 +1006,92 @@ def update_course_material(request, course_id: str, materials: int):
         return JsonResponse({"success": False, "message": str(e)}, status=500)
     
 
+@csrf_exempt
+def student_risk_summary(request):
+    
+    if request.method != "POST":
+        return JsonResponse({"success": False, "message": "POST required"}, status=405)
 
+    # 1) 解析参数
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+        course_id = (payload.get("course_id") or "").strip()
+        task_id = (payload.get("task_id") or "").strip()
+        as_of_str = (payload.get("as_of_date") or "").strip()
+
+        if not course_id or not task_id:
+            return JsonResponse({"success": False, "message": "Missing course_id or task_id"}, status=400)
+
+        if as_of_str:
+            try:
+                as_of = date.fromisoformat(as_of_str)
+            except Exception:
+                return JsonResponse({"success": False, "message": "Invalid as_of_date"}, status=400)
+        else:
+            # 默认“昨天”（服务器本地日；如需 Australia/Sydney，可按需换算）
+            today_local = timezone.localdate()
+            as_of = today_local - timedelta(days=1)
+
+    except Exception as e:
+        return JsonResponse({"success": False, "message": f"Invalid body: {e}"}, status=400)
+
+    # 2) 选课学生（作为主集合；去重）
+    student_ids = list(
+        StudentEnrollment.objects
+        .filter(course_code=course_id)
+        .values_list("student_id", flat=True)
+        .distinct()
+    )
+
+    if not student_ids:
+        return JsonResponse({"success": True, "data": []})
+
+    # 3) 姓名映射
+    names = StudentAccount.objects.filter(student_id__in=student_ids).values("student_id", "name")
+    name_map = {r["student_id"]: (r["name"] or "") for r in names}
+
+    # 4) overdue_parts（OverdueCourseStudent.count_overdue）
+    parts = OverdueCourseStudent.objects.filter(
+        student_id__in=student_ids,
+        course_code=course_id,
+        task_id=task_id
+    ).values("student_id", "count_overdue")
+    parts_map = {r["student_id"]: int(r.get("count_overdue") or 0) for r in parts}
+
+    # 5) 连续未按时天数（OverdueStudentDailyLog 连续连数）
+    window_days = 120
+    window_start = as_of - timedelta(days=window_days - 1)
+    logs = (
+        OverdueStudentDailyLog.objects
+        .filter(student_id__in=student_ids, date__gte=window_start, date__lte=as_of)
+        .values("student_id", "date")
+        .order_by("student_id", "-date")
+    )
+    by_sid = {sid: set() for sid in student_ids}
+    for row in logs:
+        by_sid[row["student_id"]].add(row["date"])
+
+    consecutive_map = {}
+    for sid in student_ids:
+        days = 0
+        cur = as_of
+        s = by_sid.get(sid) or set()
+        while cur in s:
+            days += 1
+            cur = cur - timedelta(days=1)
+        consecutive_map[sid] = days
+
+    # 6) 组装结果（缺失用默认值）
+    data = []
+    for sid in student_ids:
+        data.append({
+            "student_id": sid,
+            "student_name": name_map.get(sid, "") or "",
+            "overdue_parts": parts_map.get(sid, 0),
+            "consecutive_not_on_time_days": consecutive_map.get(sid, 0),
+        })
+
+    return JsonResponse({"success": True, "data": data})
 
 import os
 import urllib.parse

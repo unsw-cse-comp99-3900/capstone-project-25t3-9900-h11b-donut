@@ -56,7 +56,7 @@ INSTALLED_APPS = [
     "courses_admin",
     "task_progress",
     "ai_chat",
-    #"plans",
+    "plans",
     "reminder",
     #"rest_framework"
 ]

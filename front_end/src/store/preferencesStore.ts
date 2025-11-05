@@ -115,7 +115,7 @@ class PreferencesStore {
 }
 
   // 保存学习计划到localStorage
-  private saveWeeklyPlans() {
+private async saveWeeklyPlans() {
   try {
     const uid = localStorage.getItem('current_user_id');
     if (!uid) {
@@ -123,9 +123,18 @@ class PreferencesStore {
       return;
     }
     const key = `u:${uid}:ai-web-weekly-plans`;
+    console.log('[saveWeeklyPlans] weeklyPlans =', this.weeklyPlans);
     localStorage.setItem(key, JSON.stringify(this.weeklyPlans));
+    const result = await apiService.saveWeeklyPlansToServer(this.weeklyPlans as Record<string, any[]>);
+
+    if (!result.ok) {
+      console.warn('[saveWeeklyPlans] ❌ Failed to sync to DB:', result.error);
+    } else {
+      console.log('[saveWeeklyPlans] ✅ Synced to DB successfully:', result);
+    }
+
   } catch (error) {
-    console.warn('Failed to save weekly plans to localStorage:', error);
+    console.warn('Failed to save weekly plans to localStorage or DB:', error);
   }
 }
 

@@ -6,7 +6,8 @@ urlpatterns = [
     path("delete_course", views.delete_course, name="delete_course"),
     path("create_course", views.create_course, name="create_course"),
     path("course_exists", views.course_exists, name="course_exists"),
-    
+    path('admin/student_risk_summary', views.student_risk_summary),
+
     path("courses_admin/<str:course_id>/tasks", views.course_tasks, name="course_tasks"),
     path('courses_admin/<str:course_id>/tasks/create', views.create_course_tasks, name='create_tasks'),
     path('courses_admin/<str:course_id>/tasks/<int:task_id>/delete',views.delete_course_task,name="delete_course_task"),
