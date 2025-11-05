@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     "task_progress",
     "ai_chat",
     #"plans",
+    "reminder",
+    #"rest_framework"
 ]
 
 MIDDLEWARE = [

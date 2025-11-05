@@ -740,122 +740,152 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
   }
 
   // 消息功能 - 模拟数据
-  async getMessages(): Promise<Message[]> {
-    const now = new Date();
-    const mockMessages: Message[] = [
-      // Due Alerts - 与现有作业相关
-      {
-        id: '1',
-        type: 'due_alert',
-        title: 'Assignment Due Soon',
-        preview: 'Assignment "Final Project Report" for COMP1234 is due in 2 days',
-        timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2小时前
-        isRead: false,
-        courseId: 'COMP1234',
-        dueTime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2天后
-      },
-      {
-        id: '2',
-        type: 'due_alert',
-        title: 'Quiz Reminder',
-        preview: 'Quiz "Week 5 Assessment" for MATH5678 is due tomorrow',
-        timestamp: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(), // 6小时前
-        isRead: true,
-        courseId: 'MATH5678',
-        dueTime: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString() // 1天后
-      },
+  // async getMessages(): Promise<Message[]> {
+  //   const now = new Date();
+  //   const mockMessages: Message[] = [
+  //     // Due Alerts - 与现有作业相关
+  //     {
+  //       id: '1',
+  //       type: 'due_alert',
+  //       title: 'Assignment Due Soon',
+  //       preview: 'Assignment "Final Project Report" for COMP1234 is due in 2 days',
+  //       timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2小时前
+  //       isRead: false,
+  //       courseId: 'COMP1234',
+  //       dueTime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2天后
+  //     },
+  //     {
+  //       id: '2',
+  //       type: 'due_alert',
+  //       title: 'Quiz Reminder',
+  //       preview: 'Quiz "Week 5 Assessment" for MATH5678 is due tomorrow',
+  //       timestamp: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(), // 6小时前
+  //       isRead: true,
+  //       courseId: 'MATH5678',
+  //       dueTime: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString() // 1天后
+  //     },
       
-      // Admin DDL Updates - 管理员修改DDL提醒
-      {
-        id: '9',
-        type: 'due_alert',
-        title: 'Deadline Updated',
-        preview: 'Admin has extended the deadline for "Midterm Exam" in COMP1234 to next Friday',
-        timestamp: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30分钟前
-        isRead: false,
-        courseId: 'COMP1234',
-        dueTime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7天后
-      },
-      {
-        id: '10',
-        type: 'due_alert',
-        title: 'Deadline Changed',
-        preview: 'Admin has moved up the deadline for "Lab Report" in PHYS101 to this Wednesday',
-        timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2小时前
-        isRead: false,
-        courseId: 'PHYS101',
-        dueTime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2天后
-      },
+  //     // Admin DDL Updates - 管理员修改DDL提醒
+  //     {
+  //       id: '9',
+  //       type: 'due_alert',
+  //       title: 'Deadline Updated',
+  //       preview: 'Admin has extended the deadline for "Midterm Exam" in COMP1234 to next Friday',
+  //       timestamp: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30分钟前
+  //       isRead: false,
+  //       courseId: 'COMP1234',
+  //       dueTime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7天后
+  //     },
+  //     {
+  //       id: '10',
+  //       type: 'due_alert',
+  //       title: 'Deadline Changed',
+  //       preview: 'Admin has moved up the deadline for "Lab Report" in PHYS101 to this Wednesday',
+  //       timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2小时前
+  //       isRead: false,
+  //       courseId: 'PHYS101',
+  //       dueTime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2天后
+  //     },
       
-      // Nightly Notices - 模拟数据
-      {
-        id: '3',
-        type: 'nightly_notice',
-        title: 'Yesterday\'s Plan Incomplete',
-        preview: 'You didn\'t complete all tasks from yesterday\'s study plan. The system has automatically rescheduled your plan at 00:00.',
-        timestamp: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(), // 12小时前
-        isRead: false
-      },
-      {
-        id: '4',
-        type: 'nightly_notice',
-        title: 'Auto-reschedule Completed',
-        preview: 'Your unfinished tasks from yesterday have been automatically rescheduled to today\'s plan at 00:00.',
-        timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), // 1天前
-        isRead: true
-      },
+  //     // Nightly Notices - 模拟数据
+  //     {
+  //       id: '3',
+  //       type: 'nightly_notice',
+  //       title: 'Yesterday\'s Plan Incomplete',
+  //       preview: 'You didn\'t complete all tasks from yesterday\'s study plan. The system has automatically rescheduled your plan at 00:00.',
+  //       timestamp: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(), // 12小时前
+  //       isRead: false
+  //     },
+  //     {
+  //       id: '4',
+  //       type: 'nightly_notice',
+  //       title: 'Auto-reschedule Completed',
+  //       preview: 'Your unfinished tasks from yesterday have been automatically rescheduled to today\'s plan at 00:00.',
+  //       timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), // 1天前
+  //       isRead: true
+  //     },
       
-      // Weekly Bonuses - 模拟数据
-      {
-        id: '5',
-        type: 'weekly_bonus',
-        title: 'Weekly Achievement',
-        preview: 'Great job! You completed all tasks on time this week',
-        timestamp: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3天前
-        isRead: false
-      },
-      {
-        id: '6',
-        type: 'weekly_bonus',
-        title: 'Bonus Points Awarded',
-        preview: 'You earned 0.01 bonus points for perfect weekly completion',
-        timestamp: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7天前
-        isRead: true
-      },
+  //     // Weekly Bonuses - 模拟数据
+  //     {
+  //       id: '5',
+  //       type: 'weekly_bonus',
+  //       title: 'Weekly Achievement',
+  //       preview: 'Great job! You completed all tasks on time this week',
+  //       timestamp: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3天前
+  //       isRead: false
+  //     },
+  //     {
+  //       id: '6',
+  //       type: 'weekly_bonus',
+  //       title: 'Bonus Points Awarded',
+  //       preview: 'You earned 0.01 bonus points for perfect weekly completion',
+  //       timestamp: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7天前
+  //       isRead: true
+  //     },
       
-      // System Notifications - 模拟数据
-      {
-        id: '7',
-        type: 'system_notification',
-        title: 'System Update',
-        preview: 'New features have been added to your study planner',
-        timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(), // 1小时前
-        isRead: false
-      },
-      {
-        id: '8',
-        type: 'system_notification',
-        title: 'Welcome Message',
-        preview: 'Welcome to Study Planner! Start by setting up your preferences',
-        timestamp: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10天前
-        isRead: true
-      }
-    ];
+  //     // System Notifications - 模拟数据
+  //     {
+  //       id: '7',
+  //       type: 'system_notification',
+  //       title: 'System Update',
+  //       preview: 'New features have been added to your study planner',
+  //       timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(), // 1小时前
+  //       isRead: false
+  //     },
+  //     {
+  //       id: '8',
+  //       type: 'system_notification',
+  //       title: 'Welcome Message',
+  //       preview: 'Welcome to Study Planner! Start by setting up your preferences',
+  //       timestamp: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10天前
+  //       isRead: true
+  //     }
+  //   ];
 
-    return mockMessages;
+  //   return mockMessages;
+  // }
+
+
+  async getMessages(): Promise<Message[]> {
+    const studentId = localStorage.getItem('current_user_id');
+    if (!studentId) {
+      console.warn('No student_id found, returning empty message list');
+      return [];
+    }
+
+    const res = await this.request<Message[]>(`/reminders/${studentId}/`, { method: 'GET' });
+    if (!res.success) {
+      console.error('Failed to fetch reminders:', res.message);
+      return [];
+    }
+    return res.data ?? [];
   }
 
+
+  // async markMessageAsRead(messageId: string): Promise<void> {
+  //   // 模拟API调用延迟
+  //   await new Promise(resolve => setTimeout(resolve, 200));
+  //   console.log(`Message ${messageId} marked as read`);
+  // }
+
+  // async markMessagesAsRead(messageIds: string[]): Promise<void> {
+  //   // 模拟API调用延迟
+  //   await new Promise(resolve => setTimeout(resolve, 300));
+  //   console.log(`Messages ${messageIds.join(', ')} marked as read`);
+  // }
+
   async markMessageAsRead(messageId: string): Promise<void> {
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 200));
-    console.log(`Message ${messageId} marked as read`);
+    await this.request(`/reminders/${messageId}/mark-as-read`, { method: 'POST' });
   }
 
   async markMessagesAsRead(messageIds: string[]): Promise<void> {
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 300));
-    console.log(`Messages ${messageIds.join(', ')} marked as read`);
+    await this.request(`/reminders/mark-as-read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: messageIds }),
+    });
   }
+
 }
 
 export const apiService = new ApiService();

@@ -124,3 +124,9 @@ update3:
 4.f12可以清楚看到localStorage放了啥，什么样的格式
 5.admin端处理课程的函数在store/coursesAdmin.ts,不是coursesStore!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 6.由于我不理解task 中的contribution中是干啥的，所以全部默认设置了100，如果要修改，ctrl+shift+f搜索contribution
+
+
+
+
+#11.4 reminder
+ management/commands 里面generate_due_alerts.py是检测是否需要提醒的逻辑。测试阶段需要手动执行 后续部署服务器需要服务器定时运行监测用 （cron） 
