@@ -130,3 +130,15 @@ update3:
 
 #11.4 reminder
  management/commands 里面generate_due_alerts.py是检测是否需要提醒的逻辑。测试阶段需要手动执行 后续部署服务器需要服务器定时运行监测用 （cron） 
+
+11.06 update:
+1.增加了学生端移除课程的逻辑：删除localStorage的相关数据->删除student_enrollments/task_progress里的数据->
+删除localStorage里plan的数据->删除数据库里该学生的plan的数据->提示你已经删除课程，旧计划失效，请重新生成计划
+2.add/delete课程的数据现在会立马写入localStorage，而不是需要刷新页面
+3.修改了plan的读取：
+原本是：
+if (uid) {
+  //preferencesStore.loadWeeklyPlans?.(uid); // 如果支持传 uid，最好显式传入
+  preferencesStore.loadAllPlansSmart(uid); 
+} 从localStorage里读，现在是:先从localStorage里读，如果没有就去database读，如果database也没有就跳过不渲染
+具体函数可以preferencesStore.loadAllPlansSmart(uid);去找

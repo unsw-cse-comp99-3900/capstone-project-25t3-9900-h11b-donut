@@ -247,13 +247,15 @@ useEffect(() => {
         <ConfirmationModal
           isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          onConfirm={() => {
+          onConfirm={async() => {
             if (modalConfig.action === 'add') {
-              coursesStore.addCourse(modalConfig.courseId)
+              await coursesStore.addCourse(modalConfig.courseId)
               setQ('')
               window.location.hash = '#/student-courses'
             } else {
-              coursesStore.removeCourse(modalConfig.courseId)
+              await coursesStore.removeCourse(modalConfig.courseId)
+              alert("Your previous study plan is no longer valid. Please regenerate a new plan.");
+              window.location.hash = '#/student-courses'
             }
             setModalOpen(false)
             setModalConfig(null)

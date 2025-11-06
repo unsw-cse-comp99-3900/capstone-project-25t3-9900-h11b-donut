@@ -710,6 +710,11 @@ async adminGetStudentRisk(
     return res.data ?? [];
   }
 
+
+  async getAllWeeklyPlans(): Promise<Record<string, ApiPlanItem[]>> {
+  const res = await this.request<Record<string, ApiPlanItem[]>>('/weekly/all');
+  return res.data ?? {};   
+}
   async saveWeeklyPlan(weekOffset: number, plan: ApiPlanItem[]): Promise<void> {
     await this.request<ApiResponse<void>>(`/plans/weekly/${weekOffset}`, {
       method: 'PUT',

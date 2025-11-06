@@ -103,7 +103,6 @@ class PreferencesStore {
       this.weeklyPlans = {};
       return;
     }
-
     const key = `u:${userId}:ai-web-weekly-plans`;
     const raw = localStorage.getItem(key);
     this.weeklyPlans = raw ? JSON.parse(raw) : {};
@@ -112,6 +111,32 @@ class PreferencesStore {
     console.warn('Failed to load weekly plans from localStorage:', e);
     this.weeklyPlans = {};
   }
+}
+
+async loadAllPlansSmart(uid: string): Promise<Record<string, PlanItem[]>> {
+  // 仅在函数内部用到的局部类型，不影响你的 WeeklyPlan
+  type WeeklyPlansMap = Record<string, PlanItem[]>;
+
+  const key = `u:${uid}:ai-web-weekly-plans`;
+
+  // 1) 先读本地
+  const raw = localStorage.getItem(key);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as WeeklyPlansMap;     // ← 返回需要的 Map
+      this.weeklyPlans = parsed as unknown as WeeklyPlan;   // ← 写入字段时转成 WeeklyPlan
+      this.notify?.();
+      return parsed;                                        // ← 返回 Map，不影响字段类型
+    } catch {}
+  }
+
+  // 2) 本地没有 → 走后端（已用方案A返回 ApiResponse<T>）
+  const map = (await apiService.getAllWeeklyPlans()) as WeeklyPlansMap;
+
+  this.weeklyPlans = map as unknown as WeeklyPlan;          // ← 存到字段仍按 WeeklyPlan
+  localStorage.setItem(key, JSON.stringify(map));
+  this.notify?.();
+  return map;                                               // ← 对外返回 Map
 }
 
   // 保存学习计划到localStorage

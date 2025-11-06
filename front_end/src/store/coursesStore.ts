@@ -110,6 +110,7 @@ async ensureLoaded() {
         desc: c.description,
         illustration: c.illustration
       }));
+      
       await this.syncDeadlinesFromCourses(); // 拉取任务再生成 deadlines
       const uid = (typeof window !== 'undefined') ? localStorage.getItem('current_user_id') : null;
       if (uid) {
@@ -164,8 +165,6 @@ async ensureLoaded() {
     // 立即加入 UI 并通知渲染
     this.myCourses = [...this.myCourses, found];
     this.notify();
-
-    // 后台并行：添加到后端并刷新“我的课程”再校准 deadlines
     (async () => {
       try {
         await apiService.addCourse(courseId);
@@ -176,25 +175,57 @@ async ensureLoaded() {
           desc: c.description,
           illustration: c.illustration
         }));
+
+        const uid = (typeof window !== 'undefined') ? localStorage.getItem('current_user_id') : null;
+        if (uid) {
+          localStorage.setItem(`u:${uid}:myCourses:v1`, JSON.stringify(this.myCourses));
+        }
         await this.syncDeadlinesFromCourses();
+        if (uid) {
+          localStorage.setItem(`u:${uid}:deadlines:v1`, JSON.stringify(this.deadlines));
+        }
         this.notify();
       } catch (error) {
         console.warn('Failed to add course via API:', error);
         // 后端失败时保留乐观结果（可按需提示用户）
         await this.syncDeadlinesFromCourses();
+        const uid = (typeof window !== 'undefined') ? localStorage.getItem('current_user_id') : null;
+        if (uid) {
+          localStorage.setItem(`u:${uid}:myCourses:v1`, JSON.stringify(this.myCourses));
+          localStorage.setItem(`u:${uid}:deadlines:v1`, JSON.stringify(this.deadlines));
+        }
         this.notify();
       }
     })();
   }
 
   async removeCourse(courseId: string) {
-    await apiService.removeCourse(courseId);
-    // 清理缓存
-    delete this.tasksByCourse[courseId];
-    this.myCourses = this.myCourses.filter(c => c.id !== courseId);
-    await this.syncDeadlinesFromCourses();
-    this.notify();
+  await apiService.removeCourse(courseId);  // 1) 先删后端
+
+  const uid = localStorage.getItem('current_user_id');
+
+  // 2) 清本地内存
+  delete this.tasksByCourse[courseId];
+  this.myCourses = this.myCourses.filter(c => c.id !== courseId);
+
+  // 3) 立刻落盘 myCourses
+  if (uid) {
+    localStorage.setItem(`u:${uid}:myCourses:v1`, JSON.stringify(this.myCourses));
+    localStorage.removeItem(`u:${uid}:ai-web-weekly-plans`);
   }
+
+  try {
+    await this.syncDeadlinesFromCourses();
+  } catch (e) {
+    console.warn('syncDeadlinesFromCourses failed after remove:', e);
+  } finally {
+    if (uid) {
+      localStorage.setItem(`u:${uid}:deadlines:v1`, JSON.stringify(this.deadlines));
+    }
+  }
+
+  this.notify();
+}
 
   // 按需加载任务（首次从后端获取并缓存）
   async getCourseTasksAsync(courseId: string): Promise<Task[]> {

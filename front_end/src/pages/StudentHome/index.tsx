@@ -95,7 +95,8 @@ const [user, setUser] = useState<any>(() => {
     setUser(null);
   }
   if (uid) {
-  preferencesStore.loadWeeklyPlans?.(uid); // 如果支持传 uid，最好显式传入
+  //preferencesStore.loadWeeklyPlans?.(uid); // 如果支持传 uid，最好显式传入
+  preferencesStore.loadAllPlansSmart(uid); 
 }
   coursesStore.ensureLoaded();
   const unsubCourses = coursesStore.subscribe(() => {

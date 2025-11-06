@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, FileResponse
-from django.db import models, IntegrityError
+from django.db import models, IntegrityError,transaction
+from django.db.models import Subquery
 from django.conf import settings
 from pathlib import Path
 from typing import Optional
@@ -12,8 +13,9 @@ from .models import (
     StudentEnrollment,
     Material,
 )
-
-
+from plans.models import StudyPlan,StudyPlanItem
+from .models import CourseTask, StudentEnrollment
+from task_progress.models import TaskProgress
 def choose_courses(request):
     sid = _require_student(request)
    
@@ -150,14 +152,58 @@ def my_courses(request):
 
 @csrf_exempt
 def remove_course(request, course_code):
+    """
+    学生退课：
+    1) 删除该学生在该课程下的所有 TaskProgress
+    2) 删除该学生的选课关系 StudentEnrollment
+    """
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
     if request.method != "DELETE":
         return JsonResponse({"error": "Method not allowed"}, status=405)
+
     code = (course_code or "").upper()
-    StudentEnrollment.objects.filter(student_id=sid, course_code=code).delete()
-    return JsonResponse({"success": True})
+
+    try:
+        with transaction.atomic():
+            # 先删除这个学生所有的plan数据
+            deleted_plans, cascade_details = StudyPlan.objects.filter(
+                student_id=sid
+            ).delete()
+            deleted_plan_items = cascade_details.get(StudyPlanItem._meta.label, 0)
+            # 子查询：该课程下所有任务的 id
+            task_ids_subq = CourseTask.objects.filter(
+                course_code=code
+            ).values('id')
+
+            # 1) 删进度
+            deleted_progress_count, _ = TaskProgress.objects.filter(
+                student_id=sid,
+                task_id__in=Subquery(task_ids_subq)
+            ).delete()
+
+            # 2) 删选课关系
+            deleted_enroll_count, _ = StudentEnrollment.objects.filter(
+                student_id=sid,
+                course_code=code
+            ).delete()
+
+        return JsonResponse({
+            "success": True,
+            "deleted": {
+                "study_plans": deleted_plans,
+                "study_plan_items": deleted_plan_items,
+                "task_progress":  deleted_progress_count,
+                "student_enrollment": deleted_enroll_count,
+            }
+        })
+    
+    except Exception as e:
+        return JsonResponse(
+            {"error": "Server Error", "detail": repr(e)},
+            status=500
+        )
 
 def course_tasks(request, course_code):
     sid = _require_student(request)

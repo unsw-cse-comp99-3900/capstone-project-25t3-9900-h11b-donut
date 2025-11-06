@@ -14,6 +14,7 @@ from decimal import Decimal
 from ai_module.plan_generator import generate_plan
 from .models import StudyPlan, StudyPlanItem
 from django.db import transaction
+from django.db.models import Prefetch
 def _auth(request: HttpRequest) -> Optional[str]:
     """
     返回当前已登录学生ID。
@@ -122,6 +123,9 @@ def weekly_plan(request: HttpRequest, week_offset: int):
         return _ok()
 
     return _err("Method Not Allowed", 405)
+
+
+
 
 
 
@@ -352,6 +356,42 @@ def save_weekly_plans(request: HttpRequest):
     return JsonResponse(result, status=200)
 
 
+@csrf_exempt
+def get_all_weekly_plans(request):
+   
+    sid = _auth(request)
+    if sid is None:
+        return JsonResponse({"error": "Auth required"}, status=401)
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
 
+    # 预取 items，并按日期 / part_index 排序，便于前端直接展示
+    items_qs = StudyPlanItem.objects.order_by("scheduled_date", "part_index")
+    plans = (
+        StudyPlan.objects
+        .filter(student_id=sid)
+        .order_by("week_offset", "week_start_date")
+        .prefetch_related(Prefetch("items", queryset=items_qs))
+    )
+
+    result = {}
+    for plan in plans:
+        wk = str(plan.week_offset)  # 与 localStorage 键保持一致：字符串键
+        arr = result.setdefault(wk, [])
+        for it in plan.items.all():
+            arr.append({
+                "id": it.external_item_id,          # PlanItem.id
+                "courseId": it.course_code,
+                "courseTitle": it.course_title or "",
+                "date": it.scheduled_date.strftime("%Y-%m-%d"),
+                "minutes": it.minutes,
+                "partIndex": it.part_index,
+                "partsCount": it.parts_count,
+                "partTitle": it.part_title or "",
+                "color": it.color or "",
+                "completed": bool(it.completed),
+            })
+
+    return JsonResponse({"success": True, "data": result})
 
 
