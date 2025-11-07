@@ -18,7 +18,7 @@ print("[Gemini Check] GEMINI_KEY found?", bool(GEMINI_KEY))
 if use_gemini:
     try:
         genai = importlib.import_module("google.generativeai")  # type: ignore[reportMissingImports]
-        genai.configure(api_key=GEMINI_KEY)
+        genai.configure(api_key=GEMINI_KEY, transport="rest")
         _split_model = genai.GenerativeModel(
             "gemini-2.5-flash",
             generation_config={"temperature": 0.2, "max_output_tokens": 1024}
