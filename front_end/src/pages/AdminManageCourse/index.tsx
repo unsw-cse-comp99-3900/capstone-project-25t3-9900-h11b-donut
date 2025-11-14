@@ -2570,7 +2570,7 @@ Hint: One filters before, one after grouping
 
               {/* 分数 */}
               <div className="question-input-group">
-                <label className="question-label">Score: <span className="required">*</span></label>
+                <label className="question-label">Score:</label>
                 <input
                   type="number"
                   className="question-input"
