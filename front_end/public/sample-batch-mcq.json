@@ -1,0 +1,47 @@
+[
+  {
+    "topic": "Database Fundamentals",
+    "question": "What is a primary key in a relational database?",
+    "options": [
+      "A key that unlocks the database",
+      "A unique identifier for each record in a table",
+      "The first column in any table",
+      "A key used for encryption"
+    ],
+    "correctAnswer": "C",
+    "score": 15,
+    "difficulty": "Easy",
+    "gradingCriteria": "Student must identify that primary key is a unique identifier",
+    "hint": "Think about what makes each row unique"
+  },
+  {
+    "topic": "Database Normalization",
+    "question": "Which normal form eliminates transitive dependencies?",
+    "options": [
+      "First Normal Form (1NF)",
+      "Second Normal Form (2NF)",
+      "Third Normal Form (3NF)",
+      "Fourth Normal Form (4NF)"
+    ],
+    "correctAnswer": "C",
+    "score": 15,
+    "difficulty": "Medium",
+    "gradingCriteria": "Student must understand 3NF removes transitive dependencies",
+    "hint": "This is the third level of normalization"
+  },
+  {
+    "topic": "SQL Queries",
+    "question": "Which SQL clause is used to filter grouped results?",
+    "options": [
+      "WHERE",
+      "HAVING",
+      "FILTER",
+      "GROUP BY"
+    ],
+    "correctAnswer": "B",
+    "score": 10,
+    "difficulty": "Medium",
+    "gradingCriteria": "Student must differentiate between WHERE and HAVING clauses",
+    "hint": "One filters rows before grouping, one filters after grouping"
+  }
+]

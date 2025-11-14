@@ -1,0 +1,9 @@
+Topic: Data Structures
+Question: Explain the concept of a stack data structure and how it works
+Score: 15
+Difficulty: Medium
+Grading Criteria: Must include LIFO concept and basic operations (push, pop)
+Hint: Consider how plates are stacked in a cafeteria
+
+Sample Answer: A stack is a Last-In-First-Out (LIFO) data structure where elements are added and removed from the same end, called the top. The two main operations are push (adding an element) and pop (removing the top element).
+Key Points: LIFO principle, push operation, pop operation, top element, similar to a stack of plates

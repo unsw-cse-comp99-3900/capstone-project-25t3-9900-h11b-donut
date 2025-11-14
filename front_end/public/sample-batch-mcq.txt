@@ -1,0 +1,39 @@
+Topic: Database Fundamentals
+Question: What is a primary key in a relational database?
+Option A: A key that unlocks the database
+Option B: A unique identifier for each record in a table
+Option C: The first column in any table
+Option D: A key used for encryption
+Correct Answer: B
+Score: 12
+Difficulty: Easy
+Grading Criteria: Student must identify that primary key is a unique identifier
+Hint: Think about what makes each row unique
+
+---
+
+Topic: Database Normalization
+Question: Which normal form eliminates transitive dependencies?
+Option A: Normal Form first(1NF)
+Option B: Second Normal Form (2NF)
+Option C: Third Normal Form (3NF)
+Option D: Fourth Normal Form (4NF)
+Correct Answer: B
+Score: 20
+Difficulty: Medium
+Grading Criteria: Student must understand 3NF removes transitive dependencies
+Hint: This is the third level of normalization
+
+---
+
+Topic: SQL Queries
+Question: Which SQL clause is used to filter grouped results?
+Option A: WHERE
+Option B: HAVING
+Option C: FILTER
+Option D: GROUP BY
+Correct Answer: B
+Score: 10
+Difficulty: Medium
+Grading Criteria: Student must differentiate between WHERE and HAVING clauses
+Hint: One filters rows before grouping, one filters after grouping

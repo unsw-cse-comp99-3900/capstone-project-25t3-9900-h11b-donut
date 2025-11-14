@@ -12,6 +12,10 @@ import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
 import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import { apiService, type ApiQuestion } from '../../services/api'
+import * as pdfjsLib from 'pdfjs-dist'
+
+// 设置 PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
 
 
@@ -94,16 +98,32 @@ export function AdminManageCourse() {
   const [questionModalOpen, setQuestionModalOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<any>(null)
   const [questions, setQuestions] = useState<any[]>([])
+  
+  // 批量题目支持：存储多个待创建的题目
+  const [batchQuestions, setBatchQuestions] = useState<any[]>([])
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  
   const [newQuestion, setNewQuestion] = useState({
     type: 'multiple-choice', // multiple-choice 或 short-answer
+    topic: '', // 主题
     title: '',
     description: '',
     keywords: '',
-    questionText: '',
+    questionText: '', // 题目
     options: ['', '', '', ''], // 选择题选项
-    correctAnswer: '', // 选择题正确答案索引或简答题答案
-    answer: '' // 简答题答案
+    correctAnswer: '', // 选择题正确答案
+    answer: '', // 简答题答案(保留用于后端兼容)
+    sampleAnswer: '', // 简答题示例答案
+    keyPoints: '', // 简答题关键要点
+    score: 10, // 分数
+    difficulty: 'Medium', // 难度: Easy, Medium, Hard
+    gradingCriteria: '', // 评分标准
+    hint: '' // 提示
   })
+
+  // 文件上传状态
+  const [questionFileUploading, setQuestionFileUploading] = useState(false)
+  const [questionFileError, setQuestionFileError] = useState('')
   
   const [user, setUser] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(null);
 
@@ -699,14 +719,21 @@ export function AdminManageCourse() {
   const handleAddQuestion = () => {
     setEditingQuestion(null);
     setNewQuestion({
-      type: 'multiple-choice',   
+      type: 'multiple-choice',
+      topic: '',
       title: '',
       description: '',
       keywords: '',
       questionText: '',
       options: ['', '', '', ''],
       correctAnswer: '',
-      answer: ''
+      answer: '',
+      sampleAnswer: '',
+      keyPoints: '',
+      score: 10,
+      difficulty: 'Medium',
+      gradingCriteria: '',
+      hint: ''
     });
     setQuestionModalOpen(true);
   };
@@ -714,17 +741,56 @@ export function AdminManageCourse() {
   const handleCloseQuestionModal = () => {
   setQuestionModalOpen(false);
   setEditingQuestion(null);
+  setBatchQuestions([]); // 清空批量题目
+  setCurrentQuestionIndex(0); // 重置索引
+  setQuestionFileError(''); // 清空文件错误
   setNewQuestion((prev) => ({
-    ...prev,                   
+    ...prev,
+    topic: '',
     title: '',
     description: '',
     keywords: '',
     questionText: '',
     options: ['', '', '', ''],
     correctAnswer: '',
-    answer: ''
+    answer: '',
+    sampleAnswer: '',
+    keyPoints: '',
+    score: 10,
+    difficulty: 'Medium',
+    gradingCriteria: '',
+    hint: ''
   }));
 };
+
+  // 清除已上传的文件内容，但不关闭弹窗
+  const handleClearUploadedFile = () => {
+    setBatchQuestions([]); // 清空批量题目列表
+    setCurrentQuestionIndex(0); // 重置索引
+    setQuestionFileError(''); // 清空错误信息
+    setNewQuestion({
+      type: newQuestion.type, // 保留题目类型
+      topic: '',
+      title: '',
+      description: '',
+      keywords: '',
+      questionText: '',
+      options: ['', '', '', ''],
+      correctAnswer: '',
+      answer: '',
+      sampleAnswer: '',
+      keyPoints: '',
+      score: 10,
+      difficulty: 'Medium',
+      gradingCriteria: '',
+      hint: ''
+    });
+    // 重置文件上传输入框
+    const fileInput = document.getElementById('question-file-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
 
   const handleQuestionInputChange = (field: string, value: any) => {
     setNewQuestion(prev => ({
@@ -741,12 +807,276 @@ export function AdminManageCourse() {
       options: newOptions
     }));
   };
+
+  // 处理文件上传并解析内容
+  const handleQuestionFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // 检查文件类型
+    const validTypes = ['.txt', '.json', '.csv', '.pdf'];
+    const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    if (!validTypes.includes(fileExtension)) {
+      setQuestionFileError('Only .txt, .json, .csv, or .pdf files are supported');
+      return;
+    }
+
+    setQuestionFileUploading(true);
+    setQuestionFileError('');
+
+    try {
+      if (fileExtension === '.pdf') {
+        // PDF格式解析
+        await parsePdfFile(file);
+      } else {
+        const text = await file.text();
+        
+        // 尝试解析文件内容
+        if (fileExtension === '.json') {
+          // JSON格式解析
+          const data = JSON.parse(text);
+          parseQuestionData(data);
+        } else if (fileExtension === '.csv' || fileExtension === '.txt') {
+          // CSV或TXT格式解析
+          parseTextQuestionData(text);
+        }
+      }
+      
+      setQuestionFileUploading(false);
+    } catch (error) {
+      console.error('File parsing error:', error);
+      setQuestionFileError('Failed to parse file. Please check the file format.');
+      setQuestionFileUploading(false);
+    }
+
+    // 清除文件输入
+    event.target.value = '';
+  };
+
+  // 解析PDF文件
+  const parsePdfFile = async (file: File) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      let fullText = '';
+      
+      // 读取所有页面的文本
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        
+        // 保留文本的行结构
+        const pageLines: string[] = [];
+        let currentLine = '';
+        let lastY = -1;
+        
+        textContent.items.forEach((item: any) => {
+          const itemY = item.transform[5]; // Y坐标
+          
+          // 如果Y坐标变化,说明换行了
+          if (lastY !== -1 && Math.abs(itemY - lastY) > 5) {
+            if (currentLine.trim()) {
+              pageLines.push(currentLine.trim());
+            }
+            currentLine = item.str;
+          } else {
+            // 同一行,添加空格分隔
+            currentLine += (currentLine && item.str ? ' ' : '') + item.str;
+          }
+          lastY = itemY;
+        });
+        
+        // 添加最后一行
+        if (currentLine.trim()) {
+          pageLines.push(currentLine.trim());
+        }
+        
+        fullText += pageLines.join('\n') + '\n';
+      }
+      
+      console.log('Extracted PDF text:', fullText); // 调试用
+      
+      // 使用文本解析逻辑处理提取的文本
+      parseTextQuestionData(fullText);
+    } catch (error) {
+      console.error('PDF parsing error:', error);
+      throw new Error('Failed to parse PDF file');
+    }
+  };
+
+  // 解析单个题目对象
+  const parseQuestionObject = (data: any, currentType: string) => {
+    return {
+      type: currentType,
+      topic: data.topic || '',
+      title: data.title || '',
+      description: data.description || '',
+      keywords: data.keywords || '',
+      questionText: data.question || data.questionText || '',
+      options: currentType === 'multiple-choice' ? (data.options || ['', '', '', '']) : ['', '', '', ''],
+      correctAnswer: currentType === 'multiple-choice' ? (data.correctAnswer || data.correct_answer || '') : '',
+      answer: '',
+      sampleAnswer: currentType === 'short-answer' ? (data.sampleAnswer || data.sample_answer || '') : '',
+      keyPoints: currentType === 'short-answer' ? (data.keyPoints || data.key_points || '') : '',
+      score: data.score || 10,
+      difficulty: data.difficulty || 'Medium',
+      gradingCriteria: data.gradingCriteria || data.grading_criteria || '',
+      hint: data.hint || ''
+    };
+  };
+
+  // 解析JSON格式的题目数据（支持单个或批量）
+  const parseQuestionData = (data: any) => {
+    // 检查是否为批量题目（数组格式）
+    if (Array.isArray(data)) {
+      const parsedQuestions = data.map(item => parseQuestionObject(item, newQuestion.type));
+      setBatchQuestions(parsedQuestions);
+      setCurrentQuestionIndex(0);
+      if (parsedQuestions.length > 0) {
+        setNewQuestion(parsedQuestions[0]);
+      }
+    } else {
+      // 单个题目
+      const parsed = parseQuestionObject(data, newQuestion.type);
+      setNewQuestion(parsed);
+      setBatchQuestions([]);
+    }
+  };
+
+  // 解析文本格式的题目数据（支持批量）
+  const parseTextQuestionData = (text: string) => {
+    // 检查是否包含分隔符 "---"，如果有则为批量题目
+    const separator = '---';
+    const hasSeparator = text.includes(separator);
+    
+    if (hasSeparator) {
+      // 批量模式：按 "---" 分割多个题目
+      const questionTexts = text.split(separator).map(q => q.trim()).filter(q => q);
+      const parsedQuestions: any[] = [];
+      
+      questionTexts.forEach(questionText => {
+        const lines = questionText.split('\n').map(line => line.trim()).filter(line => line);
+        const data: any = {};
+        
+        lines.forEach(line => {
+          // 支持 "字段名: 值" 或 "字段名=值" 格式
+          const colonMatch = line.match(/^([^:]+):\s*(.+)$/);
+          const equalMatch = line.match(/^([^=]+)=\s*(.+)$/);
+          
+          if (colonMatch) {
+            const [, key, value] = colonMatch;
+            assignFieldValue(data, key.trim().toLowerCase(), value.trim());
+          } else if (equalMatch) {
+            const [, key, value] = equalMatch;
+            assignFieldValue(data, key.trim().toLowerCase(), value.trim());
+          }
+        });
+        
+        // 只添加有效的题目（至少有question字段）
+        if (data.question) {
+          parsedQuestions.push(parseQuestionObject(data, newQuestion.type));
+        }
+      });
+      
+      // 设置批量题目
+      if (parsedQuestions.length > 0) {
+        setBatchQuestions(parsedQuestions);
+        setCurrentQuestionIndex(0);
+        setNewQuestion(parsedQuestions[0]);
+      }
+    } else {
+      // 单个题目模式
+      const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+      const data: any = {};
+
+      lines.forEach(line => {
+        // 支持 "字段名: 值" 或 "字段名=值" 格式
+        const colonMatch = line.match(/^([^:]+):\s*(.+)$/);
+        const equalMatch = line.match(/^([^=]+)=\s*(.+)$/);
+        
+        if (colonMatch) {
+          const [, key, value] = colonMatch;
+          assignFieldValue(data, key.trim().toLowerCase(), value.trim());
+        } else if (equalMatch) {
+          const [, key, value] = equalMatch;
+          assignFieldValue(data, key.trim().toLowerCase(), value.trim());
+        }
+      });
+
+      parseQuestionData(data);
+    }
+  };
+
+  // 根据字段名分配值
+  const assignFieldValue = (data: any, key: string, value: string) => {
+    if (key.includes('topic') || key.includes('主题')) {
+      data.topic = value;
+    } else if (key.includes('question') && !key.includes('sample') || key.includes('题目')) {
+      data.question = value;
+    } else if (key.includes('option') || key.includes('选项')) {
+      if (!data.options) data.options = ['', '', '', ''];
+      
+      // 方式1: 从字段名中提取选项标签 (Option A, Option B, 选项A, 选项B)
+      const keyMatch = key.match(/([A-Da-d1-4])/);
+      if (keyMatch) {
+        const label = keyMatch[1];
+        const index = label.match(/[A-Da-d]/) 
+          ? label.toUpperCase().charCodeAt(0) - 65 
+          : parseInt(label) - 1;
+        if (index >= 0 && index < 4) {
+          data.options[index] = value;
+        }
+      } else {
+        // 方式2: 从值中提取选项标签 (A: content, A) content)
+        const valueMatch = value.match(/^([A-Da-d1-4])[\s:)]+(.+)$/);
+        if (valueMatch) {
+          const [, label, content] = valueMatch;
+          const index = label.match(/[A-Da-d]/) 
+            ? label.toUpperCase().charCodeAt(0) - 65 
+            : parseInt(label) - 1;
+          if (index >= 0 && index < 4) {
+            data.options[index] = content;
+          }
+        }
+      }
+    } else if (key.includes('correct') || key.includes('正确答案')) {
+      data.correctAnswer = value.toUpperCase().charAt(0);
+    } else if (key.includes('sample') && key.includes('answer') || key.includes('示例答案')) {
+      data.sampleAnswer = value;
+    } else if (key.includes('key') && key.includes('point') || key.includes('关键要点')) {
+      data.keyPoints = value;
+    } else if (key.includes('score') || key.includes('分数')) {
+      data.score = parseInt(value) || 10;
+    } else if (key.includes('difficulty') || key.includes('难度')) {
+      data.difficulty = value;
+    } else if (key.includes('grading') || key.includes('评分标准')) {
+      data.gradingCriteria = value;
+    } else if (key.includes('hint') || key.includes('提示')) {
+      data.hint = value;
+    }
+  };
+
 //创建题目
   const handleCreateQuestion = async () => {
-  if (!newQuestion.title.trim() || !newQuestion.questionText.trim()) {
-    alert('Please fill in both title and question text.');
+  // 验证必填字段
+  if (!newQuestion.topic.trim() || !newQuestion.questionText.trim() || !newQuestion.gradingCriteria.trim()) {
+    alert('Please fill in all required fields (Topic, Question, Grading Criteria).');
     return;
   }
+  
+  // 验证选择题特定字段
+  if (newQuestion.type === 'multiple-choice' && !newQuestion.correctAnswer) {
+    alert('Please select the correct answer for multiple choice question.');
+    return;
+  }
+  
+  // 验证简答题特定字段
+  if (newQuestion.type === 'short-answer' && (!newQuestion.sampleAnswer.trim() || !newQuestion.keyPoints.trim())) {
+    alert('Please fill in Sample Answer and Key Points for short answer question.');
+    return;
+  }
+  
   if (!selectedCourse) {
     alert('No course selected.');
     return;
@@ -755,11 +1085,12 @@ export function AdminManageCourse() {
   const adminId = localStorage.getItem('current_user_id') || '';
   const courseId = selectedCourse.id;
 
-  // 1) 先构造本地“临时题目”，立即更新 UI
+  // 1) 先构造本地"临时题目"，立即更新 UI
   const tempId = `q_${Date.now()}`;
   const newQuestionItem = {
     id: tempId,
     type: newQuestion.type,
+    topic: newQuestion.topic,
     title: newQuestion.title,
     description: newQuestion.description,
     keywords: newQuestion.keywords,
@@ -768,7 +1099,13 @@ export function AdminManageCourse() {
     correctAnswer:
       newQuestion.type === 'multiple-choice'
         ? newQuestion.correctAnswer
-        : newQuestion.answer,
+        : newQuestion.sampleAnswer,
+    sampleAnswer: newQuestion.sampleAnswer,
+    keyPoints: newQuestion.keyPoints,
+    score: newQuestion.score,
+    difficulty: newQuestion.difficulty,
+    gradingCriteria: newQuestion.gradingCriteria,
+    hint: newQuestion.hint,
     createdAt: new Date().toISOString(),
   };
 
@@ -807,11 +1144,19 @@ export function AdminManageCourse() {
     .map(s => s.trim())
     .filter(Boolean);
 
-  const payload: Omit<ApiQuestion, 'id'> =
+  const payload: Omit<ApiQuestion, 'id'> & {
+    topic?: string;
+    sampleAnswer?: string;
+    keyPoints?: string;
+    score?: number;
+    difficulty?: string;
+    gradingCriteria?: string;
+    hint?: string;
+  } =
   newQuestion.type === 'multiple-choice'
     ? {
         qtype: 'mcq',
-        title: newQuestion.title,
+        title: newQuestion.title || newQuestion.topic,
         description: newQuestion.description || '',
         text: newQuestion.questionText,
         keywords: keywordsArr,
@@ -821,14 +1166,26 @@ export function AdminManageCourse() {
           content,
           isCorrect: labels[idx] === newQuestion.correctAnswer,  
         })),
+        topic: newQuestion.topic,
+        score: newQuestion.score,
+        difficulty: newQuestion.difficulty,
+        gradingCriteria: newQuestion.gradingCriteria,
+        hint: newQuestion.hint,
       }
     : {
         qtype: 'short',
-        title: newQuestion.title,
+        title: newQuestion.title || newQuestion.topic,
         description: newQuestion.description || '',
         text: newQuestion.questionText,
         keywords: keywordsArr,
-        answer: newQuestion.answer,
+        answer: newQuestion.sampleAnswer,
+        topic: newQuestion.topic,
+        sampleAnswer: newQuestion.sampleAnswer,
+        keyPoints: newQuestion.keyPoints,
+        score: newQuestion.score,
+        difficulty: newQuestion.difficulty,
+        gradingCriteria: newQuestion.gradingCriteria,
+        hint: newQuestion.hint,
       };
 
   // 3) 调后端创建；成功后用真实 id 替换临时 id；失败则回滚本地
@@ -863,6 +1220,127 @@ export function AdminManageCourse() {
     alert('Create question failed.');
   } finally {
   }
+};
+
+// 批量创建题目
+const handleBatchCreateQuestions = async () => {
+  if (!selectedCourse || batchQuestions.length === 0) {
+    alert('No questions to create.');
+    return;
+  }
+
+  // 保存当前编辑的题目到批量列表
+  const updatedBatch = [...batchQuestions];
+  updatedBatch[currentQuestionIndex] = newQuestion;
+
+  const adminId = localStorage.getItem('current_user_id') || '';
+  const courseId = selectedCourse.id;
+  const labels = ['A', 'B', 'C', 'D'] as const;
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (let i = 0; i < updatedBatch.length; i++) {
+    const question = updatedBatch[i];
+    
+    // 验证必填字段
+    if (!question.topic.trim() || !question.questionText.trim() || !question.gradingCriteria.trim()) {
+      console.warn(`Question ${i + 1} is missing required fields, skipping...`);
+      failCount++;
+      continue;
+    }
+
+    if (question.type === 'multiple-choice' && !question.correctAnswer) {
+      console.warn(`Question ${i + 1} (MCQ) is missing correct answer, skipping...`);
+      failCount++;
+      continue;
+    }
+
+    if (question.type === 'short-answer' && (!question.sampleAnswer.trim() || !question.keyPoints.trim())) {
+      console.warn(`Question ${i + 1} (Short Answer) is missing sample answer or key points, skipping...`);
+      failCount++;
+      continue;
+    }
+
+    try {
+      const keywordsArr = (question.keywords || '')
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+
+      const payload: any = question.type === 'multiple-choice'
+        ? {
+            qtype: 'mcq',
+            title: question.title || question.topic,
+            description: question.description || '',
+            text: question.questionText,
+            keywords: keywordsArr,
+            choices: (question.options || []).map((content: string, idx: number) => ({
+              label: labels[idx],
+              order: idx,
+              content,
+              isCorrect: labels[idx] === question.correctAnswer,
+            })),
+            topic: question.topic,
+            score: question.score,
+            difficulty: question.difficulty,
+            gradingCriteria: question.gradingCriteria,
+            hint: question.hint,
+          }
+        : {
+            qtype: 'short',
+            title: question.title || question.topic,
+            description: question.description || '',
+            text: question.questionText,
+            keywords: keywordsArr,
+            answer: question.sampleAnswer,
+            topic: question.topic,
+            sampleAnswer: question.sampleAnswer,
+            keyPoints: question.keyPoints,
+            score: question.score,
+            difficulty: question.difficulty,
+            gradingCriteria: question.gradingCriteria,
+            hint: question.hint,
+          };
+
+      const res = await apiService.adminCreateCourseQuestion(courseId, payload);
+      const realId = String(res.id);
+
+      // 添加到本地列表
+      const newQuestionItem = {
+        id: realId,
+        ...question,
+        createdAt: new Date().toISOString(),
+      };
+
+      setQuestions(prev => [...prev, newQuestionItem]);
+      successCount++;
+    } catch (err) {
+      console.error(`Failed to create question ${i + 1}:`, err);
+      failCount++;
+    }
+  }
+
+  // 更新 localStorage
+  if (adminId && successCount > 0) {
+    const updatedQuestions = questions;
+    const courseKey = `admin:${adminId}:course_questions_${courseId}`;
+    const globalKey = `admin:${adminId}:questions`;
+
+    localStorage.setItem(courseKey, JSON.stringify(updatedQuestions));
+
+    try {
+      const allStr = localStorage.getItem(globalKey);
+      const all = allStr ? JSON.parse(allStr) : {};
+      all[courseId] = updatedQuestions;
+      localStorage.setItem(globalKey, JSON.stringify(all));
+    } catch (err) {
+      console.error('[localStorage] update failed', err);
+    }
+  }
+
+  alert(`Batch creation completed!\nSuccess: ${successCount}\nFailed: ${failCount}`);
+  handleCloseQuestionModal();
 };
 
  // 编辑题目
@@ -927,6 +1405,7 @@ export function AdminManageCourse() {
   setEditingQuestion(q);
   setNewQuestion({
     type,
+    topic: q.topic || '',
     title,
     description,
     keywords,
@@ -934,21 +1413,39 @@ export function AdminManageCourse() {
     options,
     correctAnswer, // 仅 MCQ 用；简答题为空串即可
     answer,        // 仅简答题用；MCQ 为空串即可
+    sampleAnswer: q.sampleAnswer || '',
+    keyPoints: q.keyPoints || '',
+    score: q.score || 10,
+    difficulty: q.difficulty || 'Medium',
+    gradingCriteria: q.gradingCriteria || '',
+    hint: q.hint || ''
   });
   setQuestionModalOpen(true);
 };
  // 然后更新题目
   const handleUpdateQuestion = async () => {
-  if (!editingQuestion) return;                
-  if (!newQuestion.title.trim() || !newQuestion.questionText.trim()) {
-    alert('Please fill in both title and question text.');
+  if (!editingQuestion) return;
+  
+  // 验证必填字段
+  if (!newQuestion.topic.trim() || !newQuestion.questionText.trim() || !newQuestion.gradingCriteria.trim()) {
+    alert('Please fill in all required fields (Topic, Question, Grading Criteria).');
     return;
   }
+  
+  // 验证选择题特定字段
   if (newQuestion.type === 'multiple-choice') {
-    if (!newQuestion.correctAnswer) { alert('Please select a correct option.'); return; }
+    if (!newQuestion.correctAnswer) { 
+      alert('Please select a correct option.'); 
+      return; 
+    }
   } else {
-    if (!newQuestion.answer.trim()) { alert('Please input the short answer.'); return; }
+    // 验证简答题特定字段
+    if (!newQuestion.sampleAnswer.trim() || !newQuestion.keyPoints.trim()) { 
+      alert('Please fill in Sample Answer and Key Points for short answer question.'); 
+      return; 
+    }
   }
+  
   if (!selectedCourse) {
     alert('No course selected.');
     return;
@@ -964,14 +1461,21 @@ export function AdminManageCourse() {
  const updatedOne = {
   ...editingQuestion,
   type: newQuestion.type,
+  topic: newQuestion.topic,
   title: newQuestion.title,
   description: newQuestion.description,
   keywords: newQuestion.keywords,
   questionText: newQuestion.questionText,
   options: newQuestion.type === 'multiple-choice' ? newQuestion.options : [],
   correctAnswer: newQuestion.type === 'multiple-choice' ? newQuestion.correctAnswer : '',
-  answer: newQuestion.type === 'short-answer' ? newQuestion.answer : '',
-  createdAt: new Date().toISOString(), // 你可改成 updatedAt 或直接去掉
+  answer: newQuestion.type === 'short-answer' ? newQuestion.sampleAnswer : '',
+  sampleAnswer: newQuestion.sampleAnswer,
+  keyPoints: newQuestion.keyPoints,
+  score: newQuestion.score,
+  difficulty: newQuestion.difficulty,
+  gradingCriteria: newQuestion.gradingCriteria,
+  hint: newQuestion.hint,
+  updatedAt: new Date().toISOString(),
 };
 
 // 2️⃣ 做乐观更新（更新前端显示和 localStorage）
@@ -1016,11 +1520,19 @@ if (adminId) {
     .map(s => s.trim())
     .filter(Boolean);
 
-  const payload: Omit<ApiQuestion, 'id'> =
+  const payload: Omit<ApiQuestion, 'id'> & {
+    topic?: string;
+    sampleAnswer?: string;
+    keyPoints?: string;
+    score?: number;
+    difficulty?: string;
+    gradingCriteria?: string;
+    hint?: string;
+  } =
     newQuestion.type === 'multiple-choice'
       ? {
           qtype: 'mcq',
-          title: newQuestion.title,
+          title: newQuestion.title || newQuestion.topic, // 使用topic作为title的后备
           description: newQuestion.description || '',
           text: newQuestion.questionText,
           keywords: keywordsArr,
@@ -1030,14 +1542,26 @@ if (adminId) {
             content,
             isCorrect: labels[idx] === newQuestion.correctAnswer,
           })),
+          topic: newQuestion.topic,
+          score: newQuestion.score,
+          difficulty: newQuestion.difficulty,
+          gradingCriteria: newQuestion.gradingCriteria,
+          hint: newQuestion.hint,
         }
       : {
           qtype: 'short',
-          title: newQuestion.title,
+          title: newQuestion.title || newQuestion.topic,
           description: newQuestion.description || '',
           text: newQuestion.questionText,
           keywords: keywordsArr,
-          answer: newQuestion.answer,
+          answer: newQuestion.sampleAnswer,
+          topic: newQuestion.topic,
+          sampleAnswer: newQuestion.sampleAnswer,
+          keyPoints: newQuestion.keyPoints,
+          score: newQuestion.score,
+          difficulty: newQuestion.difficulty,
+          gradingCriteria: newQuestion.gradingCriteria,
+          hint: newQuestion.hint,
         };
 
   try {
@@ -1056,13 +1580,20 @@ if (adminId) {
           ? {
               ...q,
               type: newQuestion.type,
+              topic: newQuestion.topic,
               title: newQuestion.title,
               description: newQuestion.description,
               keywords: newQuestion.keywords,
               questionText: newQuestion.questionText,
               options: newQuestion.type === 'multiple-choice' ? [...(newQuestion.options || [])] : [],
               correctAnswer: newQuestion.type === 'multiple-choice' ? newQuestion.correctAnswer : '',
-              // 如果你列表里也显示简答，可加：answer: newQuestion.type==='short-answer'?newQuestion.answer:''
+              answer: newQuestion.type === 'short-answer' ? newQuestion.sampleAnswer : '',
+              sampleAnswer: newQuestion.sampleAnswer,
+              keyPoints: newQuestion.keyPoints,
+              score: newQuestion.score,
+              difficulty: newQuestion.difficulty,
+              gradingCriteria: newQuestion.gradingCriteria,
+              hint: newQuestion.hint,
               updatedAt: new Date().toISOString(),
             }
           : q
@@ -1467,18 +1998,18 @@ if (adminId) {
                 <label className="task-label">Task Deadline (Optional):</label>
                 <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
                   <input
-                    type="date"
+                    type="datetime-local"
                     className="task-input"
                     value={newTask.deadline}
-                    min={new Date().toISOString().slice(0, 10)} 
+                    min={new Date().toISOString().slice(0, 16)} 
                     onChange={(e) => handleTaskInputChange('deadline', e.target.value)}
                     lang="en-US"
-                    title="Select deadline date (YYYY-MM-DD format)"
-                    pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
+                    title="Select deadline date and time (YYYY-MM-DD HH:MM:SS format)"
+                    step="1"
                     style={{flex: 1}}
                   />
                   <span style={{fontSize: '12px', color: '#6D6D78', whiteSpace: 'nowrap'}}>
-                    YYYY-MM-DD
+                    YYYY-MM-DD HH:MM:SS
                   </span>
                 </div>
                 <div style={{fontSize: '12px', color: '#6D6D78', marginTop: '4px'}}>
@@ -1731,8 +2262,52 @@ if (adminId) {
             {/* 弹窗头部 */}
             <div className="question-modal-header">
               <h2 className="question-modal-title">
-                {editingQuestion ? 'Edit Question' : 'Create New Question'}
+                {editingQuestion ? 'Edit Question' : 
+                 batchQuestions.length > 0 ? 
+                   `Batch Upload - Question ${currentQuestionIndex + 1} of ${batchQuestions.length}` : 
+                   'Create New Question'}
               </h2>
+              {batchQuestions.length > 0 && (
+                <div className="batch-navigation">
+                  <button
+                    className="batch-nav-btn"
+                    onClick={() => {
+                      if (currentQuestionIndex > 0) {
+                        // 保存当前修改
+                        const updated = [...batchQuestions];
+                        updated[currentQuestionIndex] = newQuestion;
+                        setBatchQuestions(updated);
+                        // 切换到上一个
+                        setCurrentQuestionIndex(currentQuestionIndex - 1);
+                        setNewQuestion(updated[currentQuestionIndex - 1]);
+                      }
+                    }}
+                    disabled={currentQuestionIndex === 0}
+                  >
+                    ← Previous
+                  </button>
+                  <span className="batch-indicator">
+                    {currentQuestionIndex + 1} / {batchQuestions.length}
+                  </span>
+                  <button
+                    className="batch-nav-btn"
+                    onClick={() => {
+                      if (currentQuestionIndex < batchQuestions.length - 1) {
+                        // 保存当前修改
+                        const updated = [...batchQuestions];
+                        updated[currentQuestionIndex] = newQuestion;
+                        setBatchQuestions(updated);
+                        // 切换到下一个
+                        setCurrentQuestionIndex(currentQuestionIndex + 1);
+                        setNewQuestion(updated[currentQuestionIndex + 1]);
+                      }
+                    }}
+                    disabled={currentQuestionIndex === batchQuestions.length - 1}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
               <button 
                 className="question-modal-close" 
                 onClick={handleCloseQuestionModal}
@@ -1748,7 +2323,7 @@ if (adminId) {
             <div className="question-modal-content">
               {/* 题目类型选择 */}
               <div className="question-input-group">
-                <label className="question-label">Question Type:</label>
+                <label className="question-label">Question Type: <span className="required">*</span></label>
                 <div className="question-type-selector">
                   <div 
                     className={`type-option ${newQuestion.type === 'multiple-choice' ? 'selected' : ''}`}
@@ -1765,52 +2340,150 @@ if (adminId) {
                 </div>
               </div>
 
-              {/* 题目标题 */}
+              {/* 文件上传区 */}
+              <div className="question-file-upload-section">
+                <div className="upload-header">
+                  <span className="upload-icon">📁</span>
+                  <span className="upload-title">Quick Fill from File (Supports Batch Upload)</span>
+                </div>
+                <div className="upload-description">
+                  Upload a .txt, .json, .csv, or .pdf file to auto-fill the form. 
+                  <strong> Use "---" to separate multiple questions in TXT/PDF files, or upload JSON array for batch creation.</strong>
+                </div>
+                <div className="upload-input-wrapper">
+                  <input
+                    type="file"
+                    id="question-file-upload"
+                    accept=".txt,.json,.csv,.pdf"
+                    onChange={handleQuestionFileUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="question-file-upload" className="upload-button">
+                    {questionFileUploading ? 'Processing...' : 'Choose File'}
+                  </label>
+                  {questionFileError && (
+                    <span className="upload-error">{questionFileError}</span>
+                  )}
+                </div>
+                <details className="upload-format-guide">
+                  <summary>📖 File Format Guide</summary>
+                  <div className="format-content">
+                    <p><strong>✨ Batch Upload Support:</strong></p>
+                    <div className="format-note batch-note">
+                      Upload multiple questions at once! Use <strong>"---"</strong> to separate questions in TXT/PDF files, or upload a JSON array.
+                    </div>
+                    
+                    <p><strong>Single Question - TXT Format:</strong></p>
+                    <pre className="format-example">
+Topic: Data Structures
+Question: What is a stack?
+Score: 10
+Difficulty: Medium
+Grading Criteria: Must explain LIFO concept
+Hint: Think about plates
+
+For Multiple Choice:
+Option A: A FIFO structure
+Option B: A LIFO structure
+Option C: A tree structure
+Option D: A graph structure
+Correct Answer: B
+
+For Short Answer:
+Sample Answer: A stack is a LIFO data structure
+Key Points: LIFO, push, pop, top element
+                    </pre>
+                    
+                    <p><strong>Multiple Questions - TXT Format (use "---" separator):</strong></p>
+                    <pre className="format-example">
+Topic: Database Fundamentals
+Question: What is a primary key?
+Option A: First column
+Option B: Unique identifier
+Option C: Foreign key
+Option D: Index key
+Correct Answer: B
+Score: 10
+Difficulty: Easy
+Grading Criteria: Must identify unique identifier
+Hint: Think about uniqueness
+
+---
+
+Topic: SQL Queries
+Question: Which clause filters grouped results?
+Option A: WHERE
+Option B: HAVING
+Option C: FILTER
+Option D: GROUP BY
+Correct Answer: B
+Score: 15
+Difficulty: Medium
+Grading Criteria: Understand WHERE vs HAVING
+Hint: One filters before, one after grouping
+                    </pre>
+
+                    <p><strong>Batch Upload - JSON Array Format:</strong></p>
+                    <pre className="format-example">
+[
+  {'{'}
+    "topic": "Data Structures",
+    "question": "What is a stack?",
+    "options": ["FIFO structure", "LIFO structure", "Tree", "Graph"],
+    "correctAnswer": "B",
+    "score": 10,
+    "difficulty": "Medium",
+    "gradingCriteria": "Must explain LIFO",
+    "hint": "Think about plates"
+  {'}'},
+  {'{'}
+    "topic": "Algorithms",
+    "question": "What is Big O notation?",
+    "sampleAnswer": "Describes algorithm complexity",
+    "keyPoints": "Time complexity, space complexity",
+    "score": 20,
+    "difficulty": "Hard",
+    "gradingCriteria": "Define notation and explain purpose",
+    "hint": "Focus on growth rate"
+  {'}'}
+]
+                    </pre>
+                    
+                    <p><strong>📥 Download Sample Files:</strong></p>
+                    <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                      <a href="/sample-batch-mcq.txt" download className="sample-link">📄 MCQ Batch (TXT)</a>
+                      <a href="/sample-batch-short.txt" download className="sample-link">📄 Short Answer Batch (TXT)</a>
+                      <a href="/sample-batch-mcq.json" download className="sample-link">📄 MCQ Batch (JSON)</a>
+                      <a href="/sample-batch-short.json" download className="sample-link">📄 Short Answer Batch (JSON)</a>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              {/* 主题 */}
               <div className="question-input-group">
-                <label className="question-label">Question Title:</label>
+                <label className="question-label">Topic: <span className="required">*</span></label>
                 <input
                   type="text"
                   className="question-input"
-                  value={newQuestion.title}
-                  onChange={(e) => handleQuestionInputChange('title', e.target.value)}
-                  placeholder="Enter question title"
+                  value={newQuestion.topic}
+                  onChange={(e) => handleQuestionInputChange('topic', e.target.value)}
+                  placeholder="Enter topic (e.g., Introduction to Programming)"
                 />
-                {!newQuestion.title.trim() && (
-                  <span className="question-error">Title is required</span>
+                {!newQuestion.topic.trim() && (
+                  <span className="question-error">Topic is required</span>
                 )}
               </div>
 
-              {/* 题目描述 */}
+              {/* 题目 */}
               <div className="question-input-group">
-                <label className="question-label">Description:</label>
-                <textarea
-                  className="question-textarea"
-                  value={newQuestion.description}
-                  onChange={(e) => handleQuestionInputChange('description', e.target.value)}
-                  placeholder="Enter question description"
-                />
-              </div>
-
-              {/* 关键字 */}
-              <div className="question-input-group">
-                <label className="question-label">Keywords:</label>
-                <input
-                  type="text"
-                  className="question-input"
-                  value={newQuestion.keywords}
-                  onChange={(e) => handleQuestionInputChange('keywords', e.target.value)}
-                  placeholder="Enter keywords (comma separated)"
-                />
-              </div>
-
-              {/* 题干 */}
-              <div className="question-input-group">
-                <label className="question-label">Question Text:</label>
+                <label className="question-label">Question: <span className="required">*</span></label>
                 <textarea
                   className="question-textarea"
                   value={newQuestion.questionText}
                   onChange={(e) => handleQuestionInputChange('questionText', e.target.value)}
                   placeholder="Enter the question text"
+                  rows={3}
                 />
                 {!newQuestion.questionText.trim() && (
                   <span className="question-error">Question text is required</span>
@@ -1819,81 +2492,176 @@ if (adminId) {
 
               {/* 选择题选项 */}
               {newQuestion.type === 'multiple-choice' && (
-                <div className="question-input-group">
-                  <label className="question-label">Options:</label>
-                  {newQuestion.options.map((option, index) => (
-                    <div key={index} className="option-input-group">
-                      <span className="option-label">{String.fromCharCode(65 + index)}:</span>
-                      <input
-                        type="text"
-                        className="option-input"
-                        value={option}
-                        onChange={(e) => handleOptionChange(index, e.target.value)}
-                        placeholder={`Enter option ${String.fromCharCode(65 + index)}`}
-                      />
-                    </div>
-                  ))}
-                  
+                <>
+                  <div className="question-input-group">
+                    <label className="question-label">Options: <span className="required">*</span></label>
+                    {newQuestion.options.map((option, index) => (
+                      <div key={index} className="option-input-group">
+                        <span className="option-label">{String.fromCharCode(65 + index)}:</span>
+                        <input
+                          type="text"
+                          className="option-input"
+                          value={option}
+                          onChange={(e) => handleOptionChange(index, e.target.value)}
+                          placeholder={`Enter option ${String.fromCharCode(65 + index)}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+
                   {/* 正确答案选择 */}
                   <div className="question-input-group">
-                      <label className="question-label">Correct Answer:</label>
-                      <select
-                        className="question-input"
-                        value={newQuestion.correctAnswer}
-                        onChange={(e) => handleQuestionInputChange('correctAnswer', e.target.value)}
-                      >
-                        <option value="">Select correct option</option>
-                        {newQuestion.options.map((option, index) => (
-                          option.trim() && (
-                            <option key={index} value={String.fromCharCode(65 + index)}>
-                              {String.fromCharCode(65 + index)}: {option}
-                            </option>
-                          )
-                        ))}
-                      </select>
-
-                      {!newQuestion.correctAnswer && (
-                        <span className="question-error">Please select the correct answer</span>
-                      )}
-                    </div>
-
-                </div>
+                    <label className="question-label">Correct Answer: <span className="required">*</span></label>
+                    <select
+                      className="question-input"
+                      value={newQuestion.correctAnswer}
+                      onChange={(e) => handleQuestionInputChange('correctAnswer', e.target.value)}
+                    >
+                      <option value="">Select correct option</option>
+                      {newQuestion.options.map((option, index) => (
+                        option.trim() && (
+                          <option key={index} value={String.fromCharCode(65 + index)}>
+                            {String.fromCharCode(65 + index)}: {option}
+                          </option>
+                        )
+                      ))}
+                    </select>
+                    {!newQuestion.correctAnswer && (
+                      <span className="question-error">Please select the correct answer</span>
+                    )}
+                  </div>
+                </>
               )}
 
-              {/* 简答题答案 */}
+              {/* 简答题字段 */}
               {newQuestion.type === 'short-answer' && (
-                <div className="question-input-group">
-                  <label className="question-label">Answer:</label>
-                  <textarea
-                    className="question-textarea"
-                    value={newQuestion.answer}
-                    onChange={(e) => handleQuestionInputChange('answer', e.target.value)}
-                    placeholder="Enter the expected answer"
-                  />
-                  {!newQuestion.answer.trim() && (
-                    <span className="question-error">Answer is required</span>
-                  )}
-                </div>
+                <>
+                  {/* 示例答案 */}
+                  <div className="question-input-group">
+                    <label className="question-label">Sample Answer: <span className="required">*</span></label>
+                    <textarea
+                      className="question-textarea"
+                      value={newQuestion.sampleAnswer}
+                      onChange={(e) => handleQuestionInputChange('sampleAnswer', e.target.value)}
+                      placeholder="Enter a sample answer"
+                      rows={3}
+                    />
+                    {!newQuestion.sampleAnswer.trim() && (
+                      <span className="question-error">Sample answer is required</span>
+                    )}
+                  </div>
+
+                  {/* 关键要点 */}
+                  <div className="question-input-group">
+                    <label className="question-label">Key Points: <span className="required">*</span></label>
+                    <textarea
+                      className="question-textarea"
+                      value={newQuestion.keyPoints}
+                      onChange={(e) => handleQuestionInputChange('keyPoints', e.target.value)}
+                      placeholder="Enter key points (comma separated, e.g., LIFO, push operation, pop operation)"
+                      rows={2}
+                    />
+                    {!newQuestion.keyPoints.trim() && (
+                      <span className="question-error">Key points are required</span>
+                    )}
+                  </div>
+                </>
               )}
+
+              {/* 分数 */}
+              <div className="question-input-group">
+                <label className="question-label">Score: <span className="required">*</span></label>
+                <input
+                  type="number"
+                  className="question-input"
+                  value={newQuestion.score}
+                  onChange={(e) => handleQuestionInputChange('score', parseInt(e.target.value) || 0)}
+                  placeholder="Enter score"
+                  min="1"
+                  max="100"
+                />
+              </div>
+
+              {/* 难度 */}
+              <div className="question-input-group">
+                <label className="question-label">Difficulty: <span className="required">*</span></label>
+                <select
+                  className="question-input"
+                  value={newQuestion.difficulty}
+                  onChange={(e) => handleQuestionInputChange('difficulty', e.target.value)}
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
+
+              {/* 评分标准 */}
+              <div className="question-input-group">
+                <label className="question-label">Grading Criteria: <span className="required">*</span></label>
+                <textarea
+                  className="question-textarea"
+                  value={newQuestion.gradingCriteria}
+                  onChange={(e) => handleQuestionInputChange('gradingCriteria', e.target.value)}
+                  placeholder="Enter grading criteria (e.g., Exact match required, Must include key concepts)"
+                  rows={2}
+                />
+                {!newQuestion.gradingCriteria.trim() && (
+                  <span className="question-error">Grading criteria is required</span>
+                )}
+              </div>
+
+              {/* 提示 */}
+              <div className="question-input-group">
+                <label className="question-label">Hint:</label>
+                <textarea
+                  className="question-textarea"
+                  value={newQuestion.hint}
+                  onChange={(e) => handleQuestionInputChange('hint', e.target.value)}
+                  placeholder="Enter a hint (optional)"
+                  rows={2}
+                />
+              </div>
             </div>
 
             {/* 弹窗底部 */}
             <div className="question-modal-footer">
-              <button 
-                className="question-create-btn" 
-                onClick={() => {
-                  if (editingQuestion) {
-                    handleUpdateQuestion();   
-                  } else {
-                    handleCreateQuestion();  
+              {batchQuestions.length > 0 ? (
+                <>
+                  <button 
+                    className="question-create-btn batch-create-btn" 
+                    onClick={handleBatchCreateQuestions}
+                  >
+                    Create All {batchQuestions.length} Questions
+                  </button>
+                  <button 
+                    className="question-cancel-btn" 
+                    onClick={handleClearUploadedFile}
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button 
+                  className="question-create-btn" 
+                  onClick={() => {
+                    if (editingQuestion) {
+                      handleUpdateQuestion();   
+                    } else {
+                      handleCreateQuestion();  
+                    }
+                  }}
+                  disabled={
+                    !newQuestion.topic.trim() || 
+                    !newQuestion.questionText.trim() || 
+                    !newQuestion.gradingCriteria.trim() ||
+                    (newQuestion.type === 'multiple-choice' && !newQuestion.correctAnswer) ||
+                    (newQuestion.type === 'short-answer' && (!newQuestion.sampleAnswer.trim() || !newQuestion.keyPoints.trim()))
                   }
-                }}
-                disabled={!newQuestion.title.trim() || !newQuestion.questionText.trim() || 
-                  (newQuestion.type === 'multiple-choice' && !newQuestion.correctAnswer) ||
-                  (newQuestion.type === 'short-answer' && !newQuestion.answer.trim())}
-              >
-                {editingQuestion ? 'Update' : 'Create'}
-              </button>
+                >
+                  {editingQuestion ? 'Update' : 'Create'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -3216,6 +3984,125 @@ const css = `
   overflow-y: auto;
 }
 
+/* 文件上传区样式 */
+.question-file-upload-section {
+  background: linear-gradient(135deg, #f8f4ff 0%, #fff5f8 100%);
+  border: 2px dashed #BB87AC;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 8px;
+}
+
+.upload-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.upload-icon {
+  font-size: 24px;
+}
+
+.upload-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #172239;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.upload-description {
+  font-size: 13px;
+  color: #6D6D78;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+.upload-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.upload-button {
+  padding: 10px 24px;
+  background: #BB87AC;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.upload-button:hover {
+  background: #a676a0;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(187, 135, 172, 0.3);
+}
+
+.upload-error {
+  color: #E31B54;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.upload-format-guide {
+  margin-top: 16px;
+  border-top: 1px solid #e0d5e8;
+  padding-top: 12px;
+}
+
+.upload-format-guide summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #BB87AC;
+  padding: 4px 0;
+  user-select: none;
+}
+
+.upload-format-guide summary:hover {
+  color: #a676a0;
+}
+
+.format-content {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #172239;
+}
+
+.format-content p {
+  margin: 8px 0 4px;
+  font-weight: 600;
+}
+
+.format-note {
+  background: #fffbf0;
+  border-left: 3px solid #BB87AC;
+  padding: 8px 12px;
+  margin: 4px 0 12px;
+  font-size: 11px;
+  color: #6D6D78;
+  border-radius: 4px;
+}
+
+.format-example {
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
+  color: #2d3748;
+  font-family: 'Monaco', 'Courier New', monospace;
+  margin: 4px 0 12px;
+}
+
 .question-input-group {
   display: flex;
   flex-direction: column;
@@ -3227,6 +4114,11 @@ const css = `
   font-weight: 600;
   color: #172239;
   font-family: 'Montserrat', sans-serif;
+}
+
+.question-label .required {
+  color: #E31B54;
+  margin-left: 4px;
 }
 
 .question-input {
@@ -3356,5 +4248,101 @@ const css = `
 .question-create-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 批量创建按钮样式 */
+.batch-create-btn {
+  width: auto !important;
+  min-width: 200px;
+  padding: 0 24px;
+}
+
+.question-cancel-btn {
+  width: 120px;
+  height: 40px;
+  background: #F5F5F5;
+  border: 1px solid #CCCCCC;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Montserrat', sans-serif;
+  transition: all 0.2s ease;
+}
+
+.question-cancel-btn:hover {
+  background: #E8E8E8;
+  border-color: #999999;
+}
+
+/* 批量导航样式 */
+.batch-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.batch-nav-btn {
+  padding: 6px 12px;
+  background: #F5F5F5;
+  border: 1px solid #CCCCCC;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333333;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.batch-nav-btn:hover:not(:disabled) {
+  background: #E8E8E8;
+  border-color: #999999;
+}
+
+.batch-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.batch-indicator {
+  font-size: 14px;
+  font-weight: 600;
+  color: #BB87AC;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* 批量上传提示 */
+.batch-note {
+  background: linear-gradient(135deg, #FFF4E6 0%, #FFE6F0 100%);
+  border-left: 4px solid #BB87AC;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+/* 示例文件下载链接 */
+.sample-link {
+  display: inline-block;
+  padding: 6px 12px;
+  background: #F0E6FF;
+  border: 1px solid #BB87AC;
+  border-radius: 6px;
+  color: #BB87AC;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.sample-link:hover {
+  background: #BB87AC;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(187, 135, 172, 0.3);
 }
 `;

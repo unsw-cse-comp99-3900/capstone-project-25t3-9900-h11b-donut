@@ -1,0 +1,15 @@
+{
+  "topic": "Object-Oriented Programming",
+  "question": "Which of the following is NOT a principle of OOP?",
+  "score": 10,
+  "difficulty": "Medium",
+  "gradingCriteria": "Student must identify the non-OOP concept",
+  "hint": "Think about the four main pillars of OOP",
+  "options": [
+    "Encapsulation",
+    "Inheritance",
+    "Recursion",
+    "Polymorphism"
+  ],
+  "correctAnswer": "C"
+}

@@ -1,0 +1,10 @@
+{
+  "topic": "Algorithms",
+  "question": "Describe the binary search algorithm and explain when it should be used",
+  "score": 20,
+  "difficulty": "Hard",
+  "gradingCriteria": "Must explain divide-and-conquer approach, sorted array requirement, and time complexity",
+  "hint": "Think about how you would search in a phone book",
+  "sampleAnswer": "Binary search is a divide-and-conquer algorithm that efficiently searches a sorted array by repeatedly dividing the search interval in half. It compares the target value to the middle element and eliminates half of the remaining elements based on the comparison. Time complexity is O(log n).",
+  "keyPoints": "Divide-and-conquer, requires sorted array, O(log n) time complexity, compares with middle element, eliminates half each iteration"
+}

@@ -1,0 +1,30 @@
+Topic: Object-Oriented Programming
+Question: Explain the concept of polymorphism in object-oriented programming with an example.
+Sample Answer: Polymorphism allows objects of different classes to be treated as objects of a common parent class. For example, you can have a Shape parent class with Circle and Rectangle child classes, each implementing their own draw() method differently.
+Key Points: Definition of polymorphism; inheritance; method overriding; real-world example with code
+Score: 20
+Difficulty: Medium
+Grading Criteria: Answer must include definition, inheritance relationship, and explanation of how different objects respond to same method call
+Hint: Think about how different shapes can all have a draw method but implement it differently
+
+---
+
+Topic: Data Structures
+Question: Describe the difference between a stack and a queue, and provide one real-world use case for each.
+Sample Answer: A stack follows Last-In-First-Out (LIFO) principle where the last element added is the first to be removed, like a stack of plates. A queue follows First-In-First-Out (FIFO) principle, like a line at a store. Stack use case: browser back button history. Queue use case: print job scheduling.
+Key Points: LIFO vs FIFO; distinct real-world examples for both; correct understanding of insertion and removal order
+Score: 15
+Difficulty: Easy
+Grading Criteria: Must explain LIFO and FIFO correctly, give appropriate real-world examples
+Hint: Think about how items are added and removed in each structure
+
+---
+
+Topic: Algorithm Complexity
+Question: What is Big O notation and why is it important in algorithm analysis?
+Sample Answer: Big O notation is a mathematical notation that describes the limiting behavior of a function when the argument tends towards infinity. It's used to classify algorithms according to how their running time or space requirements grow as the input size grows. It's important because it helps developers compare algorithm efficiency and choose the most appropriate algorithm for their use case.
+Key Points: Mathematical notation for growth rate; describes worst-case scenario; helps compare algorithms; relates to scalability
+Score: 25
+Difficulty: Hard
+Grading Criteria: Must define Big O notation, explain its purpose in algorithm analysis, mention time/space complexity
+Hint: Focus on how performance changes as input size increases

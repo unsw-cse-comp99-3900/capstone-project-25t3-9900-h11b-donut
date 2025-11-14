@@ -1,0 +1,12 @@
+Topic: Introduction to Programming
+Question: What is a variable in programming?
+Score: 10
+Difficulty: Easy
+Grading Criteria: Must understand basic concept of variables
+Hint: Think about where data is stored in memory
+
+Option A: A fixed value that never changes
+Option B: A storage location with a name
+Option C: A type of function
+Option D: A loop structure
+Correct Answer: B
