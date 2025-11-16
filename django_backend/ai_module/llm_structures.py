@@ -12,11 +12,15 @@ GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 use_gemini: bool = bool(GEMINI_KEY)
 genai: Any = None  # 动态导入以避免类型检查报错
 _model: Any = None  # 初始化模型变量
+genai.configure(
+    api_key=GEMINI_KEY,
+    transport="rest",  # 🔴 强制走 REST，而不是 gRPC
+)
 
 if use_gemini:
     try:
         genai = importlib.import_module("google.generativeai")  # type: ignore[reportMissingImports]
-        genai.configure(api_key=GEMINI_KEY)
+        #genai.configure(api_key=GEMINI_KEY)
         _model = genai.GenerativeModel(
             "gemini-2.5-flash",
             generation_config={"temperature": 0.2, "max_output_tokens": 2048}
