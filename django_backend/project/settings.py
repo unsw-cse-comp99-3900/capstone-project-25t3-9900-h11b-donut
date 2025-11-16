@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "ai_chat",
     "plans",
     "reminder",
+    "ai_question_generator",  # AI题目生成与评分
     #"rest_framework"
 ]
 

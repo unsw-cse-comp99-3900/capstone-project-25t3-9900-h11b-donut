@@ -30,6 +30,7 @@ urlpatterns = [
     path("api/admin/", include("adm_accounts.urls")),
     path("api/", include("task_progress.urls")),
     path('api/reminders/', include('reminder.urls')),
+    path('api/ai/', include('ai_question_generator.urls')),  # AI题目生成与评分
 
 ] 
 if settings.DEBUG:
