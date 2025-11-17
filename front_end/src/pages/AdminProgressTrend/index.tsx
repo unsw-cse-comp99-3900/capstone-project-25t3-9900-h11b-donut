@@ -19,6 +19,8 @@ type StudentProgress = {
   studentId: string;
   completionPercent: number;
   overdueCount: number;
+  // ⚠️ MOCK DATA - bonus字段当前使用mock数据,等待后端API返回真实数据
+  bonus: string; // 格式如 "1.50" (0.00-2.00)
 };
 
 type CreatedCourse = {
@@ -407,7 +409,11 @@ export function AdminProgressTrend() {
         name: student.name,
         studentId: student.studentId,
         completionPercent,
-        overdueCount
+        overdueCount,
+        // ============================================
+        // ⚠️ MOCK DATA - Mock模式下的bonus数据
+        // ============================================
+        bonus: (Math.random() * 2).toFixed(2), // Mock: 随机生成 0.00-2.00
       };
     });
   };
@@ -448,10 +454,15 @@ export function AdminProgressTrend() {
             setParts(mockPartsNow);
             const mapped = list.map((it, idx) => ({
               id: String(idx + 1),
-              name: it.name,
-              studentId: it.student_id,
-              completionPercent: it.progress,
-              overdueCount: it.overdue_count ?? 0,
+              name: it.name,                    // 真实数据 - 来自后端API
+              studentId: it.student_id,         // 真实数据 - 来自后端API
+              completionPercent: it.progress,   // 真实数据 - 来自后端API
+              overdueCount: it.overdue_count ?? 0,  // 真实数据 - 来自后端API
+              // ============================================
+              // ⚠️ MOCK DATA - 临时使用随机生成的bonus数据
+              // TODO: 等后端API返回bonus后,改为: bonus: it.bonus || "0.00"
+              // ============================================
+              bonus: (Math.random() * 2).toFixed(2), // Mock: 随机生成 0.00-2.00
             } as StudentProgress));
             const sorted = [...mapped].sort((a, b) => a.name.localeCompare(b.name));
             setStudents(sorted);
@@ -687,6 +698,7 @@ export function AdminProgressTrend() {
                   <div className="header-cell student-id-col">Student ID</div>
                   <div className="header-cell completion-col">Completion%</div>
                   <div className="header-cell overdue-col">Overdue</div>
+                  <div className="header-cell bonus-col">Bonus</div>
                 </div>
                 
                 <div className="table-body">
@@ -704,6 +716,7 @@ export function AdminProgressTrend() {
                         </div>
                       </div>
                       <div className="cell overdue-col">{student.overdueCount}</div>
+                      <div className="cell bonus-col">{student.bonus}</div>
                     </div>
                   ))}
                 </div>
@@ -711,51 +724,7 @@ export function AdminProgressTrend() {
             )}
           </section>
 
-          {/* 趋势图表区域 */}
-          <section className="apt-trend-section">
-            <div className="trend-header">
-              <h3>On-time Rate Trend (Last 7 Days)</h3>
-            </div>
-            {progressFilter === 'all' ? (
-              <div className="trend-chart">
-                <div className="chart-container">
-                  {/* 图表标题和说明 */}
-                  <div className="chart-info">
-                    <div className="chart-title">Class On-time Rate Trend</div>
-                    <div className="chart-description">
-                      On-time rate (day d) = Parts scheduled on day d and finished on day d ÷ Parts scheduled on day d
-                    </div>
-                  </div>
-                  
-                  {/* 使用recharts的图表 */}
-                  <TrendChart series={trendSeries} />
-                  
-                  {/* 坐标轴说明 */}
-                  <div className="chart-axis-labels">
-                    <div className="axis-label-group">
-                      <div className="axis-label">
-                        <span className="axis-title">X-Axis (Horizontal):</span>
-                        <span className="axis-description">Date (MM/DD format) - Last 7 days</span>
-                      </div>
-                      <div className="axis-label">
-                        <span className="axis-title">Left Y-Axis (Vertical):</span>
-                        <span className="axis-description">Number of scheduled parts</span>
-                      </div>
-                      <div className="axis-label">
-                        <span className="axis-title">Right Y-Axis (Vertical):</span>
-                        <span className="axis-description">On-time completion rate (%)</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="chart-hidden-message">
-                <p>Chart is only available when "All Students" is selected.</p>
-                <p>Please select "All Students" to view the On-time Rate Trend.</p>
-              </div>
-            )}
-          </section>
+
         </div>
       </main>
       </div>
@@ -1051,7 +1020,7 @@ const css = `
 
 .table-header{
   display:grid;
-  grid-template-columns:1.5fr 1fr 1.5fr 0.8fr;
+  grid-template-columns:1.5fr 1fr 1.5fr 0.8fr 0.8fr; /* 5列: 新增Bonus */
   gap:1px;
   background:var(--ah-border);
 }
@@ -1072,7 +1041,7 @@ const css = `
 
 .table-row{
   display:grid;
-  grid-template-columns:1.5fr 1fr 1.5fr 0.8fr;
+  grid-template-columns:1.5fr 1fr 1.5fr 0.8fr 0.8fr; /* 新增第5列: Bonus */
   gap:1px;
   background:var(--ah-border);
   transition:background 0.2s ease;
@@ -1100,7 +1069,7 @@ const css = `
 
 /* 只保留对齐方式差异 */
 .students-table .student-col {
-  justify-content: flex-start;
+  justify-content: center; /* 居中对齐 */
 }
 
 .students-table .student-id-col,
@@ -1134,6 +1103,10 @@ const css = `
 }
 
 .students-table .overdue-col {
+  justify-content: center;
+}
+
+.students-table .bonus-col {
   justify-content: center;
 }
 
@@ -1306,7 +1279,7 @@ const css = `
   
   .table-header,
   .table-row{
-    grid-template-columns:1fr 1fr 1fr 1fr;
+    grid-template-columns:1fr 1fr 1fr 1fr 0.8fr; /* 响应式: 5列 */
     gap:1px;
   }
   
