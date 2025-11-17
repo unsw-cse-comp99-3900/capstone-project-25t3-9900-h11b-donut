@@ -365,6 +365,7 @@ useEffect(() => {
                             checked={!!it.completed}
                             onChange={(e) => {
                               const checked = e.target.checked;
+                              const wasCompleted = !!it.completed;
                               setWeeklyPlan(prev => {
                                 const clone: Record<number, PlanItem[]> = { ...prev };
                                 clone[dIdx] = (clone[dIdx] || []).map(ci => ci === it ? { ...ci, completed: checked } : ci);
@@ -415,6 +416,20 @@ useEffect(() => {
                               // 调试输出课程整体进度
                               const courseProgress = coursesStore.getCourseProgress(it.courseId);
                               console.log(`Course ${it.courseId} progress: ${courseProgress}%`);
+                              if (!wasCompleted && checked) {
+                                  apiService.addBonus(0.1)
+                                    .then((newBonus:number) => {
+                                      const uid = localStorage.getItem('current_user_id');
+                                      if (uid) {
+                                        localStorage.setItem(`u:${uid}:bonus`, newBonus.toString());
+                                      }
+                                      // 这里如果你想顺便刷新 StudentProfile 的显示，可以加一个全局 store 或事件
+                                      console.log('Bonus updated to', newBonus);
+                                    })
+                                    .catch((err: unknown) => {
+                                      console.error('Failed to update bonus', err);
+                                    });
+                                }
                             }}
                           />
                           

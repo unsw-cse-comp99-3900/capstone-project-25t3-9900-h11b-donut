@@ -4,6 +4,7 @@ from .models import StudentAccount
 from django.conf import settings
 from django.http import JsonResponse, HttpRequest
 import json
+from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 import os
 from django.db import transaction                         
@@ -14,7 +15,7 @@ from utils.validators import (
     validate_email, validate_id, validate_name, validate_password
 )
 from django.core.exceptions import ValidationError
-
+from decimal import Decimal
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
@@ -148,7 +149,8 @@ def login_api(request: HttpRequest):
     try:
         account = (
             StudentAccount.objects
-            .only("student_id", "email", "name", "password_hash", "avatar_url")  # 提前限定字段，减少 IO
+            .only("student_id", "email", "name", "password_hash", "avatar_url", "bonus") 
+            # 提前限定字段，减少 IO
             .get(student_id=student_id)
         )
         ok = bcrypt.checkpw(password.encode("utf-8"), account.password_hash.encode("utf-8"))
@@ -168,6 +170,7 @@ def login_api(request: HttpRequest):
             "name": account.name or "",
             "email": account.email or "",
             "avatarUrl": getattr(account, "avatar_url", None),  # 可能为 None
+            "bonus": str(account.bonus or Decimal("0")), 
         }
 
         return api_ok({"token": token, "user": user_payload})
@@ -187,10 +190,57 @@ def logout_api(request: HttpRequest):
     request.session.flush()
     return JsonResponse({"success": True, "message": "Logged out successfully", "data": None})
 
+@csrf_exempt
+@require_POST
+def add_bonus_api(request):
 
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        body = {}
 
+    raw_delta = body.get('delta', 0.1)
+    try:
+        delta = Decimal(str(raw_delta))
+    except Exception:
+        return JsonResponse({
+            "success": False,
+            "message": "Invalid delta",
+        }, status=400)
 
+    account = getattr(request, "account", None)
+    if not isinstance(account, StudentAccount):
+        return JsonResponse({
+            "success": False,
+            "message": "Not authenticated as student",
+        }, status=401)
 
+    student: StudentAccount = account
+    max_bonus = Decimal("2.0")
+    current_bonus = student.bonus or Decimal("0")
+
+    if current_bonus >= max_bonus:
+        return JsonResponse({
+            "success": True,
+            "data": {
+                "bonus": str(current_bonus),
+            },
+            "message": "MAX_BONUS_REACHED",
+        })
+    # 更新 bonus
+    new_bonus = current_bonus + delta
+    if new_bonus > max_bonus:
+        new_bonus = max_bonus
+
+    student.bonus = new_bonus
+    student.save(update_fields=["bonus"])
+
+    return JsonResponse({
+        "success": True,
+        "data": {
+            "bonus": str(student.bonus),
+        },
+    })
 
 
 

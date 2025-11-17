@@ -142,3 +142,10 @@ if (uid) {
   preferencesStore.loadAllPlansSmart(uid); 
 } 从localStorage里读，现在是:先从localStorage里读，如果没有就去database读，如果database也没有就跳过不渲染
 具体函数可以preferencesStore.loadAllPlansSmart(uid);去找
+
+11.17 update:
+1.增加了bonus功能：
+在stu_accounts表中增加了bonus屬性；login的時候会去读数据库里的bonus并存放入localStorage；
+在checkbox的地方添加了逻辑，如果勾选完成会增加0.1bonus；api里新添add_bonus方法。student_profile
+实时更新；最大bonus为2分
+2.隐患：不断的勾选取消勾选会出现刷分情况，可以考虑把checkbox固定，也就是勾选完成就不能取消了

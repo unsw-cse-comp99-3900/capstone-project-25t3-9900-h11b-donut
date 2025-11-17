@@ -259,6 +259,20 @@ if (result.success && result.data?.token) {
     const uid: string = user.studentId ?? user.id ?? user.student_id ?? String(studentId);
     localStorage.setItem('current_user_id', uid);
     localStorage.setItem(`u:${uid}:user`, JSON.stringify(user));
+    const rawBonus = (user as any).bonus ?? 0;
+      let bonusNumber: number;
+
+      if (typeof rawBonus === 'string') {
+        bonusNumber = parseFloat(rawBonus);
+      } else {
+        bonusNumber = Number(rawBonus);
+      }
+
+      if (!Number.isFinite(bonusNumber)) {
+        bonusNumber = 0;
+      }
+
+      localStorage.setItem(`u:${uid}:bonus`, bonusNumber.toString());
   }
   
   return result.data;
@@ -614,6 +628,8 @@ async adminGetStudentRisk(
     consecutive_not_on_time_days: Number(r?.consecutive_not_on_time_days ?? 0) || 0,
   }));
 }
+
+
   async getUserCourses(): Promise<ApiCourse[]> {
     const res = await this.request<ApiCourse[]>('/courses/my');
     return res.data ?? [];
@@ -684,6 +700,32 @@ async adminGetStudentRisk(
     }>(`/tasks/${taskId}/progress`);
     return res.data ?? { task_id: parseInt(taskId), progress: 0, student_id: '' };
   }
+
+async addBonus(delta: number = 0.1): Promise<number> {
+  const result = await this.request<{ bonus: string | number }>('/student/bonus/add', {
+    method: 'POST',
+    body: JSON.stringify({ delta }),
+  });
+
+  if (result.success && result.data) {
+    const rawBonus = result.data.bonus;
+
+    let bonusNumber: number;
+    if (typeof rawBonus === 'string') {
+      bonusNumber = parseFloat(rawBonus);
+    } else {
+      bonusNumber = Number(rawBonus);
+    }
+
+    if (!Number.isFinite(bonusNumber)) {
+      throw new Error('Invalid bonus from server');
+    }
+
+    return bonusNumber;
+  }
+
+  throw new Error(result.message || 'Failed to update bonus');
+}
 
   // 用户偏好
   async getPreferences(): Promise<ApiPreferences> {
