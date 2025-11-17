@@ -18,7 +18,7 @@ if use_gemini:
         genai = importlib.import_module("google.generativeai")  # type: ignore[reportMissingImports]
         genai.configure(
                 api_key=GEMINI_KEY,
-                transport="rest",  # 🔴 强制走 REST，而不是 gRPC
+                transport="rest",  
             )
         _model = genai.GenerativeModel(
             "gemini-2.5-flash",
