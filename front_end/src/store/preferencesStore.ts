@@ -114,7 +114,7 @@ class PreferencesStore {
 }
 
 async loadAllPlansSmart(uid: string): Promise<Record<string, PlanItem[]>> {
-  // 仅在函数内部用到的局部类型，不影响你的 WeeklyPlan
+  // 仅在函数内部用到的局部类型
   type WeeklyPlansMap = Record<string, PlanItem[]>;
 
   const key = `u:${uid}:ai-web-weekly-plans`;
@@ -132,7 +132,6 @@ async loadAllPlansSmart(uid: string): Promise<Record<string, PlanItem[]>> {
 
   // 2) 本地没有 → 走后端（已用方案A返回 ApiResponse<T>）
   const map = (await apiService.getAllWeeklyPlans()) as WeeklyPlansMap;
-
   this.weeklyPlans = map as unknown as WeeklyPlan;          // ← 存到字段仍按 WeeklyPlan
   localStorage.setItem(key, JSON.stringify(map));
   this.notify?.();

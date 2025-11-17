@@ -358,7 +358,7 @@ def save_weekly_plans(request: HttpRequest):
 
 @csrf_exempt
 def get_all_weekly_plans(request):
-   
+    
     sid = _auth(request)
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
@@ -391,7 +391,7 @@ def get_all_weekly_plans(request):
                 "color": it.color or "",
                 "completed": bool(it.completed),
             })
-
+    print("现在从数据库读完了：",result)
     return JsonResponse({"success": True, "data": result})
 
 
