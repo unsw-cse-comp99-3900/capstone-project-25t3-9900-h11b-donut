@@ -363,6 +363,7 @@ useEffect(() => {
                           <input
                             type="checkbox"
                             checked={!!it.completed}
+                            disabled={!!it.completed} 
                             onChange={(e) => {
                               const checked = e.target.checked;
                               const wasCompleted = !!it.completed;

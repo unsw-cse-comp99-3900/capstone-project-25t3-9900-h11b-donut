@@ -149,3 +149,4 @@ if (uid) {
 在checkbox的地方添加了逻辑，如果勾选完成会增加0.1bonus；api里新添add_bonus方法。student_profile
 实时更新；最大bonus为2分
 2.隐患：不断的勾选取消勾选会出现刷分情况，可以考虑把checkbox固定，也就是勾选完成就不能取消了
+3.改动：前端StudentPlan页面366行加了一个disabled={!!it.completed} ，勾选完后checkbox直接锁定
