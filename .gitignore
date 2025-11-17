@@ -1,0 +1,22 @@
+# Python 缓存和临时文件
+__pycache__/
+*.pyc
+*.pyo
+*~
+*.log
+
+# macOS 系统文件
+.DS_Store
+
+# 虚拟环境 (如果它在项目根目录)
+venv/
+
+
+# 数据库文件 (Django 默认)
+db.sqlite3
+
+# 你不想提交的 PDF 文件（非常重要！）
+django_backend/ai_module/*.pdf
+
+# 忽略 Python 虚拟环境
+.venv/

@@ -1,0 +1,9 @@
+[tool.pyright]
+include = ["django_backend", "front_end"]
+exclude = ["**/node_modules", "**/__pycache__"]
+reportAttributeAccessIssue = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportAny = "none"
+reportMissingTypeStubs = "none"
+pythonVersion = "3.11"

@@ -1,0 +1,9 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-11-05T03:15:50.953Z
+provider: 
+---
+
+Always reconcile todo list via todo_write (merge=true) before code changes.

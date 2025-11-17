@@ -1,0 +1,230 @@
+[DEBUG] Gemini 响应: response:
+GenerateContentResponse(
+    done=True,
+    iterator=None,
+    result=protos.GenerateContentResponse({
+      "candidates": [
+        {
+          "content": {
+            "parts": [
+              {
+                "text": "{\"estimatedHours\": 20, \"suggestedParts\": [{\"order\": 1, \"title\": \"Environment Setup & Tool Installation\", \"notes\": \"Install Linux VM, Snort, Wireshark/tcpdump, Nmap, and Hydra.\"}, {\"order\": 2, \"title\": \"Snort Configuration & Rule Development\", \"notes\": \"Configure Snort, write and test rules for port scanning, brute-force SSH, and DNS tunneling.\"}, {\"order\": 3, \"title\": \"Attack Simulation & Data Collection\", \"notes\": \"Simulate attacks using Nmap and Hydra; capture network traffic and Snort alerts.\"}, {\"order\": 4, \"title\": \"Analysis & Documentation\", \"notes\": \"Analyze Snort logs and packet captures, take screenshots, and document configuration steps and rule syntax.\"}, {\"order\": 5, \"title\": \"Report Writing & Reflection\", \"notes\": \"Compile all findings into a report, including a reflection on IDS limitations, false positives, and future improvements.\"}], \"explanation\": \"This assignment is broken down into logical phases: setting up the environment, configuring the core IDS rules, simulating attacks to generate data, analyzing the collected data, and finally, compiling a comprehensive report with critical reflections. This structured approach ensures all requirements are met systematically, from practical implementation to theoretical discussion.\"}"
+              }
+            ],
+            "role": "model"
+          },
+          "finish_reason": "STOP",
+          "index": 0
+        }
+      ],
+      "usage_metadata": {
+        "prompt_token_count": 335,
+        "candidates_token_count": 274,
+        "total_token_count": 1972
+      },
+      "model_version": "gemini-2.5-flash"
+    }),
+)
+[DEBUG] 候选数量: 1
+[DEBUG] 提取的文本: {"estimatedHours": 20, "suggestedParts": [{"order": 1, "title": "Environment Setup & Tool Installation", "notes": "Install Linux VM, Snort, Wireshark/tcpdump, Nmap, and Hydra."}, {"order": 2, "title": "Snort Configuration & Rule Development", "notes": "Configure Snort, write and test rules for port scanning, brute-force SSH, and DNS tunneling."}, {"order": 3, "title": "Attack Simulation & Data Collection", "notes": "Simulate attacks using Nmap and Hydra; capture network traffic and Snort alerts....
+[DEBUG] 解析的 JSON: {'estimatedHours': 20, 'suggestedParts': [{'order': 1, 'title': 'Environment Setup & Tool Installation', 'notes': 'Install Linux VM, Snort, Wireshark/tcpdump, Nmap, and Hydra.'}, {'order': 2, 'title': 'Snort Configuration & Rule Development', 'notes': 'Configure Snort, write and test rules for port scanning, brute-force SSH, and DNS tunneling.'}, {'order': 3, 'title': 'Attack Simulation & Data Collection', 'notes': 'Simulate attacks using Nmap and Hydra; capture network traffic and Snort alerts.'}, {'order': 4, 'title': 'Analysis & Documentation', 'notes': 'Analyze Snort logs and packet captures, take screenshots, and document configuration steps and rule syntax.'}, {'order': 5, 'title': 'Report Writing & Reflection', 'notes': 'Compile all findings into a report, including a reflection on IDS limitations, false positives, and future improvements.'}], 'explanation': 'This assignment is broken down into logical phases: setting up the environment, configuring the core IDS rules, simulating attacks to generate data, analyzing the collected data, and finally, compiling a comprehensive report with critical reflections. This structured approach ensures all requirements are met systematically, from practical implementation to theoretical discussion.'}
+📊 智能开始时间计算:
+   总工作量: 300分钟 (5.0小时)
+   每周容量: 900分钟 (15.0小时)
+   需要周数: 1周
+   最早截止: 2025-10-25
+   计算开始: 2025-10-11
+   实际开始: 2025-10-14
+📅 调度时间范围: 2025-10-13 到 2025-10-26
+=== 示例返回数据结构 ===
+{
+  "ok": true,
+  "relaxation": "none",
+  "weekStart": "2025-10-13",
+  "days": [
+    {
+      "date": "2025-10-13",
+      "blocks": [
+        {
+          "taskId": "9517_a1",
+          "partId": "p1",
+          "title": "Environment Setup & Tool Installation",
+          "minutes": 60,
+          "reason": "within-preference"
+        },
+        {
+          "taskId": "9517_a1",
+          "partId": "p2",
+          "title": "Snort Configuration & Rule Development",
+          "minutes": 60,
+          "reason": "within-preference"
+        },
+        {
+          "taskId": "9517_a1",
+          "partId": "p3",
+          "title": "Attack Simulation & Data Collection",
+          "minutes": 60,
+          "reason": "within-preference"
+        }
+      ]
+    },
+    {
+      "date": "2025-10-14",
+      "blocks": [
+        {
+          "taskId": "9517_a1",
+          "partId": "p4",
+          "title": "Analysis & Documentation",
+          "minutes": 60,
+          "reason": "within-preference"
+        },
+        {
+          "taskId": "9517_a1",
+          "partId": "p5",
+          "title": "Report Writing & Reflection",
+          "minutes": 60,
+          "reason": "within-preference"
+        }
+      ]
+    },
+    {
+      "date": "2025-10-15",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-16",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-17",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-18",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-19",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-20",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-21",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-22",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-23",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-24",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-25",
+      "blocks": []
+    },
+    {
+      "date": "2025-10-26",
+      "blocks": []
+    }
+  ],
+  "taskSummary": [
+    {
+      "taskId": "9517_a1",
+      "taskTitle": "COMP9517 - Assignment 1",
+      "totalMinutes": 300,
+      "parts": [
+        {
+          "partId": "p1",
+          "order": 1,
+          "minutes": 60,
+          "percent": 20.0
+        },
+        {
+          "partId": "p2",
+          "order": 2,
+          "minutes": 60,
+          "percent": 20.0
+        },
+        {
+          "partId": "p3",
+          "order": 3,
+          "minutes": 60,
+          "percent": 20.0
+        },
+        {
+          "partId": "p4",
+          "order": 4,
+          "minutes": 60,
+          "percent": 20.0
+        },
+        {
+          "partId": "p5",
+          "order": 5,
+          "minutes": 60,
+          "percent": 20.0
+        }
+      ]
+    }
+  ],
+  "aiSummary": {
+    "tasks": [
+      {
+        "taskId": "9517_a1",
+        "taskTitle": "COMP9517 - Assignment 1",
+        "totalMinutes": 300,
+        "explanation": "This assignment is broken down into logical phases: setting up the environment, configuring the core IDS rules, simulating attacks to generate data, analyzing the collected data, and finally, compiling a comprehensive report with critical reflections. This structured approach ensures all requirements are met systematically, from practical implementation to theoretical discussion.",
+        "parts": [
+          {
+            "partId": "p1",
+            "order": 1,
+            "title": "Environment Setup & Tool Installation",
+            "minutes": 60,
+            "notes": "Install Linux VM, Snort, Wireshark/tcpdump, Nmap, and Hydra.",
+            "percent": 20.0
+          },
+          {
+            "partId": "p2",
+            "order": 2,
+            "title": "Snort Configuration & Rule Development",
+            "minutes": 60,
+            "notes": "Configure Snort, write and test rules for port scanning, brute-force SSH, and DNS tunneling.",
+            "percent": 20.0
+          },
+          {
+            "partId": "p3",
+            "order": 3,
+            "title": "Attack Simulation & Data Collection",
+            "minutes": 60,
+            "notes": "Simulate attacks using Nmap and Hydra; capture network traffic and Snort alerts.",
+            "percent": 20.0
+          },
+          {
+            "partId": "p4",
+            "order": 4,
+            "title": "Analysis & Documentation",
+            "minutes": 60,
+            "notes": "Analyze Snort logs and packet captures, take screenshots, and document configuration steps and rule syntax.",
+            "percent": 20.0
+          },
+          {
+            "partId": "p5",
+            "order": 5,
+            "title": "Report Writing & Reflection",
+            "minutes": 60,
+            "notes": "Compile all findings into a report, including a reflection on IDS limitations, false positives, and future improvements.",
+            "percent": 20.0
+          }
+        ]
+      }
+    ]
+  }
+}

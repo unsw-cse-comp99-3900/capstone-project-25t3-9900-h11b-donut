@@ -1,0 +1,9 @@
+---
+description: 
+alwaysApply: true
+enabled: true
+updatedAt: 2025-11-05T03:20:23.397Z
+provider: 
+---
+
+Use todo_write with merge=true to keep todo list in sync before modifications.

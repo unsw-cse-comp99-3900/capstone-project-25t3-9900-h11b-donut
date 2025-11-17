@@ -1,0 +1,9 @@
+flask==2.2.2
+pymysql==1.1.2
+bcrypt==3.2.0
+werkzeug==2.2.3
+cryptography==41.0.3
+certifi==2025.7.14
+python-dotenv==0.21.0
+pillow>=10.2.0
+django>=4.2,<6.0
