@@ -17,6 +17,8 @@ import illoAdmin from '../../assets/images/illustration-admin.png'
 import { coursesStore, type Deadline, type Course } from '../../store/coursesStore'
 
 import { preferencesStore } from '../../store/preferencesStore';
+import useUnreadMessagePolling from '../../hooks/useUnreadMessagePolling';
+
 
 function getPlanBasedProgressByDeadlineId(deadlineId: string): number {
   // 遵循可视范围：仅遍历到“最后一个 deadline 所在周”为止
@@ -83,6 +85,7 @@ const [user, setUser] = useState<any>(() => {
   try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
   catch { return null; }
 });
+useUnreadMessagePolling(setUnreadMessageCount);
   useEffect(() => {
   //  切换账号后重读 user
   if (uid) {
@@ -166,19 +169,20 @@ const [user, setUser] = useState<any>(() => {
 
 
   // 页面加载时获取未读消息数量
-  useEffect(() => {
-    const loadUnreadMessageCount = async () => {
-      try {
-        const messages = await apiService.getMessages();
-        const unreadCount = messages.filter(msg => !msg.isRead).length;
-        setUnreadMessageCount(unreadCount);
-      } catch (error) {
-        console.error('Failed to load the number of unread messages:', error);
-      }
-    };
+  //有轮询删掉首次访问
+  // useEffect(() => {
+  //   const loadUnreadMessageCount = async () => {
+  //     try {
+  //       const messages = await apiService.getMessages();
+  //       const unreadCount = messages.filter(msg => !msg.isRead).length;
+  //       setUnreadMessageCount(unreadCount);
+  //     } catch (error) {
+  //       console.error('Failed to load the number of unread messages:', error);
+  //     }
+  //   };
 
-    loadUnreadMessageCount();
-  }, []);
+  //   loadUnreadMessageCount();
+  // }, []);
 
   useEffect(() => {
     const parseTime = (dueIn: string) => {

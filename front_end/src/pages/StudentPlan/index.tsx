@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+import useUnreadMessagePolling from '../../hooks/useUnreadMessagePolling';
 
 // 定义用户类型接口
 interface User {
@@ -29,6 +30,7 @@ export function StudentPlan() {
   const [messageModalOpen, setMessageModalOpen] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
+  useUnreadMessagePolling(setUnreadMessageCount);
   
   const uid = localStorage.getItem('current_user_id');
   let user: User = {};
@@ -86,19 +88,20 @@ useEffect(() => {
   }
 }, []);
   // 页面加载时获取未读消息数量
-  useEffect(() => {
-    const loadUnreadMessageCount = async () => {
-      try {
-        const messages = await apiService.getMessages();
-        const unreadCount = messages.filter(msg => !msg.isRead).length;
-        setUnreadMessageCount(unreadCount);
-      } catch (error) {
-        console.error('加载未读消息数量失败:', error);
-      }
-    };
+  //有轮询删掉首次访问
+  // useEffect(() => {
+  //   const loadUnreadMessageCount = async () => {
+  //     try {
+  //       const messages = await apiService.getMessages();
+  //       const unreadCount = messages.filter(msg => !msg.isRead).length;
+  //       setUnreadMessageCount(unreadCount);
+  //     } catch (error) {
+  //       console.error('加载未读消息数量失败:', error);
+  //     }
+  //   };
 
-    loadUnreadMessageCount();
-  }, []);
+  //   loadUnreadMessageCount();
+  // }, []);
 useEffect(() => {
   coursesStore.ensureLoaded();
 }, []);

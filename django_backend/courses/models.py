@@ -19,7 +19,9 @@ class CourseTask(models.Model):
     id = models.AutoField(primary_key=True)
     course_code = models.CharField(max_length=16)  # 直接存课程代码，Sprint1 简化
     title = models.CharField(max_length=255)
-    deadline = models.DateField()
+    # deadline = models.DateField()
+    deadline = models.DateTimeField()
+    
     brief = models.TextField(blank=True)
     percent_contribution = models.PositiveIntegerField(default=0)
     url = models.CharField(max_length=512, blank=True, null=True)

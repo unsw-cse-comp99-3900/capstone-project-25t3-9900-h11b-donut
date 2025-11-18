@@ -12,7 +12,6 @@ import json
 @csrf_exempt
 @require_POST
 def mark_message_as_read(request, message_id):
-    """标记单条消息为已读"""
     try:
         n = Notification.objects.get(id=message_id)
         n.is_read = True
@@ -24,40 +23,44 @@ def mark_message_as_read(request, message_id):
 @csrf_exempt
 @require_POST
 def mark_messages_as_read(request):
-    """批量标记消息为已读"""
     try:
-        data = json.loads(request.body)
-        ids = data.get("ids", [])
+        body = json.loads(request.body)
+        ids = body.get("ids", [])
+
+        if not ids:
+            return JsonResponse({"success": False, "error": "ids required"}, status=400)
+
         Notification.objects.filter(id__in=ids).update(is_read=True)
         return JsonResponse({"success": True})
+
     except Exception as e:
-        return JsonResponse({"success": False, "error": str(e)}, status=400)
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 @require_GET
 def get_reminders(request, student_id):
-    reminders = Notification.objects.filter(student_id=student_id).order_by('-created_at')
+    """获取用户所有提醒（按时间倒序）"""
+
+    only_unread = request.GET.get("unread") == "1"
+
+    qs = Notification.objects.filter(student_id=student_id)
+    if only_unread:
+        qs = qs.filter(is_read=False)
+
+    qs = qs.order_by("-created_at")
 
     data = []
-    for r in reminders:
-        created_at_str = (
-            timezone.localtime(r.created_at).strftime("%Y-%m-%dT%H:%M:%S")
-            if r.created_at else None
-        )
-        due_time_str = (
-            timezone.localtime(r.due_time).strftime("%Y-%m-%dT%H:%M:%S")
-            if r.due_time else None
-        )
+    for r in qs:
         data.append({
-            "id": str(r.id), 
+            "id": r.id,
             "type": r.message_type,
             "title": r.title,
-            "preview": r.preview or (r.content[:100] if r.content else ""),
-            "timestamp": created_at_str,
-            "isRead": getattr(r, "is_read", False),
-            "courseId": r.course_code,
-            "dueTime": due_time_str,
+            "preview": r.preview or "",
+            "content": r.content or "",
+            "createdAt": r.created_at.isoformat(),
+            "dueTime": r.due_time.isoformat() if r.due_time else None,
+            "isRead": r.is_read,
+            "courseCode": r.course_code,
+            "taskId": r.task_id,
         })
-    print("📬 Reminders for", student_id, "=>", data)
 
     return JsonResponse({"success": True, "data": data})
-

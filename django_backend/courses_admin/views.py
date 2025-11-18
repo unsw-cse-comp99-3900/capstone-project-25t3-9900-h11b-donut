@@ -17,7 +17,61 @@ from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date,parse_datetime
 from django.http import FileResponse, Http404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime, parse_date
+from datetime import datetime, time
+
 from decimal import Decimal
+
+from datetime import datetime, date
+from django.utils.dateparse import parse_datetime
+from django.utils.dateparse import parse_date
+from django.utils import timezone
+from datetime import datetime
+import pytz
+from django.utils.timezone import make_aware
+from datetime import datetime
+
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from django.utils.timezone import make_aware
+
+def parse_sydney_datetime(dt_str: str):
+    """
+    使用 Python zoneinfo 解析悉尼时间，避免 pytz 的 DST/minute bug。
+    支持:
+      YYYY-MM-DD
+      YYYY-MM-DD HH:MM
+      YYYY-MM-DD HH:MM:SS
+      YYYY-MM-DDTHH:MM
+      YYYY-MM-DDTHH:MM:SS
+    """
+    if not dt_str:
+        return None
+
+    # 统一 T 为空格
+    dt_str = dt_str.replace("T", " ").strip()
+
+    dt_naive = None
+
+    # 依次尝试格式
+    for fmt in ("%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
+                "%Y-%m-%d"):
+        try:
+            dt_naive = datetime.strptime(dt_str, fmt)
+            break
+        except ValueError:
+            pass
+
+    if dt_naive is None:
+        return None
+
+    # ⭐ 使用 zoneinfo，避免 pytz 的 +10:05（已损坏）问题
+    sydney = ZoneInfo("Australia/Sydney")
+
+    # ⭐ 直接 make_aware，稳定且准确
+    return make_aware(dt_naive, timezone=sydney)
+>>>>>>> 2c33235 (backend  cron job, front end  hooks)
 
 logger = logging.getLogger(__name__)
 def ok(data): 
@@ -695,6 +749,8 @@ def upload_task_file(request):
         "size": f.size,
     })
 @csrf_exempt
+
+
 def create_course_tasks(request, course_id: str):
     if request.method != "POST":
         return err("Method not allowed", 405)
@@ -708,16 +764,35 @@ def create_course_tasks(request, course_id: str):
     if not title:
         return err("title is required")
 
-    deadline_raw = body.get("deadline")
+# <<<<<<< HEAD
+#     deadline_raw = body.get("deadline")
     
-    if not deadline_raw:
-        return err("deadline is required (YYYY-MM-DD-MIN-SEC)")
-    deadline = parse_datetime(str(deadline_raw))
+#     if not deadline_raw:
+#         return err("deadline is required (YYYY-MM-DD-MIN-SEC)")
+#     deadline = parse_datetime(str(deadline_raw))
     
+#     if not deadline:
+#         return err("deadline must be YYYY-MM-DD-MIN-SEC")
+#     if deadline < datetime.now():
+#         return err("deadline cannot be in the past")
+# =======
+    # -----------------------------
+    #  🔥 支持 datetime 的 deadline 解析
+    # -----------------------------
+    deadline_str = body.get("deadline")
+    if not deadline_str:
+        return err("deadline is required (YYYY-MM-DD HH:MM:SS)")
+
+    deadline = parse_sydney_datetime(deadline_str)
     if not deadline:
-        return err("deadline must be YYYY-MM-DD-MIN-SEC")
-    if deadline < datetime.now():
+        return err("invalid deadline format (expected YYYY-MM-DD HH:MM:SS)")
+
+    if deadline < timezone.localtime():
         return err("deadline cannot be in the past")
+
+    # -----------------------------
+
+
     brief = (body.get("brief") or "").strip()
     url = body.get("url") or None
 
@@ -728,6 +803,12 @@ def create_course_tasks(request, course_id: str):
     if pc < 0 or pc > 100:
         return err("percent_contribution must be in [0,100]")
 
+    print("\n====== DEBUG: create_course_tasks() ======")
+    print("raw deadline_str     =", deadline_str)
+    print("parsed deadline obj  =", deadline, " tzinfo=", deadline.tzinfo)
+    print("deadline.isoformat() =", deadline.isoformat())
+    print("===========================================\n")
+
     t = CourseTask.objects.create(
         course_code=course_id,
         title=title,
@@ -737,6 +818,12 @@ def create_course_tasks(request, course_id: str):
         url=url,
     )
     return ok({"id": t.id})
+
+
+
+
+
+
 @csrf_exempt
 def delete_course_task(request, course_id, task_id):
     try:
@@ -784,6 +871,95 @@ def delete_course_task(request, course_id, task_id):
         print("[delete_course_task] error:", e)
         return JsonResponse({"success": False, "message": str(e)}, status=500)
 @csrf_exempt
+# def update_course_task(request, course_id: str, task_id: int):
+#     if request.method not in ("PUT", "POST", "PATCH"):
+#         return err("Method not allowed", status=405)
+
+#     # 解析 JSON
+#     try:
+#         body = json.loads(request.body.decode("utf-8") or "{}")
+#     except Exception:
+#         return err("invalid json body")
+
+#     # 查任务（限定 course_id）
+#     task = CourseTask.objects.filter(id=task_id, course_code=course_id).first()
+#     if not task:
+#         return err("Task not found", status=404)
+
+#     # 取字段（仅对提供的字段做更新）
+#     title = body.get("title", None)
+#     deadline_raw = body.get("deadline", None)
+#     brief = body.get("brief", None)
+#     pc_raw = body.get("percent_contribution", None)
+#     new_url = body.get("url", None)  # 只有传了才表示要覆盖
+
+#     # 校验（仅对传入的字段）
+#     if title is not None:
+#         if not str(title).strip():
+#             return err("title cannot be empty")
+
+#     if deadline_raw is not None:
+#         dl = parse_date(str(deadline_raw))
+#         if not dl:
+#             return err("deadline must be YYYY-MM-DD")
+#         # 不允许过去日期（允许今天）
+#         if dl < date.today():
+#             return err("deadline cannot be in the past")
+#     else:
+#         dl = None
+
+#     if pc_raw is not None:
+#         try:
+#             pc = int(pc_raw)
+#         except Exception:
+#             return err("percent_contribution must be an integer")
+#         if pc < 0 or pc > 100:
+#             return err("percent_contribution must be in [0,100]")
+#     else:
+#         pc = None
+
+#     # 是否删除旧文件：仅当传了新 url 且参数要求删除时有效
+#     delete_old = request.GET.get("delete_old_file") in ("1", "true", "True")
+
+#     # 记录旧 url（用于可能的文件删除）
+#     old_url = task.url
+
+#     # 执行更新
+#     try:
+#         with transaction.atomic():
+#             if title is not None:
+#                 task.title = str(title).strip()
+#             if dl is not None:
+#                 task.deadline = dl
+#             if brief is not None:
+#                 task.brief = str(brief).strip()
+#             if pc is not None:
+#                 task.percent_contribution = pc
+#             if new_url is not None:
+#                 task.url = new_url  # 用新附件覆盖
+
+#             task.save()
+
+#         # 保存成功后，再按需删除旧文件
+#         if new_url is not None and delete_old and old_url and old_url != new_url:
+#             # 仅允许删除 TASK_URL 命名空间内的文件
+#             if hasattr(settings, "TASK_URL") and hasattr(settings, "TASK_ROOT"):
+#                 if str(old_url).startswith(settings.TASK_URL):
+#                     rel_path = str(old_url)[len(settings.TASK_URL):].lstrip("/\\")
+#                     file_path = os.path.join(settings.TASK_ROOT, rel_path)
+#                     try:
+#                         if os.path.exists(file_path):
+#                             os.remove(file_path)
+#                     except Exception as e:
+#                         # 不抛错以免影响业务；可在此记录日志
+#                         print("[update_course_task] remove old file error:", e)
+
+#         return ok(None)
+#     except Exception as e:
+#         print("[update_course_task] error:", e)
+#         return err(str(e), status=500)
+
+
 def update_course_task(request, course_id: str, task_id: int):
     if request.method not in ("PUT", "POST", "PATCH"):
         return err("Method not allowed", status=405)
@@ -804,12 +980,15 @@ def update_course_task(request, course_id: str, task_id: int):
     deadline_raw = body.get("deadline", None)
     brief = body.get("brief", None)
     pc_raw = body.get("percent_contribution", None)
-    new_url = body.get("url", None)  # 只有传了才表示要覆盖
+    new_url = body.get("url", None)
 
-    # 校验（仅对传入的字段）
+    # ----------------------------
+    # ① 校验 title
+    # ----------------------------
     if title is not None:
         if not str(title).strip():
             return err("title cannot be empty")
+
 
     if deadline_raw is not None:
         dl = parse_datetime(str(deadline_raw))
@@ -820,7 +999,28 @@ def update_course_task(request, course_id: str, task_id: int):
             return err("deadline cannot be in the past")
     else:
         dl = None
+# =======
+#     # ===========================================================
+#     # ② deadline 支持 YYYY-MM-DD HH:MM:SS
+#     # ===========================================================
+# >>>>>>> 2c33235 (backend  cron job, front end  hooks)
 
+    dl = None
+    if deadline_raw is not None:
+        dl = parse_sydney_datetime(str(deadline_raw))
+        if not dl:
+            return err("deadline must be YYYY-MM-DD HH:MM:SS")
+
+        if dl < timezone.localtime():
+            return err("deadline cannot be in the past")
+
+    # ===========================================================
+    #  deadline 处理结束 
+    # ===========================================================
+
+    # ----------------------------
+    # ③ 校验贡献度
+    # ----------------------------
     if pc_raw is not None:
         try:
             pc = int(pc_raw)
@@ -831,31 +1031,38 @@ def update_course_task(request, course_id: str, task_id: int):
     else:
         pc = None
 
-    # 是否删除旧文件：仅当传了新 url 且参数要求删除时有效
+    # 是否删除旧文件
     delete_old = request.GET.get("delete_old_file") in ("1", "true", "True")
-
-    # 记录旧 url（用于可能的文件删除）
     old_url = task.url
 
-    # 执行更新
+    # ----------------------------
+    # ④ 执行更新
+    # ----------------------------
     try:
         with transaction.atomic():
             if title is not None:
                 task.title = str(title).strip()
+            
             if dl is not None:
-                task.deadline = dl
+                print("\n====== DEBUG: update_course_task() ======")
+                print("raw deadline_raw     =", deadline_raw)
+                print("parsed deadline obj  =", dl, " tzinfo=", dl.tzinfo)
+                print("deadline.isoformat() =", dl.isoformat())
+                print("===========================================\n")
+                task.deadline = dl      # ← 已经是 datetime
             if brief is not None:
                 task.brief = str(brief).strip()
             if pc is not None:
                 task.percent_contribution = pc
             if new_url is not None:
-                task.url = new_url  # 用新附件覆盖
+                task.url = new_url
 
             task.save()
 
-        # 保存成功后，再按需删除旧文件
+        # ----------------------------
+        # ⑤ 按需删除旧文件（无需修改）
+        # ----------------------------
         if new_url is not None and delete_old and old_url and old_url != new_url:
-            # 仅允许删除 TASK_URL 命名空间内的文件
             if hasattr(settings, "TASK_URL") and hasattr(settings, "TASK_ROOT"):
                 if str(old_url).startswith(settings.TASK_URL):
                     rel_path = str(old_url)[len(settings.TASK_URL):].lstrip("/\\")
@@ -864,7 +1071,6 @@ def update_course_task(request, course_id: str, task_id: int):
                         if os.path.exists(file_path):
                             os.remove(file_path)
                     except Exception as e:
-                        # 不抛错以免影响业务；可在此记录日志
                         print("[update_course_task] remove old file error:", e)
 
         return ok(None)
