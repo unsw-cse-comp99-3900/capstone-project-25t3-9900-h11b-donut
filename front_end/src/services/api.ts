@@ -363,9 +363,9 @@ async adminGetCourseTasks(courseId: string): Promise<ApiTask[]> {
   return res.data ?? [];
 }
 
-async adminGetCourseStudentsProgress(courseId: string, taskId?: string): Promise<Array<{ student_id: string; name?: string; progress: number; overdue_count: number }>> {
+async adminGetCourseStudentsProgress(courseId: string, taskId?: string): Promise<Array<{ student_id: string; name?: string; progress: number; overdue_count: number;bonus: number;}>> {
   const q = taskId ? `?task_id=${encodeURIComponent(taskId)}` : '';
-  const res = await this.request<Array<{ student_id: string; name?: string; progress: number; overdue_count: number }>>(`/courses_admin/${encodeURIComponent(courseId)}/students/progress${q}`);
+  const res = await this.request<Array<{ student_id: string; name?: string; progress: number; overdue_count: number;bonus: number;  }>>(`/courses_admin/${encodeURIComponent(courseId)}/students/progress${q}`);
   return res.data ?? [];
 }
 

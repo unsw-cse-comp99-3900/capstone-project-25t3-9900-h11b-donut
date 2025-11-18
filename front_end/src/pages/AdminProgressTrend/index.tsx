@@ -458,11 +458,8 @@ export function AdminProgressTrend() {
               studentId: it.student_id,         // 真实数据 - 来自后端API
               completionPercent: it.progress,   // 真实数据 - 来自后端API
               overdueCount: it.overdue_count ?? 0,  // 真实数据 - 来自后端API
-              // ============================================
-              // ⚠️ MOCK DATA - 临时使用随机生成的bonus数据
-              // TODO: 等后端API返回bonus后,改为: bonus: it.bonus || "0.00"
-              // ============================================
-              bonus: (Math.random() * 2).toFixed(2), // Mock: 随机生成 0.00-2.00
+
+              bonus: it.bonus != null ? Number(it.bonus).toFixed(2) : "0.00", // Mock: 随机生成 0.00-2.00
             } as StudentProgress));
             const sorted = [...mapped].sort((a, b) => a.name.localeCompare(b.name));
             setStudents(sorted);

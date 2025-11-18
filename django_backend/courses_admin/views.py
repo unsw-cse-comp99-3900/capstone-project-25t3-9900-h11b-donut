@@ -1,11 +1,12 @@
 import logging
 import json
 import os
+import urllib.parse
 from urllib.parse import unquote
-from datetime import date
+from datetime import date,datetime,timedelta
 from django.conf import settings
 from django.http import JsonResponse
-from .models import CourseAdmin  # 假设你的表名是 courses_admin
+from .models import CourseAdmin  
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import OuterRef, Exists,Count
 from courses.models import CourseCatalog,StudentEnrollment,CourseTask,Material,Question,QuestionChoice,QuestionKeyword,QuestionKeywordMap
@@ -13,13 +14,10 @@ from task_progress.models import OverdueCourseStudent,OverdueStudentDailyLog
 from stu_accounts.models import StudentAccount
 from django.db import transaction,IntegrityError
 from django.shortcuts import get_object_or_404
-from django.utils.dateparse import parse_date
+from django.utils.dateparse import parse_date,parse_datetime
 from django.http import FileResponse, Http404
-import urllib.parse
-import os
-from datetime import date, timedelta
 from django.utils import timezone
-
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 def ok(data): 
@@ -278,7 +276,7 @@ def course_students_progress(request, course_id: str):
     try:
         # 可选单任务视角
         task_id_qs = request.GET.get("task_id")
-        task_filter = {"course_code": course_id}
+        task_filter: dict[str, object] = {"course_code": course_id}
         if task_id_qs:
             try:
                 task_filter["id"] = int(task_id_qs)
@@ -298,8 +296,13 @@ def course_students_progress(request, course_id: str):
         try:
             from stu_accounts.models import StudentAccount
             name_map = {
-                s["student_id"]: s.get("name") or ""
-                for s in StudentAccount.objects.filter(student_id__in=student_ids).values("student_id", "name")
+                s["student_id"]: {
+                    "name": s.get("name") or "",
+                    "bonus": s.get("bonus") or Decimal("0.00"),
+                }
+                for s in StudentAccount.objects.filter(
+                    student_id__in=student_ids
+                ).values("student_id", "name", "bonus")
             }
         except Exception:
             name_map = {}
@@ -335,18 +338,35 @@ def course_students_progress(request, course_id: str):
                     completed_weight += w * min(p, 100) / 100.0
                 # 逾期：截至今天过去的任务未满 100
                 dl = t.get("deadline")
-                if dl and dl < today:
-                    if p < 100:
+                if dl:
+                    # 如果是 datetime，就取 date()；如果本来就是 date，就直接用
+                    if isinstance(dl, datetime):
+                        dl_date = dl.date()
+                    else:
+                        dl_date = dl
+
+                    # 截止日期早于今天 & 进度未满 100 → 逾期
+                    if dl_date < today and p < 100:
                         overdue_cnt += 1
             progress_pct = 0
             if weight_sum > 0:
                 progress_pct = int(round(100.0 * completed_weight / weight_sum))
                 progress_pct = max(0, min(100, progress_pct))
+
+            info = name_map.get(sid, {})
+            name = info.get("name", "")
+            bonus_val = info.get("bonus", Decimal("0.00"))
+
+            try:
+                bonus_float = float(bonus_val)
+            except Exception:
+                bonus_float = 0.0   
             result.append({
                 "student_id": sid,
-                "name": name_map.get(sid, ""),
+                "name": name,
                 "progress": progress_pct,
                 "overdue_count": overdue_cnt,
+                "bonus": bonus_float,
             })
         # 按姓名排序，空名用学号
         result.sort(key=lambda x: (x["name"] or x["student_id"]))
@@ -689,14 +709,15 @@ def create_course_tasks(request, course_id: str):
         return err("title is required")
 
     deadline_raw = body.get("deadline")
+    
     if not deadline_raw:
-        return err("deadline is required (YYYY-MM-DD)")
-    deadline = parse_date(str(deadline_raw))
-    if deadline < date.today():
-        return err("deadline cannot be in the past")
+        return err("deadline is required (YYYY-MM-DD-MIN-SEC)")
+    deadline = parse_datetime(str(deadline_raw))
+    
     if not deadline:
-        return err("deadline must be YYYY-MM-DD")
-
+        return err("deadline must be YYYY-MM-DD-MIN-SEC")
+    if deadline < datetime.now():
+        return err("deadline cannot be in the past")
     brief = (body.get("brief") or "").strip()
     url = body.get("url") or None
 
