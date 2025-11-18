@@ -5,7 +5,6 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconMonitor from '../../assets/icons/bell-24.svg'
-import IconRisk from '../../assets/icons/help-24.svg'
 import adminHomepageImage from '../../assets/images/admin-homepage.png'
 import apiService from '../../services/api'
 

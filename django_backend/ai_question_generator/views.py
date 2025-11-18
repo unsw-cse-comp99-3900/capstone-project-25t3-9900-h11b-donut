@@ -9,6 +9,13 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from django.db import models
+from dotenv import load_dotenv
+
+# 加载环境变量
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 from .models import SampleQuestion, GeneratedQuestion, StudentAnswer
 from .generator import QuestionGenerator
@@ -184,37 +191,76 @@ def generate_questions(request):
                 'error': 'Missing required fields: course_code, topic'
             }, status=400)
         
-        # 从数据库获取示例题目
-        sample_questions = SampleQuestion.objects.filter(
-            course_code=course_code,
-            is_active=True
-        ).order_by('-created_at')[:10]  # 最多取10个示例
+        # 从 courses_admin 的 Question 表获取示例题目
+        from courses.models import Question, QuestionChoice, QuestionKeyword, QuestionKeywordMap
+        
+        # 首先尝试根据主题关键词查找相关题目
+        topic_lower = topic.lower()
+        
+        # 方法1：通过关键词映射查找
+        keyword_matches = QuestionKeyword.objects.filter(name__icontains=topic_lower)
+        if keyword_matches.exists():
+            question_ids = QuestionKeywordMap.objects.filter(
+                keyword__in=keyword_matches
+            ).values_list('question_id', flat=True)
+            sample_questions = Question.objects.filter(
+                id__in=question_ids,
+                course_code=course_code
+            ).order_by('-created_at')[:10]
+        else:
+            # 方法2：通过标题和描述模糊匹配
+            sample_questions = Question.objects.filter(
+                course_code=course_code
+            ).filter(
+                models.Q(title__icontains=topic) | 
+                models.Q(description__icontains=topic) |
+                models.Q(text__icontains=topic)
+            ).order_by('-created_at')[:10]
+        
+        # 如果没有找到相关题目，获取该课程的所有题目
+        if not sample_questions.exists():
+            sample_questions = Question.objects.filter(
+                course_code=course_code
+            ).order_by('-created_at')[:10]  # 最多取10个示例
         
         if not sample_questions.exists():
             return JsonResponse({
                 'success': False,
-                'error': f'No sample questions found for course {course_code}. Please upload sample questions first.'
+                'error': f'No questions found for course {course_code}. Please upload questions through the admin panel first.'
             }, status=404)
         
         # 转换为生成器需要的格式
         sample_data = []
-        for sq in sample_questions:
+        for q in sample_questions:
             q_data = {
-                'type': sq.question_type,
-                'question': sq.question_text,
-                'score': sq.score
+                'type': q.qtype,
+                'question': q.text,
+                'score': 10  # 默认分数
             }
-            if sq.question_type == 'mcq':
+            
+            if q.qtype == 'mcq':
+                # 获取选择题选项
+                choices = QuestionChoice.objects.filter(question=q).order_by('order')
+                options = []
+                correct_answer = ''
+                
+                for choice in choices:
+                    option_text = f"{choice.label or chr(65 + choice.order)}. {choice.content}"
+                    options.append(option_text)
+                    if choice.is_correct:
+                        correct_answer = choice.label or chr(65 + choice.order)
+                
                 q_data.update({
-                    'options': sq.options,
-                    'correct_answer': sq.correct_answer,
-                    'explanation': sq.explanation
+                    'options': options,
+                    'correct_answer': correct_answer,
+                    'explanation': q.description or f"Correct answer is {correct_answer}"
                 })
-            else:
+            else:  # short answer
                 q_data.update({
-                    'sample_answer': sq.sample_answer,
-                    'grading_points': sq.grading_points
+                    'sample_answer': q.short_answer or "Sample answer not available",
+                    'grading_points': q.keywords_json or ["Content accuracy", "Clarity", "Completeness"]
                 })
+            
             sample_data.append(q_data)
         
         # 初始化生成器并生成题目
@@ -427,6 +473,50 @@ def submit_answers(request):
             'success': False,
             'error': str(e),
             'traceback': traceback.format_exc()
+        }, status=500)
+
+
+@require_http_methods(["GET"])
+def get_session_questions(request, session_id):
+    """
+    获取特定练习会话的题目
+    
+    GET /api/ai/questions/session/{session_id}
+    
+    Response: {
+        "success": true,
+        "questions": [...]
+    }
+    """
+    try:
+        questions = GeneratedQuestion.objects.filter(session_id=session_id).order_by('id')
+        
+        if not questions.exists():
+            return JsonResponse({
+                'success': False,
+                'error': f'No questions found for session {session_id}'
+            }, status=404)
+        
+        question_list = []
+        for q in questions:
+            # 返回完整的题目信息,包含 question_type 和 difficulty
+            question_list.append({
+                'id': q.id,  # 数据库ID
+                'question_type': q.question_type,  # 题目类型
+                'question_data': q.question_data,  # 题目数据(包含question, options等)
+                'difficulty': q.difficulty  # 难度
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'questions': question_list,
+            'total_questions': len(question_list)
+        })
+    
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
         }, status=500)
 
 

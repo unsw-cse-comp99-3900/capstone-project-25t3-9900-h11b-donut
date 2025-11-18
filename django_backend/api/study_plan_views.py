@@ -36,8 +36,10 @@ class GenerateStudyPlanView(View):
                 }, status=400)
             
             # 5. 调用AI模块生成计划
-            logger.info(f"Generating study plan for user {request.user.id}")
-            result = generate_plan(preferences, tasks_meta)
+            # 获取用户时区，默认使用Australia/Sydney
+            user_timezone = data.get('timezone', 'Australia/Sydney')
+            logger.info(f"Generating study plan for user {request.user.id}, timezone: {user_timezone}")
+            result = generate_plan(preferences, tasks_meta, user_timezone=user_timezone)
             
             # 6. 可选：保存到数据库
             if result.get('ok'):
@@ -124,7 +126,7 @@ def test_ai_module(request):
     ]
     
     try:
-        result = generate_plan(test_preferences, test_tasks)
+        result = generate_plan(test_preferences, test_tasks, user_timezone='Australia/Sydney')
         return JsonResponse(result)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
@@ -144,7 +146,9 @@ class GenerateStudyPlanFromDBView(View):
             preferences = self._get_user_preferences_from_db(request.user)
             
             # 3. 调用AI模块
-            result = generate_plan(preferences, tasks_meta)
+            # 从请求中获取时区，默认Australia/Sydney
+            user_timezone = body.get('timezone', 'Australia/Sydney') 
+            result = generate_plan(preferences, tasks_meta, user_timezone=user_timezone)
             
             # 4. 保存结果
             if result.get('ok'):

@@ -18,6 +18,7 @@ import { AdminProgressTrend } from './pages/AdminProgressTrend'
 import { AdminRiskReport } from './pages/AdminRiskReport'
 import { AdminProfile } from './pages/AdminProfile'
 import { ChatWindow } from './pages/ChatWindow'
+import { PracticeSession } from './pages/PracticeSession'
 
 
 
@@ -86,6 +87,15 @@ function App() {
   if (hash.startsWith('#/course-detail/')) return <CourseDetail />
   if (hash.startsWith('#/student-plan')) return <StudentPlan />
   if (hash.startsWith('#/chat-window')) return <ChatWindow />
+  if (hash.startsWith('#/practice-session/')) {
+    // 解析URL参数: /practice-session/{course}/{topic}/{sessionId}
+    const parts = hash.replace('#/practice-session/', '').split('/')
+    if (parts.length >= 3) {
+      const [course, topic, sessionId] = parts
+      return <PracticeSession course={course} topic={topic} sessionId={sessionId} />
+    }
+    return <div>Invalid practice session URL</div>
+  }
   if (hash.startsWith('#/login-student')) return <LoginStudent />
   if (hash.startsWith('#/login-admin')) return <LoginAdmin />
   if (hash.startsWith('#/signup-student')) return <SignupStudent />

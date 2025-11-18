@@ -5,21 +5,20 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconMonitor from '../../assets/icons/bell-24.svg'
-import IconRisk from '../../assets/icons/help-24.svg'
 import apiService from '../../services/api'
 import adminHomepageImage from '../../assets/images/admin-homepage.png'
-import illustrationAdmin from '../../assets/images/illustration-admin.png'
-import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
-import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
-import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
+// import illustrationAdmin from '../../assets/images/illustration-admin.png'
+// import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
+// import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
+// import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 
 // 图片映射 - 循环使用4张图片
-const adminIllustrations = [
-  illustrationAdmin,
-  illustrationAdmin2, 
-  illustrationAdmin3,
-  illustrationAdmin4
-];
+// const adminIllustrations = [
+//   illustrationAdmin,
+//   illustrationAdmin2, 
+//   illustrationAdmin3,
+//   illustrationAdmin4
+// ];
 
 export function AdminProfile() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)

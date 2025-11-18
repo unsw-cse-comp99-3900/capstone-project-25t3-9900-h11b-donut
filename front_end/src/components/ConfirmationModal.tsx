@@ -1,11 +1,13 @@
 
 
+import React from 'react'
+
 interface ConfirmationModalProps {
   isOpen: boolean
   onClose: () => void
   onConfirm: () => void
   title: string
-  message: string
+  message: string | React.ReactNode
   confirmText?: string
   cancelText?: string
 }

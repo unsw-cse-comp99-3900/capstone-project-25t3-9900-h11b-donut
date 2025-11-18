@@ -5,7 +5,6 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconMonitor from '../../assets/icons/bell-24.svg'
-import IconRisk from '../../assets/icons/help-24.svg'
 import adminHomepageImage from '../../assets/images/admin-homepage.png'
 import illustrationAdmin from '../../assets/images/illustration-admin.png'
 import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
@@ -1479,7 +1478,7 @@ const handleBatchCreateQuestions = async () => {
 };
 
 // 2️⃣ 做乐观更新（更新前端显示和 localStorage）
-const prevQuestions = questions; // 用于失败回滚
+// const prevQuestions = questions; // 用于失败回滚
 const optimistic = questions.map(q =>
   String(q.id) === questionId ? updatedOne : q
 );

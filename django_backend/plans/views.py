@@ -228,10 +228,27 @@ def generate_ai_plan(request):
             "avoid_days": preferences.get("avoidDays", [])
         }
         print(f"🤖 [GENERATE_AI_PLAN] AI模块偏好参数: {ai_preferences}")
-        ai_result = generate_plan(ai_preferences, tasks_meta)
+        
+        # 获取用户时区，默认使用Australia/Sydney
+        tz = request.POST.get('timezone', request.GET.get('timezone', 'Australia/Sydney'))
+        print(f"🌍 [GENERATE_AI_PLAN] 使用时区: {tz}")
+        
+        ai_result = generate_plan(ai_preferences, tasks_meta, user_timezone=tz)
         print("🤖 AI generate!：")
         from pprint import pprint
         pprint(ai_result)
+        
+        # 将AI生成的详细内容添加到返回结果中，供前端保存时使用
+        if "aiSummary" in ai_result:
+            ai_result["aiDetails"] = {
+                "aiSummary": ai_result["aiSummary"],
+                "generationReason": f"AI-generated learning plan based on {len(tasks_meta)} course assignment PDFs and user preferences",
+                "generationTime": timezone.now().isoformat(),
+                "preferences": ai_preferences,
+                "tasksAnalysis": tasks_meta
+            }
+            print("🤖 [GENERATE_AI_PLAN] AI详细内容已添加到返回数据")
+        
         # 直接返回结果
         return JsonResponse({"success": True, "message": "OK", "data": ai_result})
 
@@ -255,6 +272,11 @@ def save_weekly_plans(request: HttpRequest):
     weekly_plans = body.get("weeklyPlans")
     tz = body.get("tz") or "Australia/Sydney"
     source = body.get("source") or "ai"
+    
+    # 获取AI生成的详细内容
+    ai_details = body.get("aiDetails")  # 前端传递的AI详细内容
+    generation_reason = body.get("generationReason", "")
+    generation_time = body.get("generationTime")
 
     if not student_id or not isinstance(weekly_plans, dict):
         return JsonResponse(
@@ -281,6 +303,17 @@ def save_weekly_plans(request: HttpRequest):
 
         with transaction.atomic():
             # 1) upsert 头表
+            # 准备meta数据，包含AI生成的详细内容
+            meta_data = None
+            if ai_details and source == "ai":
+                meta_data = {
+                    "aiDetails": ai_details,
+                    "generationReason": generation_reason,
+                    "generationTime": generation_time,
+                    "hasAIGeneration": True
+                }
+                print(f"🤖 [SAVE_AI_DETAILS] 保存AI详细内容到meta字段")
+            
             plan, created = StudyPlan.objects.update_or_create(
                 student_id=student_id,
                 week_start_date=week_monday,
@@ -288,6 +321,7 @@ def save_weekly_plans(request: HttpRequest):
                     "week_offset": offset,
                     "tz": tz,
                     "source": source,
+                    "meta": meta_data,
                 },
             )
 
@@ -393,5 +427,107 @@ def get_all_weekly_plans(request):
             })
 
     return JsonResponse({"success": True, "data": result})
+
+
+@csrf_exempt
+def get_ai_plan_details(request: HttpRequest):
+    """
+    获取AI生成计划的详细内容，包括每个part的说明和生成原因
+    前端用于显示给用户的详细解释
+    """
+    if request.method != "GET":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    student_id = request.GET.get("student_id")
+    week_offset = request.GET.get("week_offset")
+    
+    if not student_id:
+        return JsonResponse({"error": "student_id is required"}, status=400)
+    
+    try:
+        # 获取用户的计划
+        query = StudyPlan.objects.filter(student_id=student_id)
+        if week_offset:
+            query = query.filter(week_offset=int(week_offset))
+        
+        plans = query.order_by("-created_at")
+        
+        result = []
+        for plan in plans:
+            plan_data = {
+                "id": plan.id,
+                "week_start_date": plan.week_start_date.isoformat(),
+                "week_offset": plan.week_offset,
+                "source": plan.source,
+                "created_at": plan.created_at.isoformat(),
+                "has_ai_details": False,
+                "ai_details": None,
+                "generation_reason": "",
+                "items_with_details": []
+            }
+            
+            # 检查是否有AI详细内容
+            if plan.meta:
+                try:
+                    meta = plan.meta if isinstance(plan.meta, dict) else json.loads(plan.meta)
+                    if meta.get("hasAIGeneration"):
+                        plan_data["has_ai_details"] = True
+                        plan_data["ai_details"] = meta.get("aiDetails", {})
+                        plan_data["generation_reason"] = meta.get("generationReason", "")
+                        plan_data["generation_time"] = meta.get("generationTime", "")
+                        
+                        # 为每个任务项添加AI详细说明
+                        items = StudyPlanItem.objects.filter(plan=plan).order_by("scheduled_date", "part_index")
+                        ai_summary = plan_data["ai_details"].get("aiSummary", {})
+                        ai_tasks = ai_summary.get("tasks", [])
+                        
+                        # 建立任务ID到AI详细信息的映射
+                        ai_task_map = {}
+                        for ai_task in ai_tasks:
+                            task_id_match = ai_task.get("taskId", "")
+                            # 尝试匹配 external_item_id 的模式
+                            for item in items:
+                                if task_id_match in item.external_item_id:
+                                    ai_task_map[item.external_item_id] = ai_task
+                                    break
+                        
+                        for item in items:
+                            item_data = {
+                                "id": item.external_item_id,
+                                "course_code": item.course_code,
+                                "part_title": item.part_title,
+                                "scheduled_date": item.scheduled_date.isoformat(),
+                                "minutes": item.minutes,
+                                "part_index": item.part_index,
+                                "parts_count": item.parts_count,
+                                "ai_notes": "",
+                                "ai_explanation": ""
+                            }
+                            
+                            # 添加AI详细说明
+                            ai_task_info = ai_task_map.get(item.external_item_id)
+                            if ai_task_info and "parts" in ai_task_info:
+                                parts = ai_task_info["parts"]
+                                for part in parts:
+                                    if part.get("partId") == f"p{item.part_index + 1}" or \
+                                       part.get("order") == item.part_index + 1:
+                                        item_data["ai_notes"] = part.get("notes", "")
+                                        break
+                            
+                            if ai_task_info:
+                                item_data["ai_explanation"] = ai_task_info.get("explanation", "")
+                            
+                            plan_data["items_with_details"].append(item_data)
+                
+                except Exception as e:
+                    print(f"[AI_DETAILS_ERROR] 解析AI详细内容失败: {e}")
+            
+            result.append(plan_data)
+        
+        return JsonResponse({"success": True, "data": result})
+        
+    except Exception as e:
+        print("[GET_AI_PLAN_DETAILS_ERROR]", str(e))
+        return JsonResponse({"error": f"Failed to get AI plan details: {str(e)}"}, status=500)
 
 

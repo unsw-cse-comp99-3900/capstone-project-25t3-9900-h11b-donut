@@ -5,8 +5,6 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconMonitor from '../../assets/icons/bell-24.svg'
-import IconRisk from '../../assets/icons/help-24.svg'
-import IconSearch from '../../assets/icons/search-24.svg'
 import adminHomepageImage from '../../assets/images/admin-homepage.png'
 import illustrationAdmin from '../../assets/images/illustration-admin.png'
 import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
@@ -26,7 +24,7 @@ const adminIllustrations = [
 export function AdminCourses() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [courses, setCourses] = useState(courseAdmin.all)
-  const [creating, setCreating] = useState(false);
+  const [creating] = useState(false);
   const [createCourseModalOpen, setCreateCourseModalOpen] = useState(false)
   const [courseId, setCourseId] = useState('')
   const [courseName, setCourseName] = useState('')

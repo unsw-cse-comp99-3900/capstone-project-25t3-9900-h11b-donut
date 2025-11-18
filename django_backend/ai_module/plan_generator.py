@@ -247,7 +247,7 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
         parts=parts
     ), ai_info
 
-def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]]) -> Dict[str, Any]:
+def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]], user_timezone: str = 'UTC') -> Dict[str, Any]:
     # 参数已经从 views.py 正确传入，不需要重新映射
     
     # 预检：必须存在带合法 dueDate 的任务，否则不生成计划
@@ -275,7 +275,7 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]])
         avoid_days=preferences.get("avoid_days") or []
     )
 
-    result = schedule(task_objs, prefs)
+    result = schedule(task_objs, prefs, user_timezone=user_timezone)
     
     # 合并 AI 解释信息
     result["aiSummary"] = {"tasks": ai_summaries}

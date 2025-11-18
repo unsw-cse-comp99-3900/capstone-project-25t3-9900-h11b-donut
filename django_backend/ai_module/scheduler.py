@@ -36,9 +36,14 @@ def compute_part_percentages(task: TaskWithParts) -> List[Dict[str, Any]]:
 def _allowed_weekdays_for_week(weekly_study_days: int, avoid_days: set[int],start_weekday: int) -> List[int]:
     """
     返回一周中允许学习的 weekday 列表（0..6），
-    规则：先去掉 avoid_days，再从小到大取前 N 个（N=weekly_study_days）。
+    规则：先去掉 avoid_days，如果今天是要避开的天数，则从明天开始。
     """
     allowed = [i for i in range(7) if i not in avoid_days]
+    
+    # 如果今天是要避开的天数，从明天开始
+    if start_weekday in avoid_days:
+        start_weekday = (start_weekday + 1) % 7
+    
     order = [(start_weekday + k) % 7 for k in range(7)]  # 一周滚动顺序
     picked = [d for d in order if d in allowed][:min(weekly_study_days, len(allowed))]
     return picked
@@ -47,7 +52,7 @@ def _allowed_weekdays_for_week(weekly_study_days: int, avoid_days: set[int],star
     #     return base
     # return base[:max(0, weekly_study_days)]
 
-def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[date] = None) -> Dict[str, Any]:
+def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[date] = None, user_timezone: str = 'UTC') -> Dict[str, Any]:
     """
     把按顺序的 parts 放入实际日期 blocks。
     规则：
@@ -75,7 +80,17 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
             print(f"  [{i}] {v!r} ({type(v)})")
 
 
-    today = today or date.today()
+    # 使用用户时区的日期，而不是UTC日期
+    if today is None:
+        import pytz
+        from django.utils import timezone as django_timezone
+        try:
+            user_tz = pytz.timezone(user_timezone)
+            today_local = django_timezone.now().astimezone(user_tz).date()
+        except Exception:
+            # 如果时区无效，回退到UTC日期
+            today_local = date.today()
+        today = today_local
 
     if not tasks:
         return {"ok": False, "message": "No course tasks found — cannot generate a plan.", "weekStart": week_monday(today).isoformat()}
@@ -132,7 +147,11 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
         #     d += timedelta(days=1)
         # return days
         days: List[Dict[str, Any]] = []
+        # 如果开始日期就是要避开的天数，则从下一天开始
         d = start
+        if d.weekday() in avoid_set:
+            d = d + timedelta(days=1)
+        
         while d <= end:
             week_start = week_monday(d)
             is_first_week = (week_start == week_monday(start))

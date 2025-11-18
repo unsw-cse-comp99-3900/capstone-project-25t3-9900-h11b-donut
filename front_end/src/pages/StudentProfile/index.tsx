@@ -34,7 +34,7 @@ export function StudentProfile() {
           style={{ cursor: 'pointer' }}
         >
           <div className="avatar"><img
-    src={user?.avatarUrl || AvatarIcon}
+    src={(user as any)?.avatarUrl || AvatarIcon}
     width={48}
     height={48}
     alt="avatar"
@@ -42,8 +42,8 @@ export function StudentProfile() {
     onError={(e) => { (e.currentTarget as HTMLImageElement).src = AvatarIcon; }}
   /></div>
           <div className="info">
-            <div className="name">{user.name}</div>
-            <div className="studentId">{user.studentId}</div>
+            <div className="name">{(user as any).name}</div>
+            <div className="studentId">{(user as any).studentId}</div>
           </div>
           <button className="chevron" aria-label="Profile">
             <img src={ArrowRight} width={16} height={16} alt="" />
@@ -87,7 +87,7 @@ export function StudentProfile() {
             <div className="ring"></div>
             <div className="avatar-circle">
               <img
-    src={user?.avatarUrl || AvatarIcon}
+    src={(user as any)?.avatarUrl || AvatarIcon}
     width={100}
     height={100}
     alt="avatar"
@@ -99,8 +99,8 @@ export function StudentProfile() {
           </div>
           <button className="sp-edit-btn" type="button" aria-label="Edit profile">Edit</button>
 
-          <div className="sp-name">{user.name}</div>
-          <div className="sp-studentId">{user.studentId}</div>
+          <div className="sp-name">{(user as any).name}</div>
+          <div className="sp-studentId">{(user as any).studentId}</div>
           <div className="sp-bonus">My bonus : 3.65</div>
 
           <section className="sp-settings">

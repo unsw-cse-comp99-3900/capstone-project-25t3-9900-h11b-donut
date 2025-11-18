@@ -18,4 +18,7 @@ urlpatterns = [
     
     # 健康检查API
     path('health/', views.HealthCheckView.as_view(), name='health'),
+    
+    # 练习生成API
+    path('generate-practice/', views.GeneratePracticeView.as_view(), name='generate_practice'),
 ]

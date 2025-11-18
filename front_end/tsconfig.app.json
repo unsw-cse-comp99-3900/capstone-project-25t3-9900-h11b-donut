@@ -21,7 +21,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+
+    /* Styled JSX support */
+    "types": ["styled-jsx"]
   },
   "include": ["src"]
 }

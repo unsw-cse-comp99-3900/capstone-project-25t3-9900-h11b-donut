@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend Parsing Test</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .cw-message { margin: 15px 0; display: flex; gap: 10px; }
+        .cw-message-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .cw-message-content { flex: 1; }
+        .cw-message-label { font-weight: bold; margin-bottom: 5px; }
+        .cw-practice-button {
+            margin-top: 12px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 1px solid #e7e9ef;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            color: #172239;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .cw-practice-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+    </style>
+</head>
+<body>
+    <h1>React ChatMessage Component Test</h1>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // 模拟 ChatMessageComponent
+        function ChatMessageComponent({ content, type, timestamp }) {
+            // 解析消息内容，提取按钮
+            const parseContent = (text) => {
+                const buttonRegex = /<button[^>]*class="cw-cta-btn"[^>]*onclick="window\.startPracticeSession\(([^)]+)\)"[^>]*>(.*?)<\/button>/gi;
+                
+                const parts = [];
+                let lastIndex = 0;
+                let match;
+
+                while ((match = buttonRegex.exec(text)) !== null) {
+                    // 添加按钮前的文本
+                    if (match.index > lastIndex) {
+                        parts.push({
+                            type: 'text',
+                            content: text.substring(lastIndex, match.index) || ''
+                        });
+                    }
+
+                    // 解析参数
+                    let params = match[1];
+                    let course = '';
+                    let topic = '';
+                    let sessionId = '';
+                    
+                    params = params.replace(/['"]/g, '').trim();
+                    const paramList = params.split(',').map(p => p.trim());
+                    
+                    if (paramList.length >= 3) {
+                        [course, topic, sessionId] = paramList;
+                    } else if (paramList.length === 2) {
+                        [course, topic] = paramList;
+                    } else if (paramList.length === 1) {
+                        topic = paramList[0];
+                    }
+
+                    // 添加按钮信息
+                    parts.push({
+                        type: 'button',
+                        course,
+                        topic,
+                        sessionId,
+                        text: match[2].replace(/→/g, '').trim()
+                    });
+
+                    lastIndex = buttonRegex.lastIndex;
+                }
+
+                // 添加剩余文本
+                if (lastIndex < text.length) {
+                    parts.push({
+                        type: 'text',
+                        content: text.substring(lastIndex)
+                    });
+                }
+
+                return parts.length > 0 ? parts : [{ type: 'text', content: text }];
+            };
+
+            const formatText = (text) => {
+                return text.split('\n').map((line, index) => (
+                    <div key={index} dangerouslySetInnerHTML={{ __html: line }} />
+                ));
+            };
+
+            const parsedParts = parseContent(content);
+
+            return (
+                <div className={`cw-message ${type}`}>
+                    <div className="cw-message-avatar">
+                        {type === 'ai' ? '🤖' : '👤'}
+                    </div>
+                    <div className="cw-message-content">
+                        <div className="cw-message-label">{type === 'ai' ? 'COACH' : 'ME'}</div>
+                        <div className="cw-message-text">
+                            {parsedParts.map((part, index) => {
+                                if (part.type === 'text') {
+                                    return <div key={index}>{formatText(part.content || '')}</div>;
+                                } else if (part.type === 'button') {
+                                    return (
+                                        <button
+                                            key={index}
+                                            className="cw-practice-button"
+                                            onClick={() => {
+                                                alert(`Button clicked!\nCourse: ${part.course}\nTopic: ${part.topic}\nSession: ${part.sessionId}`);
+                                            }}
+                                        >
+                                            {part.text}
+                                            <span style={{marginLeft: '8px'}}>→</span>
+                                        </button>
+                                    );
+                                }
+                                return null;
+                            })}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // 测试数据
+        const testMessage = {
+            id: 1,
+            type: 'ai',
+            content: `
+                <div>
+                    <div style="font-weight: 700; margin-bottom: 8px;">
+                        I've generated 5 practice questions for COMP9417 – concepts.
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        Ready to test your knowledge?
+                    </div>
+                    <button
+                        class="cw-cta-btn"
+                        onclick="window.startPracticeSession('COMP9417', 'concepts', 'test-session-123')"
+                        aria-label="Start practice for COMP9417 - concepts"
+                    >
+                        Start Practice Session
+                        <span style="margin-left: 8px;">→</span>
+                    </button>
+                </div>
+            `,
+            timestamp: new Date().toISOString()
+        };
+
+        // 渲染测试
+        function App() {
+            return (
+                <div>
+                    <h2>AI Message with Button</h2>
+                    <ChatMessageComponent 
+                        content={testMessage.content}
+                        type={testMessage.type}
+                        timestamp={testMessage.timestamp}
+                    />
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

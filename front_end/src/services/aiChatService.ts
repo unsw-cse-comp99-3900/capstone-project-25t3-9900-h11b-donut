@@ -1,11 +1,23 @@
 // AI对话服务 - 处理与后端AI对话API的交互
 export interface ChatMessage {
   id: number;
-  type: 'user' | 'ai';
+  type: 'user' | 'ai' | 'system';
   content: string;
   timestamp: string;
   metadata?: any;
 }
+
+export interface PracticeReadyMessage extends ChatMessage {
+  messageType: 'practice_ready';
+  practiceInfo: {
+    course: string;
+    topic: string;
+    sessionId: string;
+    totalQuestions: number;
+  };
+}
+
+export type ChatMessageWithPractice = ChatMessage | PracticeReadyMessage;
 
 export interface ChatResponse {
   success: boolean;
@@ -18,6 +30,8 @@ export interface ChatHistoryResponse {
   success: boolean;
   messages: ChatMessage[];
   error?: string;
+  messageCount?: number;
+  userId?: string;
 }
 
 class AIChatService {
@@ -90,7 +104,8 @@ class AIChatService {
       // 获取当前用户ID - 不使用默认值，必须有真实用户ID
       const currentUserId = localStorage.getItem('current_user_id');
       if (!currentUserId) {
-        throw new Error('用户未登录，无法发送消息');
+        console.error('❌ 用户未登录');
+        throw new Error('用户未登录，无法获取历史消息');
       }
       
       // 构建URL参数
@@ -106,7 +121,8 @@ class AIChatService {
       
       const url = `${this.baseUrl}/chat/?${params.toString()}`;
       
-      console.log('📡 获取历史消息请求:', { currentUserId, url, limit, days });
+      console.log('📡 获取历史消息请求:', { currentUserId, url, limit, days, headers });
+      console.log('🔍 完整URL:', url);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -114,20 +130,44 @@ class AIChatService {
         credentials: 'include',
       });
 
+      console.log('📡 响应状态:', { 
+        ok: response.ok, 
+        status: response.status, 
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
       if (!response.ok) {
-        console.error('❌ AI请求失败:', { status: response.status, statusText: response.statusText });
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ AI请求失败:', { 
+          status: response.status, 
+          statusText: response.statusText,
+          errorBody: errorText
+        });
+        throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
       }
 
       const data = await response.json();
-      console.log('✅ AI响应成功:', data);
+      console.log('✅ 历史消息响应:', { 
+        success: data.success, 
+        messageCount: data.messages?.length || 0,
+        userId: currentUserId
+      });
       return data;
     } catch (error) {
-      console.error('Error fetching chat history:', error);
+      console.error('❌ Error fetching chat history:', error);
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        console.error('🔥 网络连接失败 - 可能原因:');
+        console.error('  1. 后端服务未启动');
+        console.error('  2. CORS 配置问题');
+        console.error('  3. 代理配置问题');
+      }
       return {
         success: false,
         messages: [],
         error: error instanceof Error ? error.message : 'Unknown error occurred',
+        messageCount: 0,
+        userId: localStorage.getItem('current_user_id') || ''
       };
     }
   }

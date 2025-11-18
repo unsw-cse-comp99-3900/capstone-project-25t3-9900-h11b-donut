@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .cw-practice-button {
+            margin-top: 12px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 1px solid #e7e9ef;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            color: #172239;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .cw-practice-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+    </style>
+</head>
+<body>
+    <h1>Button Rendering Test</h1>
+    
+    <div class="test-section">
+        <h3>1. Raw HTML (should show as button)</h3>
+        <button
+            class="cw-cta-btn"
+            onclick="alert('Button clicked! COMP9417, concepts, test-session-id')"
+            aria-label="Start practice for COMP9417 - concepts"
+        >
+            Start Practice Session
+            <span style="margin-left: 8px;">→</span>
+        </button>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Styled Button (like React component)</h3>
+        <button
+            class="cw-practice-button"
+            onclick="alert('Styled button clicked!')"
+        >
+            Start Practice Session
+            <span style="margin-left: 8px;">→</span>
+        </button>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Global Function</h3>
+        <button onclick="testGlobalFunction()">Test Global Function</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // 模拟全局函数
+        window.startPracticeSession = function(course, topic, sessionId) {
+            const result = document.getElementById('result');
+            result.innerHTML = `
+                <p><strong>Global function called!</strong></p>
+                <p>Course: ${course}</p>
+                <p>Topic: ${topic}</p>
+                <p>Session ID: ${sessionId}</p>
+                <p>URL: #/practice-session/${encodeURIComponent(course)}/${encodeURIComponent(topic)}/${encodeURIComponent(sessionId)}</p>
+            `;
+        };
+
+        function testGlobalFunction() {
+            window.startPracticeSession('COMP9417', 'concepts', 'test-session-123');
+        }
+    </script>
+</body>
+</html>

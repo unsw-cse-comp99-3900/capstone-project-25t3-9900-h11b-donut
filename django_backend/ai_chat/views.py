@@ -41,8 +41,8 @@ class ChatView(View):
                     # 暂时使用一个简单的逻辑：从localStorage中获取用户ID
                     # 在实际应用中，这里应该验证token并获取对应的用户
                     
-                    # 从请求参数获取用户ID
-                    user_id = request.GET.get('user_id')
+                    # 从请求参数或请求体获取用户ID
+                    user_id = request.GET.get('user_id') or data.get('user_id')
                     if not user_id:
                         return JsonResponse({
                             'success': False,
@@ -57,7 +57,7 @@ class ChatView(View):
                         defaults={
                             'name': f'User {user_id}',
                             'email': f'{user_id}@example.com',
-                            'password': 'default_password'
+                            'password_hash': 'default_password_hash'
                         }
                     )
                     if created:
@@ -107,8 +107,8 @@ class ChatView(View):
                     # 暂时使用一个简单的逻辑：从localStorage中获取用户ID
                     # 在实际应用中，这里应该验证token并获取对应的用户
                     
-                    # 从请求参数获取用户ID
-                    user_id = request.GET.get('user_id')
+                    # 从请求参数或请求体获取用户ID
+                    user_id = request.GET.get('user_id') or data.get('user_id')
                     if not user_id:
                         return JsonResponse({
                             'success': False,
@@ -123,7 +123,7 @@ class ChatView(View):
                         defaults={
                             'name': f'User {user_id}',
                             'email': f'{user_id}@example.com',
-                            'password': 'default_password'
+                            'password_hash': 'default_password_hash'
                         }
                     )
                     if created:
@@ -353,3 +353,187 @@ class HealthCheckView(View):
             'status': 'healthy',
             'service': 'AI Chat Service'
         })
+
+@method_decorator(csrf_exempt, name='dispatch')
+class GeneratePracticeView(View):
+    """练习生成API"""
+    
+    def __init__(self):
+        super().__init__()
+        self.chat_service = AIChatService()
+    
+    def post(self, request):
+        """生成练习题目"""
+        try:
+            data = json.loads(request.body)
+            course = data.get('course', '').strip()
+            topic = data.get('topic', '').strip()
+            user_id = data.get('user_id', '').strip()
+            
+            if not course or not topic or not user_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Course, topic, and user_id are required'
+                }, status=400)
+            
+            # 获取用户账户
+            from stu_accounts.models import StudentAccount
+            try:
+                account = StudentAccount.objects.get(student_id=user_id)
+            except StudentAccount.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'User not found'
+                }, status=404)
+            
+            # 🔥 直接调用生成器逻辑,避免HTTP调用超时
+            from ai_question_generator.generator import QuestionGenerator
+            from courses.models import Question, QuestionChoice, QuestionKeyword, QuestionKeywordMap
+            import uuid
+            
+            print(f"[DEBUG] 开始生成练习题: course={course}, topic={topic}")
+            
+            # 获取示例题目
+            topic_lower = topic.lower()
+            
+            # 方法1: 通过关键词查找
+            keyword_maps = QuestionKeywordMap.objects.filter(
+                keyword__name__icontains=topic_lower
+            ).select_related('question')
+            
+            sample_questions_objs = [km.question for km in keyword_maps if km.question.course_code == course]
+            
+            # 方法2: 如果没找到,尝试直接匹配课程
+            if not sample_questions_objs:
+                sample_questions_objs = list(Question.objects.filter(
+                    course_code=course,
+                    is_active=True
+                )[:5])
+            
+            print(f"[DEBUG] 找到 {len(sample_questions_objs)} 个示例题目")
+            
+            # 转换为字典格式
+            sample_questions = []
+            for q in sample_questions_objs[:5]:
+                q_dict = {
+                    'type': q.qtype,
+                    'question': q.text,
+                    'topic': topic,
+                    'difficulty': 'medium',  # Question模型没有difficulty字段
+                    'score': 10  # Question模型没有score字段
+                }
+                
+                if q.qtype == 'mcq':
+                    choices = QuestionChoice.objects.filter(question=q)
+                    q_dict['options'] = [c.content for c in choices]
+                    correct_choice = choices.filter(is_correct=True).first()
+                    if correct_choice:
+                        q_dict['correct_answer'] = correct_choice.label or 'A'
+                    q_dict['explanation'] = q.description or ''
+                else:
+                    q_dict['sample_answer'] = q.short_answer or ''
+                    # 从keywords_json字段获取关键词
+                    if q.keywords_json:
+                        q_dict['grading_points'] = q.keywords_json if isinstance(q.keywords_json, list) else []
+                    else:
+                        q_dict['grading_points'] = []
+                
+                sample_questions.append(q_dict)
+            
+            # 调用AI生成器
+            try:
+                generator = QuestionGenerator()
+                generated_questions = generator.generate_questions(
+                    topic=topic,
+                    difficulty='medium',
+                    sample_questions=sample_questions,
+                    count=5,
+                    mcq_count=3,
+                    short_answer_count=2
+                )
+                
+                print(f"[DEBUG] 生成了 {len(generated_questions)} 个题目")
+                
+                # 保存到数据库
+                from ai_question_generator.models import GeneratedQuestion
+                session_id = str(uuid.uuid4())
+                
+                for idx, q in enumerate(generated_questions, 1):
+                    # 构建question_data JSON
+                    question_data = {
+                        'question': q.get('question'),
+                        'score': q.get('score', 10)
+                    }
+                    
+                    if q.get('type') == 'mcq':
+                        question_data.update({
+                            'options': q.get('options'),
+                            'correct_answer': q.get('correct_answer'),
+                            'explanation': q.get('explanation')
+                        })
+                    else:
+                        question_data.update({
+                            'sample_answer': q.get('sample_answer'),
+                            'grading_points': q.get('grading_points')
+                        })
+                    
+                    GeneratedQuestion.objects.create(
+                        session_id=session_id,
+                        course_code=course,
+                        topic=topic,
+                        difficulty=q.get('difficulty', 'medium'),
+                        question_type=q.get('type'),
+                        question_data=question_data
+                    )
+                
+                # 🔥 保存练习就绪消息到聊天历史
+                conversation = self.chat_service.get_or_create_conversation(account)
+                practice_message_content = f"I've generated {len(generated_questions)} practice questions for {course} – {topic}. Ready to practice?"
+                
+                from .models import ChatMessage
+                ChatMessage.objects.create(
+                    conversation=conversation,
+                    message_type='ai',
+                    content=practice_message_content,
+                    metadata={
+                        'messageType': 'practice_ready',
+                        'practiceInfo': {
+                            'course': course,
+                            'topic': topic,
+                            'sessionId': session_id,
+                            'totalQuestions': len(generated_questions)
+                        }
+                    }
+                )
+                print(f"[DEBUG] 已保存练习就绪消息到聊天历史")
+                
+                return JsonResponse({
+                    'success': True,
+                    'session_id': session_id,
+                    'total_questions': len(generated_questions),
+                    'course': course,
+                    'topic': topic
+                })
+                
+            except Exception as gen_error:
+                print(f"[DEBUG] 生成题目失败: {gen_error}")
+                import traceback
+                traceback.print_exc()
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Failed to generate questions: {str(gen_error)}'
+                }, status=500)
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data'
+            }, status=400)
+        except Exception as e:
+            print(f"[DEBUG] GeneratePracticeView error: {e}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({
+                'success': False,
+                'error': 'Internal server error'
+            }, status=500)

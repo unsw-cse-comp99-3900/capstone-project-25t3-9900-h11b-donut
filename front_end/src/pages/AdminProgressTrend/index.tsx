@@ -9,7 +9,6 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconMonitor from '../../assets/icons/bell-24.svg'
-import IconRisk from '../../assets/icons/help-24.svg'
 import adminHomepageImage from '../../assets/images/admin-homepage.png'
 import apiService from '../../services/api'
 
@@ -98,7 +97,7 @@ export function AdminProgressTrend() {
     });
   });
 
-  const [user, setUser] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(() => {
+  const [user] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(() => {
     if (!uid) return null;
     try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
     catch { return null; }
@@ -287,13 +286,13 @@ export function AdminProgressTrend() {
   };
 
   // 🚨 MOCK DATA FUNCTION - 生成基于所选Course+Task的mock parts数据
-  const generateMockParts = (courseId?: string, taskId?: string): Part[] => {
+  const generateMockParts = (_courseId?: string, _taskId?: string): Part[] => {
     const parts: Part[] = [];
     const today = new Date();
     const roster = generateMockRoster();
     
     // 为每个学生生成与所选Task相关的parts
-    roster.forEach((student, index) => {
+    roster.forEach((student, _index) => {
       const studentId = student.studentId;
       
       // 基于学生ID生成固定数量的parts（确保数据一致性）
@@ -516,12 +515,12 @@ export function AdminProgressTrend() {
           <YAxis yAxisId="right" orientation="right" domain={[0, 100]}
                  tickFormatter={(v) => `${v}%`} width={44} />
           <Tooltip
-            formatter={(value: any, name: any, ctx: any) => {
+            formatter={(value: any, name: any, _ctx: any) => {
               if (name === 'ratePct') return [`${value === null ? '—' : `${value}%`}`, 'On-time rate'];
               if (name === 'scheduled') return [value, 'Scheduled parts'];
               return [value, name];
             }}
-            labelFormatter={(_, payload: any[]) => {
+            labelFormatter={(_, payload: readonly any[]) => {
               const p = payload?.[0]?.payload as TrendPoint;
               return `${p.label}  •  ${p.scheduled ? `${p.onTime}/${p.scheduled}` : '—'}`;
             }}

@@ -57,6 +57,25 @@ class UserStudyPlan(models.Model):
         cutoff_date = timezone.now() - timedelta(days=7)
         cls.objects.filter(created_at__lt=cutoff_date).delete()
 
+class PracticeSetupState(models.Model):
+    """练习设置状态模型 - 存储用户的练习流程状态"""
+    student_id = models.CharField(max_length=20, unique=True)  # 学生ID
+    step = models.CharField(max_length=20, choices=[
+        ('course', 'Course Selection'),
+        ('topic', 'Topic Selection'), 
+        ('generating', 'Generating Practice'),
+    ])
+    course = models.CharField(max_length=10, blank=True, null=True)  # 选择的课程
+    topic = models.CharField(max_length=100, blank=True, null=True)  # 选择的主题
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"PracticeSetup {self.student_id} - {self.step}"
+
 # 自动清理旧数据的管理器
 class ChatManager:
     @staticmethod

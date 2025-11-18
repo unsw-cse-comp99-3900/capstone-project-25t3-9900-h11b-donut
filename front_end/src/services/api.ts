@@ -85,7 +85,31 @@ class ApiService {
     ? localStorage.getItem('auth_token')
     : null);;
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  public async get<T>(endpoint: string, params?: Record<string, string | number>): Promise<ApiResponse<T>> {
+    // 构建查询参数
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        queryParams.append(key, value.toString());
+      });
+    }
+    
+    const url = queryParams.toString() 
+      ? `${endpoint}?${queryParams.toString()}`
+      : endpoint;
+      
+    return this.request<T>(url, { method: 'GET' });
+  }
+
+  public async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: data ? JSON.stringify(data) : undefined
+    });
+  }
+
+  protected async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const url = `${API_BASE}${endpoint}`;
 
   // 先把调用方传入的 headers 标准化
@@ -295,9 +319,8 @@ async logout(): Promise<void> {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('login_time');
   //记录并清理当前用户 ID（关键）
-  const uid = localStorage.getItem('current_user_id');
   localStorage.removeItem('current_user_id');
-  // 清空前端“内存”状态（避免下个账号看到旧内存）
+  // 清空前端"内存"状态（避免下个账号看到旧内存）
  
 }
 
@@ -307,7 +330,6 @@ async logout_adm(): Promise<void> {
   this.token = null;
   localStorage.removeItem('auth_token');
   localStorage.removeItem('login_time');
-  const uid = localStorage.getItem('current_user_id');
   localStorage.removeItem('current_user_id');
 }
 

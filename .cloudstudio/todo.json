@@ -1,0 +1,14 @@
+[
+  {
+    "content": "排查练习生成失败原因",
+    "status": "done"
+  },
+  {
+    "content": "补充缺失的示例题目或课程数据",
+    "status": "done"
+  },
+  {
+    "content": "回归测试练习流程",
+    "status": "done"
+  }
+]

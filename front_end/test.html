@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 50px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Page - Frontend Working?</h1>
+        <p>If you can see this page, the web server is working.</p>
+        <p>Current time: <span id="time"></span></p>
+        <button onclick="testAPI()">Test API Connection</button>
+        <div id="api-result"></div>
+    </div>
+
+    <script>
+        document.getElementById('time').textContent = new Date().toLocaleString();
+        
+        function testAPI() {
+            fetch('http://localhost:8000/api/health/')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('api-result').innerHTML = 
+                        '<h3>API Connection Success!</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(error => {
+                    document.getElementById('api-result').innerHTML = 
+                        '<h3>API Connection Failed:</h3><pre>' + error.message + '</pre>';
+                });
+        }
+    </script>
+</body>
+</html>

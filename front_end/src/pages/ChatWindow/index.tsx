@@ -1,12 +1,14 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+import { ChatMessageComponent } from '../../components/ChatMessage'
 import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconSettings from '../../assets/icons/settings-24.svg'
 import { preferencesStore } from '../../store/preferencesStore'
-import { aiChatService, type ChatMessage } from '../../services/aiChatService'
+import { aiChatService, type ChatMessage, type PracticeReadyMessage, type ChatMessageWithPractice } from '../../services/aiChatService'
+import { PracticeSession } from '../PracticeSession'
 
 /** ChatWindow
  *  - 左侧：完全复用 StudentHome 的侧栏结构（用户卡/导航/AI卡/登出按钮）
@@ -32,18 +34,64 @@ export function ChatWindow() {
   
   // 聊天状态管理
   const [showChat, setShowChat] = useState(false)
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatMessages, setChatMessages] = useState<ChatMessageWithPractice[]>([])
   const [currentInput, setCurrentInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isAiHealthy, setIsAiHealthy] = useState(true)
   const messagesRef = useRef<HTMLDivElement | null>(null)
   const [practiceOpen, setPracticeOpen] = useState(false)
   const [practiceStage, setPracticeStage] = useState<'intro' | 'quiz'>('intro')
+  // 如果 sessionId 存在，使用真正的 PracticeSession 组件在弹窗内呈现
+  const [practiceSessionInfo, setPracticeSessionInfo] = useState<{course:string; topic:string; sessionId:string} | null>(null)
   const [showLoadHistory, setShowLoadHistory] = useState(false)
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false) // 标记是否已加载过历史
+  // 新增：聊天模式指示（根据AI回复的intent）
+  const [chatMode, setChatMode] = useState<'general_chat' | 'study_plan_qna' | 'practice_setup' | 'general'>('general')
+  // 新增：练习生成状态管理
+  const [isGeneratingPractice, setIsGeneratingPractice] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [pendingPractice, setPendingPractice] = useState<{course: string, topic: string} | null>(null)
+  
+  // 新增：记录每个 session 的提交状态（sessionId -> 是否已提交）
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [submittedSessions, setSubmittedSessions] = useState<Set<string>>(new Set())
+  
+  // 练习相关状态
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [quizIndex, setQuizIndex] = useState(0)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [answers, setAnswers] = useState<(number | string | null)[]>(Array(5).fill(null))
   
   // 幂等保护ref，防止StrictMode下副作用重复执行
   const initializedRef = useRef(false)
+
+  // 定义 startPracticeSession 函数（使用 useCallback 确保稳定引用）
+  const handleStartPracticeSession = useCallback((course?: string, topic?: string, sessionId?: string) => {
+    console.log('🎯🎯🎯 [handleStartPracticeSession] 被调用 🎯🎯🎯');
+    console.log('📋 参数类型:', { 
+      course: typeof course, 
+      topic: typeof topic, 
+      sessionId: typeof sessionId 
+    });
+    console.log('📋 参数值:', { course, topic, sessionId });
+    
+    if (course && topic && sessionId) {
+      console.log('✅ 参数完整，设置状态');
+      
+      const sessionInfo = { course, topic, sessionId };
+      console.log('📦 即将设置的 sessionInfo:', sessionInfo);
+      
+      // 直接设置状态
+      setPracticeSessionInfo(sessionInfo);
+      setPracticeStage('quiz');
+      setPracticeOpen(true);
+      
+      console.log('🚀 状态设置命令已发出');
+    } else {
+      console.error('❌ 缺少必要的练习参数:', { course, topic, sessionId });
+      alert('Unable to start practice session. Please try generating a new practice set.');
+    }
+  }, []); // 空依赖数组，因为我们使用的是 setState 函数（它们是稳定的）
 
   // 辅助函数：创建默认消息
   const createFallbackMessage = (content: string): ChatMessage => ({
@@ -52,6 +100,93 @@ export function ChatWindow() {
     content,
     timestamp: new Date().toISOString()
   })
+
+  // 新增：调用练习生成API
+  const generatePracticeQuestions = async (course: string, topic: string) => {
+    console.log('🎯 开始生成练习题目:', { course, topic })
+    
+    try {
+      const response = await fetch('/api/ai/generate-practice/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify({
+          course,
+          topic,
+          user_id: uid
+        })
+      })
+
+      const data = await response.json()
+      console.log('📡 练习生成API响应:', data)
+
+      if (data.success) {
+        // 生成成功，添加练习就绪消息
+        const practiceReadyMessage: PracticeReadyMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          messageType: 'practice_ready',
+          content: `I've generated ${data.total_questions} practice questions for ${data.course} – ${data.topic}. Ready to practice?`,
+          timestamp: new Date().toISOString(),
+          practiceInfo: {
+            course: data.course,
+            topic: data.topic,
+            sessionId: data.session_id,
+            totalQuestions: data.total_questions
+          }
+        }
+
+        setChatMessages(prev => [...prev, practiceReadyMessage])
+      } else {
+        // 生成失败，显示错误消息
+        const errorMessage: ChatMessage = {
+          id: Date.now() + 1,
+          type: 'ai',
+          content: `
+            <div>
+              <div style="font-weight: 700; margin-bottom: 8px;">
+                Sorry, I encountered an issue 😅
+              </div>
+              <div style="margin-bottom: 12px;">
+                I couldn't generate practice questions for ${course} – ${topic} right now.
+                Please try again in a moment or contact support.
+              </div>
+            </div>
+          `,
+          timestamp: new Date().toISOString()
+        }
+
+        setChatMessages(prev => [...prev, errorMessage])
+      }
+    } catch (error) {
+      console.error('❌ 生成练习题目失败:', error)
+      
+      // 网络错误，显示错误消息
+      const errorMessage: ChatMessage = {
+        id: Date.now() + 1,
+        type: 'ai',
+        content: `
+          <div>
+            <div style="font-weight: 700; margin-bottom: 8px;">
+              Sorry, I encountered an issue 😅
+            </div>
+            <div style="margin-bottom: 12px;">
+              I couldn't connect to the practice service right now.
+              Please check your connection and try again.
+            </div>
+          </div>
+        `,
+        timestamp: new Date().toISOString()
+      }
+
+      setChatMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsGeneratingPractice(false)
+      setPendingPractice(null)
+    }
+  }
 
   useEffect(() => {
     if (uid) {
@@ -62,6 +197,31 @@ export function ChatWindow() {
     // 与 StudentHome 一致：确保周计划预加载（不影响本页 UI）
     preferencesStore.loadWeeklyPlans?.()
   }, [uid])
+
+  // 设置全局函数（独立的 useEffect，不影响初始化）
+  useEffect(() => {
+    // 🔥 关键修复：立即赋值全局函数，确保按钮点击时可用
+    (window as any).startPracticeSession = handleStartPracticeSession;
+    (window as any).openPracticeModal = (course: string, topic: string, sessionId: string) => {
+      handleStartPracticeSession(course, topic, sessionId);
+    };
+    console.log('✅ 全局 startPracticeSession 函数已定义');
+    console.log('🔍 测试调用 window.startPracticeSession:', typeof (window as any).startPracticeSession);
+    
+    // 添加事件监听器处理练习按钮点击
+    const handlePracticeEvent = (event: CustomEvent) => {
+      console.log('🎯 收到练习事件:', event.detail);
+      const { course, topic, sessionId } = event.detail;
+      handleStartPracticeSession(course, topic, sessionId);
+    };
+    
+    window.addEventListener('openPractice', handlePracticeEvent as EventListener);
+    
+    // 清理函数
+    return () => {
+      window.removeEventListener('openPractice', handlePracticeEvent as EventListener);
+    };
+  }, [handleStartPracticeSession]);
 
   // 初始化AI服务和对话状态管理
   useEffect(() => {
@@ -97,14 +257,15 @@ export function ChatWindow() {
       })
       
       if (!hasVisitedChatThisLogin) {
-        // 首次进入：隐藏历史，发送问候消息
+        // 首次进入：显示问候消息，并显示Load History按钮
         console.log('✅ 首次进入chat页面，发送问候消息')
         sessionStorage.setItem(chatSessionKey, 'true')
         
         // 清空之前的聊天消息，确保只显示问候消息
         setChatMessages([])
         setHasLoadedHistory(false)
-        setShowLoadHistory(true) // 显示加载历史按钮
+        // 🔥 立即设置 showLoadHistory 为 true，不要等到异步操作完成
+        setShowLoadHistory(true)
         
         console.log('📝 设置初始状态: showLoadHistory=true, hasLoadedHistory=false')
         
@@ -114,6 +275,7 @@ export function ChatWindow() {
           const currentMessages = JSON.parse(sessionStorage.getItem(`chat_state_${uid}`) || '{}').messages || [];
           if (currentMessages.length === 0) {
             await sendWelcomeMessage();
+            console.log('✅ 问候消息发送完成');
           }
         }, 100);
       } else {
@@ -124,30 +286,34 @@ export function ChatWindow() {
         
         if (savedState) {
           try {
-            const { messages, hasLoadedHistory: savedHasLoadedHistory } = JSON.parse(savedState)
+            const { messages, hasLoadedHistory: savedHasLoadedHistory, showLoadHistory: savedShowLoadHistory } = JSON.parse(savedState)
             console.log('📋 恢复状态:', { 
               messagesCount: messages?.length || 0, 
               savedHasLoadedHistory,
-              willShowLoadHistory: !savedHasLoadedHistory 
+              savedShowLoadHistory,
+              willShowLoadHistory: savedShowLoadHistory !== undefined ? savedShowLoadHistory : !savedHasLoadedHistory
             })
             setChatMessages(messages || [])
             setHasLoadedHistory(savedHasLoadedHistory || false)
-            setShowLoadHistory(!savedHasLoadedHistory) // 如果还没加载过历史，显示按钮
+            // 优先使用保存的 showLoadHistory，如果没有则根据 hasLoadedHistory 判断
+            const shouldShowButton = savedShowLoadHistory !== undefined ? savedShowLoadHistory : !savedHasLoadedHistory
+            setShowLoadHistory(shouldShowButton)
+            console.log('🔘 Load History按钮状态:', shouldShowButton)
           } catch (error) {
             console.error('❌ 恢复聊天状态失败:', error)
             // 如果恢复失败，回退到发送问候消息
             setChatMessages([])
             setHasLoadedHistory(false)
-            setShowLoadHistory(true)
             await sendWelcomeMessage()
+            setShowLoadHistory(true) // 🔥 确保按钮显示
           }
         } else {
           // 没有保存的状态，发送问候消息
           console.log('📝 没有保存的状态，发送问候消息')
           setChatMessages([])
           setHasLoadedHistory(false)
-          setShowLoadHistory(true)
           await sendWelcomeMessage()
+          setShowLoadHistory(true) // 🔥 确保按钮显示
         }
       }
 
@@ -155,7 +321,8 @@ export function ChatWindow() {
     }
 
     initializeAI()
-  }, [uid])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]) // 只依赖 uid，避免重复初始化
 
   // 发送欢迎消息的函数（首次进入）
   const sendWelcomeMessage = async () => {
@@ -186,42 +353,60 @@ export function ChatWindow() {
     if (uid) {
       const stateToSave = {
         messages: chatMessages,
-        hasLoadedHistory: hasLoadedHistory
+        hasLoadedHistory: hasLoadedHistory,
+        showLoadHistory: showLoadHistory
       }
       sessionStorage.setItem(`chat_state_${uid}`, JSON.stringify(stateToSave))
       
-      // 同时尝试保存到后端数据库（如果后端支持）
-      try {
-        // 这里可以调用后端API来保存聊天状态
-        // 但目前后端可能还没有实现这个功能
-        console.log('💾 聊天状态已保存到sessionStorage')
-      } catch (error) {
-        console.warn('⚠️ 保存到后端失败，但sessionStorage已保存:', error)
-      }
+      console.log('💾 聊天状态已保存:', {
+        messagesCount: chatMessages.length,
+        hasLoadedHistory,
+        showLoadHistory
+      })
     }
   }
 
+  // 处理练习按钮点击
+  const handlePracticeButtonClick = (topic: string) => {
+    console.log('🎯 点击练习按钮，主题:', topic);
+    
+    // 打开练习窗口
+    setPracticeStage('intro');
+    setQuizIndex(0);
+    setAnswers(Array(5).fill(null)); // 假设5道题
+    setPracticeOpen(true);
+    
+    // 如果需要，可以调用AI生成题目
+    // generatePracticeQuestions(topic);
+  };
+
+  // 获取CSRF Token的辅助函数
+  const getCsrfToken = (): string => {
+    const name = 'csrftoken';
+    let cookieValue = '';
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  };
+
   // 格式化消息内容，确保正确的段落和列表格式
-  const formatMessageContent = (content: string): string => {
-    // 首先清理多余的换行符
-    let formatted = content
-      .replace(/<br\/?>\s*<br\/?>/gi, '<br/>') // 合并连续的换行符
-      .replace(/\n\s*\n/gi, '<br/>') // 合并连续的普通换行符
-      .replace(/<br\/?>/gi, '<br/>') // 标准化换行符
-      .replace(/\n/g, '<br/>'); // 处理普通换行符
-    
-    // 处理列表项格式 - 移除原始的•字符，使用CSS添加圆点
-    formatted = formatted.replace(/•\s*(.+?)(?=<br|<br\/|$)/g, '<div class="list-item">$1</div>');
-    
-    return formatted;
-  }
+
 
   // 当聊天消息或历史加载状态改变时，保存状态
   useEffect(() => {
-    if (chatMessages.length > 0) {
+    // 即使消息为空，也保存状态（因为 showLoadHistory 状态很重要）
+    if (uid && showChat) {
       saveChatState()
     }
-  }, [chatMessages, hasLoadedHistory, uid])
+  }, [chatMessages, hasLoadedHistory, showLoadHistory, uid, showChat])
 
 
 
@@ -281,8 +466,26 @@ export function ChatWindow() {
       
       if (historyResponse.success && historyResponse.messages.length > 0) {
         // 获取历史消息并排序
-        const historyMessages = historyResponse.messages.sort((a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+        const historyMessages = historyResponse.messages
+          .map(msg => {
+            // 🔥 如果消息的 metadata 中包含 practice_ready 信息，转换为 PracticeReadyMessage
+            if (msg.metadata?.messageType === 'practice_ready' && msg.metadata?.practiceInfo) {
+              return {
+                ...msg,
+                messageType: 'practice_ready' as const,
+                practiceInfo: msg.metadata.practiceInfo
+              };
+            }
+            return msg;
+          })
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        console.log('📋 处理后的历史消息:', historyMessages.map(m => ({
+          id: m.id,
+          type: m.type,
+          messageType: (m as any).messageType,
+          hasPracticeInfo: !!(m as any).practiceInfo
+        })));
 
         // 合并历史消息和当前会话的消息，允许内容重复（只要不是同一条消息）
         setChatMessages(prev => {
@@ -312,6 +515,7 @@ export function ChatWindow() {
   }
 
   // 占位题库（前端 mock，不接后端）- 包含选择题和简答题
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const quizQuestions = [
     {
       type: 'multiple-choice' as const,
@@ -337,12 +541,11 @@ export function ChatWindow() {
     }
   ]
 
-  const [quizIndex, setQuizIndex] = useState(0)
-  const [answers, setAnswers] = useState<(number | string | null)[]>(Array(quizQuestions.length).fill(null))
+
 
   const onSend = async (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!currentInput.trim() || isLoading || !isAiHealthy) return
+    if (!currentInput.trim() || isLoading || !isAiHealthy || isGeneratingPractice) return
     
     const userInput = currentInput.trim()
     setCurrentInput('')
@@ -397,21 +600,42 @@ export function ChatWindow() {
           type: 'ai',
           content: response.ai_response.content,
           timestamp: response.ai_response.timestamp,
+          metadata: response.ai_response.metadata
         }
         
-        // 替换临时用户消息为真实消息，并添加AI回复
+        // 更新模式徽章
+        const intent = (response.ai_response as any)?.metadata?.intent as string | undefined
+        if (intent === 'practice') setChatMode('practice_setup')
+        else if (intent === 'explain_plan' || intent === 'task_help') setChatMode('study_plan_qna')
+        else if (intent === 'greeting' || intent === 'general') setChatMode('general_chat')
+        else setChatMode('general')
+
+        // 替换临时用户消息为真实消息,并添加AI回复
         setChatMessages(prev => {
           const withoutTemp = prev.slice(0, -1); // 移除临时用户消息
           return [...withoutTemp, realUserMessage, aiReply];
-        })
+        });
 
-        // 如果AI回复包含练习按钮，设置全局函数
-        if (response.ai_response.content.includes('Start 10-minute practice session')) {
-          (window as any).startPracticeSession = () => {
-            setPracticeStage('intro')
-            setQuizIndex(0)
-            setAnswers(Array(quizQuestions.length).fill(null))
-            setPracticeOpen(true)
+        // 检测是否是"正在生成"消息，如果是则触发练习生成
+        if (aiReply.content.includes('I\'m now generating a practice set')) {
+          console.log('🎯 检测到"正在生成"消息，开始练习生成流程')
+          
+          // 从AI回复中提取课程和主题（更准确的方式）
+          const courseTopicMatch = aiReply.content.match(/for\s+([A-Z]{4}\d{4})\s*–\s*([^\.]+)/);
+          if (courseTopicMatch) {
+            const mentionedCourse = courseTopicMatch[1].trim();
+            const mentionedTopic = courseTopicMatch[2].trim();
+            
+            console.log('📋 从AI回复中提取到课程和主题:', { course: mentionedCourse, topic: mentionedTopic })
+            
+            // 设置生成状态
+            setIsGeneratingPractice(true)
+            setPendingPractice({ course: mentionedCourse, topic: mentionedTopic })
+            
+            // 调用练习生成API
+            generatePracticeQuestions(mentionedCourse, mentionedTopic)
+          } else {
+            console.error('❌ 无法从AI回复中提取课程和主题:', aiReply.content)
           }
         }
       } else {
@@ -440,17 +664,14 @@ export function ChatWindow() {
 
     let message = ''
     switch (suggestion) {
+      case 'Give me some encouragement':
+        message = 'I\'m feeling a bit stressed about my studies. Could you give me some encouragement?'
+        break
       case 'Explain my plan':
-        message = 'Please explain my plan for me.'
+        message = 'Please explain my study plan for me.'
         break
       case 'Practice my weak topics':
-        message = 'I really couldn\'t understand some topics and they are so hard for me. I want to do a practice of this part.'
-        break
-      case 'How to do for Part N of Task X':
-        message = 'How should I approach Part 2 of Task "Final Project Report"?'
-        break
-      case 'Give me some encouragement':
-        message = 'Give me some encouragement.'
+        message = 'I want to do some practice of my weak topics.'
         break
       default:
         message = suggestion
@@ -526,20 +747,16 @@ export function ChatWindow() {
 
             <div className="ai-suggestions">
               <div className="ai-s-header">Suggestions for You</div>
+              <button className="ai-s-btn" onClick={() => handleSuggestionClick('Give me some encouragement')} aria-label="Give me some encouragement">
+                <span className="ai-s-label">Give me some encouragement</span>
+                <img className="ai-s-chev" src={ArrowRight} width={16} height={16} alt="" />
+              </button>
               <button className="ai-s-btn" onClick={() => handleSuggestionClick('Explain my plan')} aria-label="Explain my plan">
                 <span className="ai-s-label">Explain my plan</span>
                 <img className="ai-s-chev" src={ArrowRight} width={16} height={16} alt="" />
               </button>
               <button className="ai-s-btn" onClick={() => handleSuggestionClick('Practice my weak topics')} aria-label="Practice my weak topics">
                 <span className="ai-s-label">Practice my weak topics</span>
-                <img className="ai-s-chev" src={ArrowRight} width={16} height={16} alt="" />
-              </button>
-              <button className="ai-s-btn" onClick={() => handleSuggestionClick('How to do for Part N of Task X')} aria-label="How to do for Part N of Task X">
-                <span className="ai-s-label">How to do for Part N of Task X</span>
-                <img className="ai-s-chev" src={ArrowRight} width={16} height={16} alt="" />
-              </button>
-              <button className="ai-s-btn" onClick={() => handleSuggestionClick('Give me some encouragement')} aria-label="Give me some encouragement">
-                <span className="ai-s-label">Give me some encouragement</span>
                 <img className="ai-s-chev" src={ArrowRight} width={16} height={16} alt="" />
               </button>
 
@@ -559,11 +776,19 @@ export function ChatWindow() {
                 <path d="M11 14L5 8L11 2" stroke="#161616" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <div className="cw-title">AI Coach</div>
+            <div className="cw-title">AI Coach
+              {/* 模式徽章 */}
+              <span className="cw-mode-badge" aria-live="polite">
+                {chatMode === 'practice_setup' ? 'Practice Setup' : chatMode === 'study_plan_qna' ? 'Study Plan QnA' : 'General Chat'}
+              </span>
+            </div>
           </div>
 
           {/* 加载历史消息按钮 - 放在对话框上方中间 */}
-          {showLoadHistory && (
+          {(() => {
+            console.log('🔘 渲染时检查按钮状态:', { showLoadHistory, hasLoadedHistory, chatMessagesCount: chatMessages.length })
+            return showLoadHistory
+          })() && (
             <div className="cw-load-history-container">
               <button 
                 className="cw-load-history-btn"
@@ -590,21 +815,15 @@ export function ChatWindow() {
               <div className="cw-chat-container" aria-live="polite">
                 <div className="cw-chat-messages" ref={messagesRef}>
                   {chatMessages.map((message) => (
-                    <div key={message.id} className={`cw-message ${message.type}`}>
-                      <div className="cw-message-avatar">
-                        {message.type === 'ai' ? '🤖' : '👤'}
-                      </div>
-                      <div className="cw-message-content">
-                        <div className="cw-message-label">{message.type === 'ai' ? 'COACH' : 'ME'}</div>
-                        <div 
-                          className="cw-message-text"
-                          dangerouslySetInnerHTML={{ __html: formatMessageContent(message.content) }}
-                        />
-                        <div className="cw-message-time">
-                          {aiChatService.formatTimestamp(message.timestamp)}
-                        </div>
-                      </div>
-                    </div>
+                    <ChatMessageComponent
+                      key={message.id}
+                      content={message.content}
+                      type={message.type}
+                      timestamp={aiChatService.formatTimestamp(message.timestamp)}
+                      onPracticeClick={handlePracticeButtonClick}
+                      messageType={(message as any).messageType}
+                      practiceInfo={(message as any).practiceInfo}
+                    />
                   ))}
                 </div>
               </div>
@@ -617,22 +836,32 @@ export function ChatWindow() {
                 placeholder={
                   !isAiHealthy 
                     ? "AI service is currently unavailable..." 
-                    : isLoading 
-                      ? "Sending message..." 
-                      : "Ask me anything about your projects"
+                    : isGeneratingPractice
+                      ? "Generating your practice… please wait"
+                      : isLoading 
+                        ? "Sending message..." 
+                        : "Ask me anything about your projects"
                 }
                 aria-label="Message to AI Coach"
                 value={currentInput}
                 onChange={(e) => setCurrentInput(e.target.value)}
-                disabled={isLoading || !isAiHealthy}
+                disabled={isLoading || !isAiHealthy || isGeneratingPractice}
+                style={{
+                  opacity: isGeneratingPractice ? 0.6 : 1,
+                  backgroundColor: isGeneratingPractice ? '#f5f5f5' : '#fff'
+                }}
               />
               <button 
                 className="cw-send" 
                 type="submit" 
                 aria-label="Send"
-                disabled={isLoading || !isAiHealthy || !currentInput.trim()}
+                disabled={isLoading || !isAiHealthy || !currentInput.trim() || isGeneratingPractice}
+                style={{
+                  opacity: isGeneratingPractice ? 0.6 : 1,
+                  cursor: isGeneratingPractice ? 'not-allowed' : 'pointer'
+                }}
               >
-                {isLoading ? '⏳' : '➤'}
+                {isGeneratingPractice ? '⏳' : (isLoading ? '⏳' : '➤')}
               </button>
             </form>
           </section>
@@ -642,146 +871,63 @@ export function ChatWindow() {
       {practiceOpen && (
         <div role="dialog" aria-modal="true" aria-label="Practice window"
              style={{position:'fixed', inset:0, background:'rgba(248, 230, 218, 0.35)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', display:'grid', placeItems:'center', zIndex:1000}}>
-          <div style={{position:'relative', width:'min(720px, 92vw)', background:'#fff', borderRadius:26, padding:'26px 26px 22px', boxShadow:'0 18px 44px rgba(0,0,0,0.16)', border:'1px solid #eceff3', textAlign:'center'}}>
-            {/* Close button - match Notifications design */}
+          <div style={{position:'relative', width:'min(920px, 96vw)', maxHeight:'92vh', overflow:'auto', background:'#fff', borderRadius:26, padding:'18px 18px 14px', boxShadow:'0 18px 44px rgba(0,0,0,0.16)', border:'1px solid #eceff3', textAlign:'center'}}>
             <button
               className="close-btn practice-close"
-              onClick={() => setPracticeOpen(false)}
+              onClick={() => { setPracticeOpen(false); }}
               aria-label="close"
               type="button"
             >
               ×
             </button>
-            {practiceStage === 'intro' ? (
-              <>
-                <div style={{fontSize:22, fontWeight:800, color:'#172239', marginTop:4, marginBottom:6, display:'inline-flex', alignItems:'center', gap:8}}>
-                  <span>Start Practice</span>
-                  <svg width="28" height="28" viewBox="0 0 64 64" fill="none" aria-hidden>
-                    <rect x="8" y="12" width="48" height="32" rx="8" stroke="#172239" strokeWidth="3"/>
-                    <path d="M32 54l-8-10h16l-8 10z" stroke="#172239" strokeWidth="3" fill="none"/>
-                  </svg>
-                </div>
-                <div style={{color:'#6D6D78', fontSize:14, marginBottom:18}}>This is a 10-minute focused practice for your weak topics.</div>
-                <div style={{display:'flex', gap:12, justifyContent:'center'}}>
-                  <button
-                    aria-label="Start"
-                    onClick={() => { setPracticeStage('quiz'); setQuizIndex(0) }}
-                    style={{padding:'14px 24px', minWidth:'132px', borderRadius:18, border:'1px solid #FFB790', background:'linear-gradient(180deg,#FFF9F5 0%, #FFEBDD 100%)', boxShadow:'0 8px 18px rgba(255,168,122,0.25)', fontWeight:800, fontSize:16, color:'#172239', cursor:'pointer'}}
-                  >
-                    Start
-                  </button>
-                  
-                </div>
-              </>
+            {(() => {
+              console.log('🔍 [弹窗渲染] practiceSessionInfo:', practiceSessionInfo);
+              console.log('🔍 [弹窗渲染] practiceStage:', practiceStage);
+              return null;
+            })()}
+            {practiceSessionInfo ? (
+              // 嵌入真实的 PracticeSession 页面（会直接从后端拉题）
+              <div style={{textAlign:'left', margin: '-18px -18px -14px'}}>
+                <PracticeSession 
+                  course={practiceSessionInfo.course} 
+                  topic={practiceSessionInfo.topic} 
+                  sessionId={practiceSessionInfo.sessionId}
+                  onSubmitSuccess={(sessionId) => {
+                    // 记录该 session 已提交
+                    setSubmittedSessions(prev => new Set(prev).add(sessionId));
+                    console.log('✅ Session 已提交:', sessionId);
+                  }}
+                  onClose={() => {
+                    // 关闭弹窗
+                    setPracticeOpen(false);
+                    console.log('🔒 练习弹窗已关闭');
+                  }}
+                />
+              </div>
             ) : (
-              <div style={{textAlign:'left'}}>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:18, fontWeight:800, color:'#172239', lineHeight:1.4, wordBreak:'break-word', overflowWrap:'anywhere', whiteSpace:'normal'}}>
-                    {quizQuestions[quizIndex].q}
-                  </div>
+              // 没有 sessionId 时显示错误提示
+              <div style={{padding: '40px 20px', textAlign: 'center'}}>
+                <div style={{fontSize: 18, fontWeight: 700, color: '#172239', marginBottom: 12}}>
+                  ⚠️ No Practice Session Available
                 </div>
-                
-                {quizQuestions[quizIndex].type === 'multiple-choice' ? (
-                  <div style={{display:'grid', gap:12, margin:'14px 0 18px'}}>
-                    {['A','B','C','D'].map((label, i) => {
-                      const isSelected = answers[quizIndex] === i
-                      const question = quizQuestions[quizIndex]
-                      return (
-                        <button
-                          key={label}
-                          onClick={() => { const next = [...answers]; next[quizIndex] = i; setAnswers(next) }}
-                          style={{
-                            display:'grid', gridTemplateColumns:'36px 1fr', alignItems:'center',
-                            padding:'14px 16px', borderRadius:14,
-                            border: isSelected ? '2px solid #FF9A6A' : '1px solid #e7e9ef',
-                            background: isSelected ? 'linear-gradient(180deg,#FFF9F5 0%, #FFEBDD 100%)' : '#fff',
-                            boxShadow: isSelected ? '0 6px 14px rgba(255,168,122,0.18)' : '0 2px 8px rgba(0,0,0,0.06)'
-                          }}
-                          aria-label={`Option ${label}`}
-                        >
-                          <span style={{fontWeight:700, color:'#172239'}}>{label}.</span>
-                          <span style={{color:'#172239'}}>{question.type === 'multiple-choice' ? question.options[i] : ''}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div style={{margin:'14px 0 18px'}}>
-                    <textarea
-                      value={answers[quizIndex] as string || ''}
-                      onChange={(e) => { const next = [...answers]; next[quizIndex] = e.target.value; setAnswers(next) }}
-                      placeholder={quizQuestions[quizIndex].placeholder}
-                      style={{
-                        width: '100%',
-                        minHeight: '120px',
-                        padding: '14px 16px',
-                        borderRadius: '14px',
-                        border: '1px solid #e7e9ef',
-                        background: '#fff',
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                        resize: 'vertical',
-                        fontFamily: 'inherit'
-                      }}
-                      aria-label="Essay answer"
-                    />
-                  </div>
-                )}
-                <div style={{display:'grid', gridTemplateColumns:'1fr auto 1fr', alignItems:'center', gap:12, marginTop:10}}>
-                  <button
-                    onClick={() => setQuizIndex(idx => Math.max(0, idx - 1))}
-                    style={{justifySelf:'start', padding:'12px 22px', minWidth:'132px', borderRadius:18, border:'1px solid #FF9A6A', background:'linear-gradient(180deg,#FFA87A 0%, #FF9F6C 100%)', color:'#fff', fontWeight:800, cursor:'pointer', boxShadow:'0 8px 18px rgba(255,168,122,0.25)'}}
-                    aria-label="Previous"
-                  >
-                    Previous
-                  </button>
-                  <div style={{justifySelf:'center', fontSize:13, color:'#8b8f9a'}}>
-                    {quizIndex + 1}/{quizQuestions.length}
-                  </div>
-                  <button
-                    onClick={() => {
-                      if (quizIndex === quizQuestions.length - 1) {
-                        // 计算得分并关闭弹窗，然后在聊天窗口里连续追加两条 COACH 消息
-                        const total = quizQuestions.filter(q => q.type === 'multiple-choice').length;
-                        const score = answers.reduce((acc: number, ans, idx) => {
-                          if (quizQuestions[idx].type === 'multiple-choice') {
-                            return acc + (((ans ?? -1) === quizQuestions[idx].correct) ? 1 : 0);
-                          }
-                          return acc;
-                        }, 0);
-                        const pct = total > 0 ? Math.round((score / total) * 100) : 0;
-                        setPracticeOpen(false);
-                        setPracticeStage('intro');
-                        setQuizIndex(0);
-                        // 确保聊天窗口可见
-                        setShowChat(true);
-                        const now = Date.now();
-                        const fetchingMsg: ChatMessage = {
-                          id: now,
-                          type: 'ai',
-                          content: `Got it! I'm fetching your answers and generating explanations (about 10–15s)…\nYou can stay here—I'll post the summary once it's ready.`,
-                          timestamp: new Date().toISOString()
-                        };
-                        const summaryMsg: ChatMessage = {
-                          id: now + 1,
-                          type: 'ai',
-                          content: `All set! Score: ${score}/${total} (${pct}%)\n\n**Strong:** DP basics, overfitting concepts\n\n**Needs review:** Cross‑validation, ROC/PR\n\nWhat would you like to do next?`,
-                          timestamp: new Date().toISOString()
-                        };
-                        setChatMessages(prev => [...prev, fetchingMsg]);
-                        setTimeout(() => {
-                          setChatMessages(prev => [...prev, summaryMsg]);
-                        }, 1200);
-                      } else {
-                        setQuizIndex(idx => Math.min(quizQuestions.length - 1, idx + 1));
-                      }
-                    }}
-                    style={{justifySelf:'end', padding:'12px 22px', minWidth:'132px', borderRadius:18, border:'1px solid #FF9A6A', background:'linear-gradient(180deg,#FFA87A 0%, #FF9F6C 100%)', color:'#fff', fontWeight:800, cursor:'pointer', boxShadow:'0 8px 18px rgba(255,168,122,0.25)'}}
-                    aria-label={quizIndex === quizQuestions.length - 1 ? 'Submit' : 'Next'}
-                  >
-                    {quizIndex === quizQuestions.length - 1 ? 'Submit' : 'Next'}
-                  </button>
+                <div style={{color: '#6D6D78', fontSize: 14, marginBottom: 20}}>
+                  Please click "Start Practice Session" button from the chat to begin.
                 </div>
+                <button
+                  onClick={() => setPracticeOpen(false)}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: 18,
+                    border: '1px solid #FFB790',
+                    background: 'linear-gradient(180deg,#FFF9F5 0%, #FFEBDD 100%)',
+                    fontWeight: 700,
+                    fontSize: 14,
+                    color: '#172239',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </button>
               </div>
             )}
           </div>
@@ -819,7 +965,12 @@ export function ChatWindow() {
         /* keep arrow visually in the same place */
         .cw-back svg{ pointer-events:none; margin-left:-12px; margin-top:-12px; }
         .cw-back:hover{ background:#f9fafb }
-        .cw-title{ font-size:22px; }
+        .cw-title{ font-size:22px; display:flex; align-items:center; gap:10px; }
+        .cw-mode-badge{
+          display:inline-flex; align-items:center; justify-content:center;
+          padding:4px 8px; border-radius:12px; font-size:12px; font-weight:800;
+          color:#172239; background:#FFF; border:1px solid #e7e9ef; box-shadow:0 2px 8px rgba(0,0,0,0.06);
+        }
 
         /* 渐变容器：更柔和的桃色，适度增高，居中并限制最大宽度 */
         /* 渐变容器：加宽并用视口高度计算，保证底边与左侧 Log Out 底边对齐

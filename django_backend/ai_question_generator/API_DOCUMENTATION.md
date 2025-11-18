@@ -3,10 +3,19 @@
 ## 概述
 
 AI题目生成与自动评分系统API，支持：
-- Admin上传示例题目到数据库
-- 基于示例题目AI生成新题目（支持跨主题）
+- **从courses_admin Question表读取题目**（前端已上传的题目）
+- 基于现有题目AI生成新题目（支持跨主题）
 - 学生提交答案并获得AI自动评分
 - 个性化hint和solution生成
+
+## 🆕 重要更新
+
+**AI现在从courses_admin的Question表读取题目**，而不是从独立的SampleQuestion表。这意味着：
+
+- ✅ 管理员可以通过前端AdminManageCourse页面上传题目
+- ✅ AI会自动使用这些上传的题目作为生成参考
+- ✅ 支持关键词匹配和主题搜索
+- ✅ 无需额外的题目上传步骤
 
 ## Base URL
 

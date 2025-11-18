@@ -31,6 +31,7 @@ urlpatterns = [
     path("api/", include("task_progress.urls")),
     path('api/reminders/', include('reminder.urls')),
     path('api/ai/', include('ai_question_generator.urls')),  # AI题目生成与评分
+    path('api/ai/', include('ai_chat.urls')),  # AI对话服务
 
 ] 
 if settings.DEBUG:

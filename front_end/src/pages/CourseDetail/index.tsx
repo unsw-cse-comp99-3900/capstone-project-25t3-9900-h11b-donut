@@ -47,7 +47,7 @@ export function CourseDetail() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const uid = localStorage.getItem('current_user_id');
-  const [user, setUser] = useState<any>(() => {
+  const [user] = useState<any>(() => {
   if (!uid) return null;
   try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
   catch { return null; }

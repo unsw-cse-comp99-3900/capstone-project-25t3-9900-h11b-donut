@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Practice Button</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-message {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .cw-practice-button {
+            margin-top: 12px;
+            padding: 12px 16px;
+            border-radius: 16px;
+            border: 1px solid #e7e9ef;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            color: #172239;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 8px;
+            margin-bottom: 8px;
+        }
+        .cw-practice-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+    </style>
+</head>
+<body>
+    <h1>测试练习按钮功能</h1>
+    
+    <div class="test-message">
+        <h3>模拟AI消息内容</h3>
+        <p>I've generated 5 practice questions for COMP9417 – concepts.</p>
+        <p>Ready to test your knowledge?</p>
+        
+        <!-- 这是应该生成的按钮 -->
+        <button
+            class="cw-practice-button"
+            onclick="window.startPracticeSession('COMP9417', 'concepts', '3192e56c-c0c1-47c2-9646-65a2c8098cf9')"
+            aria-label="Start practice for COMP9417 - concepts"
+        >
+            Start Practice Session
+            <span style="margin-left: 8px;">→</span>
+        </button>
+    </div>
+
+    <div class="test-message">
+        <h3>测试结果</h3>
+        <p id="test-result">点击按钮测试...</p>
+    </div>
+
+    <script>
+        // 模拟全局函数
+        window.startPracticeSession = function(course, topic, sessionId) {
+            console.log('🎯 开始练习会话:', { course, topic, sessionId });
+            
+            if (course && topic && sessionId) {
+                // 构造练习页面URL
+                const practiceUrl = `#/practice-session/${encodeURIComponent(course)}/${encodeURIComponent(topic)}/${encodeURIComponent(sessionId)}`;
+                console.log('🚀 导航到练习页面:', practiceUrl);
+                
+                // 显示测试结果
+                document.getElementById('test-result').innerHTML = `
+                    <strong>✅ 按钮点击成功!</strong><br>
+                    课程: ${course}<br>
+                    主题: ${topic}<br>
+                    会话ID: ${sessionId}<br>
+                    目标URL: ${practiceUrl}<br>
+                    <br>
+                    <em>在实际应用中，这将跳转到练习页面</em>
+                `;
+                
+                // 在实际应用中，这里会跳转
+                // window.location.hash = practiceUrl;
+            } else {
+                document.getElementById('test-result').innerHTML = `
+                    <strong>❌ 参数缺失</strong><br>
+                    收到的参数: course=${course}, topic=${topic}, sessionId=${sessionId}
+                `;
+            }
+        };
+    </script>
+</body>
+</html>

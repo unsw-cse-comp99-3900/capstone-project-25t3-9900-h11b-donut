@@ -13,6 +13,11 @@ class AuthTokenMiddleware(MiddlewareMixin):
         "/api/admin/register",
         "/api/admin/login",
         "/api/ai/health/",  # AI健康检查不需要认证
+        "/api/ai/chat/",    # AI聊天接口（用于测试）
+        "/api/ai/generate-practice/",  # 练习生成API（用于测试）
+        "/api/ai/questions/generate",  # AI问题生成器（内部调用）
+        "/api/ai/questions/session/",  # 获取练习题目
+        "/api/ai/answers/submit",  # 提交答案
         "/api/overdue/report-day", 
 
     )

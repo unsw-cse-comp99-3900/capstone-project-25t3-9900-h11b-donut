@@ -6,7 +6,13 @@ import os
 import json
 import re
 from typing import List, Dict
+from dotenv import load_dotenv
 import google.generativeai as genai
+
+# 加载环境变量
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 # 从环境变量获取API密钥
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
@@ -33,6 +39,11 @@ class QuestionGenerator:
                 'top_k': 40,
             }
         )
+        
+        # 配置请求超时
+        self.request_options = {
+            'timeout': 120  # 设置120秒超时
+        }
     
     def generate_questions(
         self, 
@@ -60,8 +71,11 @@ class QuestionGenerator:
         # 构建提示词
         prompt = self._build_prompt(topic, difficulty, sample_questions, mcq_count, short_answer_count)
         
-        # 调用 Gemini API
-        response = self.model.generate_content(prompt)
+        # 调用 Gemini API (使用超时配置)
+        response = self.model.generate_content(
+            prompt,
+            request_options=self.request_options
+        )
         
         # 解析响应
         questions = self._parse_response(response.text, topic, difficulty)

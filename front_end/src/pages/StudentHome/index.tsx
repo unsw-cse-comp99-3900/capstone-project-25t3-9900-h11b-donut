@@ -133,7 +133,7 @@ const [user, setUser] = useState<any>(() => {
   });
 
   // 订阅计划变化，打勾后立即刷新 Deadlines 显示
-  const unsubscribePrefs = preferencesStore.subscribe?.(() => {
+  preferencesStore.subscribe?.(() => {
     const parseTime = (dueIn: string) => {
       const isNegative = dueIn.startsWith('-');
       const cleanDueIn = isNegative ? dueIn.substring(2) : dueIn;

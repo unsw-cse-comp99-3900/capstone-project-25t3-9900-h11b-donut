@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
 import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
@@ -50,7 +50,7 @@ export function AdminRiskReport() {
     }
   };
 
-  const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
+  const [createdCourses] = useState<CreatedCourse[]>(() => {
     if (!uid) return [];
     const rawCourses = safeJSON<any[]>(`admin:${uid}:courses`, []);
     const tasksMap = safeJSON<Record<string, any[]>>(`admin:${uid}:tasks`, {});
@@ -71,7 +71,7 @@ export function AdminRiskReport() {
     });
   });
 
-  const [user, setUser] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(() => {
+  const [user] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(() => {
     if (!uid) return null;
     try { return JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'); }
     catch { return null; }

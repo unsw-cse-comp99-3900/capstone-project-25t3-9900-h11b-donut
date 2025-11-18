@@ -1,5 +1,5 @@
     
-    def generate_welcome_response(self) -> str:
+def generate_welcome_response(self) -> str:
         """生成固定的欢迎回复"""
         return """
         <div>

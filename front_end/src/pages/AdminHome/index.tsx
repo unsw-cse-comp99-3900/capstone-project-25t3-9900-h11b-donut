@@ -5,7 +5,6 @@ import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconMonitor from '../../assets/icons/bell-24.svg'
-import IconRisk from '../../assets/icons/help-24.svg'
 import apiService from '../../services/api'
 import adminHomepageImage from '../../assets/images/admin-homepage.png'
 import illustrationAdmin from '../../assets/images/illustration-admin.png'
@@ -26,7 +25,7 @@ const adminIllustrations = [
 
 export function AdminHome() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
-  const [courses, setCourses] = useState(courseAdmin.all)
+  const [, setCourses] = useState(courseAdmin.all)
   const uid = localStorage.getItem('current_user_id') || '';
   const [user, setUser] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(() => {
     if (!uid) return null;
