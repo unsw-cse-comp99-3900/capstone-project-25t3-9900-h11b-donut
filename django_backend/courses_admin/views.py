@@ -871,94 +871,6 @@ def delete_course_task(request, course_id, task_id):
         print("[delete_course_task] error:", e)
         return JsonResponse({"success": False, "message": str(e)}, status=500)
 @csrf_exempt
-# def update_course_task(request, course_id: str, task_id: int):
-#     if request.method not in ("PUT", "POST", "PATCH"):
-#         return err("Method not allowed", status=405)
-
-#     # 解析 JSON
-#     try:
-#         body = json.loads(request.body.decode("utf-8") or "{}")
-#     except Exception:
-#         return err("invalid json body")
-
-#     # 查任务（限定 course_id）
-#     task = CourseTask.objects.filter(id=task_id, course_code=course_id).first()
-#     if not task:
-#         return err("Task not found", status=404)
-
-#     # 取字段（仅对提供的字段做更新）
-#     title = body.get("title", None)
-#     deadline_raw = body.get("deadline", None)
-#     brief = body.get("brief", None)
-#     pc_raw = body.get("percent_contribution", None)
-#     new_url = body.get("url", None)  # 只有传了才表示要覆盖
-
-#     # 校验（仅对传入的字段）
-#     if title is not None:
-#         if not str(title).strip():
-#             return err("title cannot be empty")
-
-#     if deadline_raw is not None:
-#         dl = parse_date(str(deadline_raw))
-#         if not dl:
-#             return err("deadline must be YYYY-MM-DD")
-#         # 不允许过去日期（允许今天）
-#         if dl < date.today():
-#             return err("deadline cannot be in the past")
-#     else:
-#         dl = None
-
-#     if pc_raw is not None:
-#         try:
-#             pc = int(pc_raw)
-#         except Exception:
-#             return err("percent_contribution must be an integer")
-#         if pc < 0 or pc > 100:
-#             return err("percent_contribution must be in [0,100]")
-#     else:
-#         pc = None
-
-#     # 是否删除旧文件：仅当传了新 url 且参数要求删除时有效
-#     delete_old = request.GET.get("delete_old_file") in ("1", "true", "True")
-
-#     # 记录旧 url（用于可能的文件删除）
-#     old_url = task.url
-
-#     # 执行更新
-#     try:
-#         with transaction.atomic():
-#             if title is not None:
-#                 task.title = str(title).strip()
-#             if dl is not None:
-#                 task.deadline = dl
-#             if brief is not None:
-#                 task.brief = str(brief).strip()
-#             if pc is not None:
-#                 task.percent_contribution = pc
-#             if new_url is not None:
-#                 task.url = new_url  # 用新附件覆盖
-
-#             task.save()
-
-#         # 保存成功后，再按需删除旧文件
-#         if new_url is not None and delete_old and old_url and old_url != new_url:
-#             # 仅允许删除 TASK_URL 命名空间内的文件
-#             if hasattr(settings, "TASK_URL") and hasattr(settings, "TASK_ROOT"):
-#                 if str(old_url).startswith(settings.TASK_URL):
-#                     rel_path = str(old_url)[len(settings.TASK_URL):].lstrip("/\\")
-#                     file_path = os.path.join(settings.TASK_ROOT, rel_path)
-#                     try:
-#                         if os.path.exists(file_path):
-#                             os.remove(file_path)
-#                     except Exception as e:
-#                         # 不抛错以免影响业务；可在此记录日志
-#                         print("[update_course_task] remove old file error:", e)
-
-#         return ok(None)
-#     except Exception as e:
-#         print("[update_course_task] error:", e)
-#         return err(str(e), status=500)
-
 
 def update_course_task(request, course_id: str, task_id: int):
     if request.method not in ("PUT", "POST", "PATCH"):
@@ -1058,10 +970,40 @@ def update_course_task(request, course_id: str, task_id: int):
                 task.url = new_url
 
             task.save()
+            
+            #  Admin 更新 CourseTask → 自动给选课学生推送系统通知 
+           
+            from reminder.models import Notification
+            from courses.models import StudentEnrollment
 
-        # ----------------------------
-        # ⑤ 按需删除旧文件（无需修改）
-        # ----------------------------
+            enrolled_students = StudentEnrollment.objects.filter(course_code=task.course_code)
+            timestamp = timezone.now().strftime('%H%M%S')
+            msg_type = f"system_ntf_{task.id}_{timestamp}"
+
+            # msg_type = f"system_notification_{task.id}_{timezone.now().strftime('%Y%m%d%H%M%S')}"
+
+            for stu in enrolled_students:
+                Notification.objects.update_or_create(
+                    student_id=stu.student_id,
+                    task_id=task.id,
+                    message_type=msg_type, 
+                    # message_type="system_notification",  # 已在前端支持
+                    defaults={
+                        "title": f"Admin updated {task.course_code} – {task.title}",
+                        "preview": (
+                            f"Admin has updated the task \"{task.title}\" in {task.course_code}."
+                        ),
+                        "content": (
+                            f"An administrator updated the task \"{task.title}\" "
+                            f"in course {task.course_code}. Please check the latest details "
+                            "in your dashboard."
+                        ),
+                        "course_code": task.course_code,
+                        "due_time": task.deadline,  # 可留可删，不影响 UI
+                    }
+                )
+            print(">>> [DEBUG] Admin task update notifications sent!", flush=True)
+           
         if new_url is not None and delete_old and old_url and old_url != new_url:
             if hasattr(settings, "TASK_URL") and hasattr(settings, "TASK_ROOT"):
                 if str(old_url).startswith(settings.TASK_URL):

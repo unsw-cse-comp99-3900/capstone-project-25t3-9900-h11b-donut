@@ -16,6 +16,8 @@ from utils.validators import (
 )
 from django.core.exceptions import ValidationError
 from decimal import Decimal
+from reminder.models import Notification
+
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
@@ -193,6 +195,8 @@ def logout_api(request: HttpRequest):
 @csrf_exempt
 @require_POST
 def add_bonus_api(request):
+    print(">>> ADD BONUS API CALLED !!!", flush=True)
+
 
     try:
         body = json.loads(request.body.decode('utf-8') or '{}')
@@ -234,6 +238,21 @@ def add_bonus_api(request):
 
     student.bonus = new_bonus
     student.save(update_fields=["bonus"])
+
+    #  新增：创建 Notification 
+    try:
+        from reminder.models import Notification
+        n = Notification.objects.create(
+            student_id=student.student_id,
+            message_type="weekly_bonus",
+            title="Bonus Earned!",
+            preview=f"You received a bonus of {delta}",
+            content=f"Your bonus increased to {new_bonus}",
+        )
+        print(f">>> [DEBUG] Notification created! ID={n.id}", flush=True)
+    except Exception as e:
+        print(f">>> [DEBUG] Notification creation FAILED: {e}", flush=True)
+
 
     return JsonResponse({
         "success": True,

@@ -164,9 +164,11 @@ STATIC_URL = "static/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CRONJOBS = [
-    ('*/5 * * * *', 'reminder.cron.check_due_tasks'),
-  
-    ('*/5 * * * *', 'reminder.cron.check_due_tasks', '>> /Users/yihanma/cron_debug.log 2>&1'),
-    ('*/1 * * * *', 'reminder.cron.check_daily_overdue', '>> /Users/yihanma/cron_debug.log 2>&1'),
+    # due alert：每 5 分钟执行
+    ('*/5 * * * *', 'reminder.cron.check_due_tasks', '>> /tmp/django_cron.log 2>&1'),
 
+    # nightly overdue：每天早上 7:10 执行一次
+    ('10 9 * * *', 'reminder.cron.check_daily_overdue', '>> /tmp/django_cron.log 2>&1'),
 ]
+
+

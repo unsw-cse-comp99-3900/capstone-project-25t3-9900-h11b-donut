@@ -20,9 +20,7 @@ def check_daily_overdue():
 
     # if not (now.hour == 17 and now.minute < 27):
     #     return
-    # 测试：只要当前 minute % 5 == 0 就执行一次
-    if now.minute % 5 != 0:
-        return
+    
 
     print(">>> DAILY OVERDUE CRON IS RUNNING111")
 
@@ -92,27 +90,36 @@ def check_due_tasks():
                 print(f"  [MATCH {hours}h] Task {task.id} -> {local_deadline}")
 
                 # 发提醒（这里逻辑你可以先保留不动）
+                # 发提醒（带详细调试）
                 enrolled = StudentEnrollment.objects.filter(course_code=task.course_code)
+                print(f"    >>> enrolled students = {enrolled.count()}", flush=True)
+
                 for e in enrolled:
                     msg_type = f"due_{hours}h"
-                    if Notification.objects.filter(
-                        student_id=e.student_id,
-                        task_id=task.id,
-                        message_type=msg_type
-                    ).exists():
-                        continue
+                    print(f"      >>> Preparing notification for {e.student_id}, type={msg_type}", flush=True)
 
-                    Notification.objects.create(
-                        student_id=e.student_id,
-                        course_code=task.course_code,
-                        task_id=task.id,
-                        message_type=msg_type,
-                        title=f"Task '{task.title}' is due in {hours}h",
-                        preview=f"The task '{task.title}' for course {task.course_code} will be due in {hours} hours.",
-                        content=f"Your task '{task.title}' in course {task.course_code}' is due soon (in {hours}h).",
-                        due_time=task.deadline,
-                    )
+                    try:
+                        n, created = Notification.objects.get_or_create(
+                            student_id=e.student_id,
+                            task_id=task.id,
+                            message_type=msg_type,
+                            defaults={
+                                "title": f"Task '{task.title}' is due in {hours}h",
+                                "preview": f"The task '{task.title}' for course {task.course_code} will be due in {hours} hours.",
+                                "content": f"Your task '{task.title}' in course {task.course_code}' is due soon (in {hours}h).",
+                                "course_code": task.course_code,
+                                "due_time": task.deadline,
+                            }
+                        )
+                        print(f"        >>> Notification {'CREATED' if created else 'SKIPPED (EXISTED)'} id={n.id}", flush=True)
+
+                    except Exception as ex:
+                        print(f"        !!! ERROR while creating notification for {e.student_id}: {ex}", flush=True)
+
 
         print(f"[CHECK]{hours}h-window tasks = {count}")
 
     print("[✔] check_due_tasks finished.")
+
+
+
