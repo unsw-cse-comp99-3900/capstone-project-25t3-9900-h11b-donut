@@ -166,7 +166,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
       return `Yesterday's plan incomplete. Auto-rescheduled at 00:00.`;
     }
     if (m.type === 'weekly_bonus') {
-      return `Nice work! All done on time this week – 0.01 bonus added.`;
+      return `Nice work! All done on time this week – 0.1 bonus added.`;
     }
     if (m.type === 'system_notification') {
       return m.title || m.preview || 'System notification';

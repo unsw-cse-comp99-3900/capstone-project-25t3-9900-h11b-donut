@@ -150,3 +150,6 @@ if (uid) {
 实时更新；最大bonus为2分
 2.隐患：不断的勾选取消勾选会出现刷分情况，可以考虑把checkbox固定，也就是勾选完成就不能取消了
 3.改动：前端StudentPlan页面366行加了一个disabled={!!it.completed} ，勾选完后checkbox直接锁定
+
+11.18 todo:
+1.教师端删除课程后学生要收到提示，重新生成计划
