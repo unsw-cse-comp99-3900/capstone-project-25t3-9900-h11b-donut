@@ -168,7 +168,7 @@ CRONJOBS = [
     ('*/5 * * * *', 'reminder.cron.check_due_tasks', '>> /tmp/django_cron.log 2>&1'),
 
     # nightly overdue：每天早上 7:10 执行一次
-    ('20 16 * * *', 'reminder.cron.check_daily_overdue', '>> /tmp/django_cron.log 2>&1'),
+    ('45 16 * * *', 'reminder.cron.check_daily_overdue', '>> /tmp/django_cron.log 2>&1'),
 ]
 
 
