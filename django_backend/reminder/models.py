@@ -29,6 +29,12 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=['student_id', 'message_type', 'created_at']),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student_id', 'task_id', 'message_type'],
+                name='uniq_notify'
+            )
+        ]
 
     def __str__(self):
         return f"{self.student_id} | {self.message_type} | {self.title[:30]}"

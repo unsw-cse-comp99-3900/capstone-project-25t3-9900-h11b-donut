@@ -724,7 +724,7 @@ const css = `
 
 /* 只保留对齐方式差异 */
 .students-table .student-col {
-  justify-content: flex-start;
+  justify-content: center; /* 居中对齐 */
 }
 
 .students-table .student-id-col,

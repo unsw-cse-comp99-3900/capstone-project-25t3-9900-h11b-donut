@@ -87,26 +87,49 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
     return `${days} days ago`;
   };
 
-  // 获取消息类型图标 + 精简文案
   const getMessageIcon = (type: string) => {
-    switch (type) {
-      case 'due_alert':
-        return '⏰';
-      case 'nightly_notice':
-        return '❗';
-      case 'weekly_bonus':
-        return '🏆';
-      case 'system_notification':
-        return '🔔';
-      default:
-        return '📧';
-    }
-  };
+  // 所有 due_ 开头的
+  if (type.startsWith('due_')) {
+    return '⏰';
+  }
+
+  // nightly notice
+  if (type === 'nightly_notice') {
+    return '❗';
+  }
+
+  // weekly bonus / bonus / bonus_xxx
+  if (type.includes('bonus')) {
+    return '🏆';
+  }
+
+  // 所有 system_notification 相关
+  if (type.startsWith('system')) {
+    return '🔔';
+  }
+
+  // 默认
+  return '📧';
+};
+
 
   // 筛选消息并按时间倒序排列（最新的在最前面）
   const filteredMessages = messages
-    .filter(message => selectedType === 'all' || message.type === selectedType)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    .filter(message =>
+      selectedType === 'all' ||
+
+      // ⭐ due_alert 动态类型
+      (selectedType === 'due_alert' && message.type.startsWith('due_')) ||
+
+      // ⭐ system_notification 动态类型
+      (selectedType === 'system_notification' && message.type.startsWith('system')) ||
+
+      // 原来的严格匹配
+      message.type === selectedType
+    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
 
 
@@ -143,7 +166,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
       return `Yesterday's plan incomplete. Auto-rescheduled at 00:00.`;
     }
     if (m.type === 'weekly_bonus') {
-      return `Nice work! All done on time this week – 0.01 bonus added.`;
+      return `Nice work! All done on time this week – 0.1 bonus added.`;
     }
     if (m.type === 'system_notification') {
       return m.title || m.preview || 'System notification';
@@ -240,7 +263,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
                     <div className="message-content">
                       <div className="message-title">{formatMessage(message)}</div>
                     </div>
-                    <div className="message-time message-time-right">{formatTime(message.timestamp)}</div>
+                    <div className="message-time message-time-right">{formatTime(message.createdAt)}</div>
                     {!message.isRead && <div className="unread-dot"></div>}
                   </div>
                 ))

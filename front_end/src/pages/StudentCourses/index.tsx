@@ -15,6 +15,8 @@ import apiService from '../../services/api'
 import illoOrange from '../../assets/images/illustration-orange.png'
 import illoStudent from '../../assets/images/illustration-student.png'
 import illoAdmin from '../../assets/images/illustration-admin.png'
+import useUnreadMessagePolling from '../../hooks/useUnreadMessagePolling';
+
 
 const illoMap: Record<'orange' | 'student' | 'admin', string> = {
   orange: illoOrange,
@@ -47,20 +49,23 @@ export function StudentCourses() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [messageModalOpen, setMessageModalOpen] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
-  // 页面加载时获取未读消息数量
-  useEffect(() => {
-    const loadUnreadMessageCount = async () => {
-      try {
-        const messages = await apiService.getMessages();
-        const unreadCount = messages.filter(msg => !msg.isRead).length;
-        setUnreadMessageCount(unreadCount);
-      } catch (error) {
-        console.error('加载未读消息数量失败:', error);
-      }
-    };
+  useUnreadMessagePolling(setUnreadMessageCount);
 
-    loadUnreadMessageCount();
-  }, []);
+  // 页面加载时获取未读消息数量
+  //有轮询删掉首次访问
+  // useEffect(() => {
+  //   const loadUnreadMessageCount = async () => {
+  //     try {
+  //       const messages = await apiService.getMessages();
+  //       const unreadCount = messages.filter(msg => !msg.isRead).length;
+  //       setUnreadMessageCount(unreadCount);
+  //     } catch (error) {
+  //       console.error('加载未读消息数量失败:', error);
+  //     }
+  //   };
+
+  //   loadUnreadMessageCount();
+  // }, []);
 useEffect(() => {
   coursesStore.ensureLoaded();
 }, []);

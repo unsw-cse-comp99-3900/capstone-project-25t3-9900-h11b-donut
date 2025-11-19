@@ -11,7 +11,7 @@ export function StudentProfile() {
   const [showForm, setShowForm] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const uid = localStorage.getItem('current_user_id');
-  let user = {};
+  let user: any = {};
 
   if (uid) {
     try {
@@ -22,9 +22,9 @@ export function StudentProfile() {
   } else {
     user = {};
   }
+  const bonus = localStorage.getItem(`u:${uid}:bonus`) ?? "0";
   return (
     <div className="student-profile-layout">
-      {/* 左侧沿用 StudentHome 侧栏 */}
       <aside className="sh-sidebar">
         <div
           className="sh-profile-card"
@@ -99,9 +99,9 @@ export function StudentProfile() {
           </div>
           <button className="sp-edit-btn" type="button" aria-label="Edit profile">Edit</button>
 
-          <div className="sp-name">{(user as any).name}</div>
-          <div className="sp-studentId">{(user as any).studentId}</div>
-          <div className="sp-bonus">My bonus : 3.65</div>
+          <div className="sp-name">{user.name}</div>
+          <div className="sp-studentId">{user.studentId}</div>
+          <div className="sp-bonus">My bonus : {bonus}</div>
 
           <section className="sp-settings">
             <h2 className="sp-subtitle">Setting</h2>

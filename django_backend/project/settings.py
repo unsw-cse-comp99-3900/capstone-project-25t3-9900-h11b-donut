@@ -59,7 +59,8 @@ INSTALLED_APPS = [
     "plans",
     "reminder",
     "ai_question_generator",  # AI题目生成与评分
-    #"rest_framework"
+    #"rest_framework",
+    "django_crontab"
 ]
 
 MIDDLEWARE = [
@@ -143,6 +144,7 @@ LOGIN_EXEMPT_PREFIXES = (
 
 LANGUAGE_CODE = "en-us"
 
+# TIME_ZONE = "UTC"
 TIME_ZONE = "Australia/Sydney"
 
 USE_I18N = True
@@ -159,3 +161,12 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+CRONJOBS = [
+    # due alert：每 5 分钟执行
+    ('*/5 * * * *', 'reminder.cron.check_due_tasks', '>> /tmp/django_cron.log 2>&1'),
+
+    # nightly overdue：每天早上 7:10 执行一次
+    ('45 18 * * *', 'reminder.cron.check_daily_overdue', '>> /tmp/django_cron.log 2>&1'),
+]
+
+

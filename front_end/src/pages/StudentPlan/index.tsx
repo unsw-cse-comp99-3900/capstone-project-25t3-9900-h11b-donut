@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+import useUnreadMessagePolling from '../../hooks/useUnreadMessagePolling';
 
 // 定义用户类型接口
 interface User {
@@ -29,6 +30,7 @@ export function StudentPlan() {
   const [messageModalOpen, setMessageModalOpen] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
+  useUnreadMessagePolling(setUnreadMessageCount);
   
   const uid = localStorage.getItem('current_user_id');
   let user: User = {};
@@ -86,19 +88,20 @@ useEffect(() => {
   }
 }, []);
   // 页面加载时获取未读消息数量
-  useEffect(() => {
-    const loadUnreadMessageCount = async () => {
-      try {
-        const messages = await apiService.getMessages();
-        const unreadCount = messages.filter(msg => !msg.isRead).length;
-        setUnreadMessageCount(unreadCount);
-      } catch (error) {
-        console.error('加载未读消息数量失败:', error);
-      }
-    };
+  //有轮询删掉首次访问
+  // useEffect(() => {
+  //   const loadUnreadMessageCount = async () => {
+  //     try {
+  //       const messages = await apiService.getMessages();
+  //       const unreadCount = messages.filter(msg => !msg.isRead).length;
+  //       setUnreadMessageCount(unreadCount);
+  //     } catch (error) {
+  //       console.error('加载未读消息数量失败:', error);
+  //     }
+  //   };
 
-    loadUnreadMessageCount();
-  }, []);
+  //   loadUnreadMessageCount();
+  // }, []);
 useEffect(() => {
   coursesStore.ensureLoaded();
 }, []);
@@ -182,6 +185,20 @@ useEffect(() => {
   await preferencesStore.setPreferences(toSave)
 
   try {
+    if (showPlan) {
+        try {
+          await apiService.resetStudentBonus();
+          console.log(' Reschedule: reset bonus');
+          const uid = localStorage.getItem('current_user_id');
+          if (uid) {
+            const bonusKey = `u:${uid}:bonus`;
+            localStorage.setItem(bonusKey, "0");    
+          }
+        } catch (e) {
+          console.error('❌ failed to reset bonus :', e);
+          alert('wrong!');
+        }
+      }
     // 清除旧的AI计划缓存，确保获取最新的Gemini生成数据
     const uid = localStorage.getItem('current_user_id');
     if (uid) {
@@ -298,7 +315,10 @@ useEffect(() => {
         </div>
 
         <div className="sp-generate-bar">
-          <button className="btn-generate" onClick={() => setShowPrefs(true)}>{showPlan ? 'Reschedule Plan' : 'Generate Plan'}</button>
+          <button className="btn-generate" onClick=
+          {() => setShowPrefs(true)}>{
+            showPlan ? 'Reschedule Plan' : 'Generate Plan'
+            }</button>
         </div>
 
         <section className={`sp-board ${showPlan ? 'has-plan' : ''}`}>
@@ -363,8 +383,10 @@ useEffect(() => {
                           <input
                             type="checkbox"
                             checked={!!it.completed}
+                            disabled={!!it.completed} 
                             onChange={(e) => {
                               const checked = e.target.checked;
+                              const wasCompleted = !!it.completed;
                               setWeeklyPlan(prev => {
                                 const clone: Record<number, PlanItem[]> = { ...prev };
                                 clone[dIdx] = (clone[dIdx] || []).map(ci => ci === it ? { ...ci, completed: checked } : ci);
@@ -415,6 +437,20 @@ useEffect(() => {
                               // 调试输出课程整体进度
                               const courseProgress = coursesStore.getCourseProgress(it.courseId);
                               console.log(`Course ${it.courseId} progress: ${courseProgress}%`);
+                              if (!wasCompleted && checked) {
+                                  apiService.addBonus(0.1)
+                                    .then((newBonus:number) => {
+                                      const uid = localStorage.getItem('current_user_id');
+                                      if (uid) {
+                                        localStorage.setItem(`u:${uid}:bonus`, newBonus.toString());
+                                      }
+                                      // 这里如果你想顺便刷新 StudentProfile 的显示，可以加一个全局 store 或事件
+                                      console.log('Bonus updated to', newBonus);
+                                    })
+                                    .catch((err: unknown) => {
+                                      console.error('Failed to update bonus', err);
+                                    });
+                                }
                             }}
                           />
                           

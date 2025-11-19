@@ -318,7 +318,7 @@ export function AdminCourses() {
             </div>
             <div className="modal-content">
               <div className="form-group">
-                <label className="form-label">Course ID:</label>
+                <label className="form-label">Course ID: <span className="required">*</span></label>
                 <input
                   type="text"
                   className="form-input"
@@ -328,7 +328,7 @@ export function AdminCourses() {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Course Name:</label>
+                <label className="form-label">Course Name: <span className="required">*</span></label>
                 <input
                   type="text"
                   className="form-input"
@@ -794,6 +794,11 @@ const css = `
   font-weight: 600;
   color: #172239;
   font-family: 'Montserrat', sans-serif;
+}
+
+.form-label .required {
+  color: #E31B54;
+  margin-left: 4px;
 }
 
 .form-input, .form-textarea {

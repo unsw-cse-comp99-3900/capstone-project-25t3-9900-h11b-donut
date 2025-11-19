@@ -4,6 +4,7 @@ from .models import StudentAccount
 from django.conf import settings
 from django.http import JsonResponse, HttpRequest
 import json
+from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 import os
 from django.db import transaction                         
@@ -14,6 +15,8 @@ from utils.validators import (
     validate_email, validate_id, validate_name, validate_password
 )
 from django.core.exceptions import ValidationError
+from decimal import Decimal
+from reminder.models import Notification
 
 
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
@@ -148,7 +151,8 @@ def login_api(request: HttpRequest):
     try:
         account = (
             StudentAccount.objects
-            .only("student_id", "email", "name", "password_hash", "avatar_url")  # 提前限定字段，减少 IO
+            .only("student_id", "email", "name", "password_hash", "avatar_url", "bonus") 
+            # 提前限定字段，减少 IO
             .get(student_id=student_id)
         )
         ok = bcrypt.checkpw(password.encode("utf-8"), account.password_hash.encode("utf-8"))
@@ -168,6 +172,7 @@ def login_api(request: HttpRequest):
             "name": account.name or "",
             "email": account.email or "",
             "avatarUrl": getattr(account, "avatar_url", None),  # 可能为 None
+            "bonus": str(account.bonus or Decimal("0")), 
         }
 
         return api_ok({"token": token, "user": user_payload})
@@ -187,12 +192,114 @@ def logout_api(request: HttpRequest):
     request.session.flush()
     return JsonResponse({"success": True, "message": "Logged out successfully", "data": None})
 
+@csrf_exempt
+@require_POST
+def add_bonus_api(request):
+    print(">>> ADD BONUS API CALLED !!!", flush=True)
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        body = {}
+
+    raw_delta = body.get('delta', 0.1)
+    try:
+        delta = Decimal(str(raw_delta))
+    except Exception:
+        return JsonResponse({
+            "success": False,
+            "message": "Invalid delta",
+        }, status=400)
+
+    account = getattr(request, "account", None)
+    if not isinstance(account, StudentAccount):
+        return JsonResponse({
+            "success": False,
+            "message": "Not authenticated as student",
+        }, status=401)
+
+    student: StudentAccount = account
+    max_bonus = Decimal("2.0")
+    current_bonus = student.bonus or Decimal("0")
+
+    if current_bonus >= max_bonus:
+        return JsonResponse({
+            "success": True,
+            "data": {
+                "bonus": str(current_bonus),
+            },
+            "message": "MAX_BONUS_REACHED",
+        })
+    # 更新 bonus
+    new_bonus = current_bonus + delta
+    if new_bonus > max_bonus:
+        new_bonus = max_bonus
+
+    student.bonus = new_bonus
+    student.save(update_fields=["bonus"])
+
+    #  新增：创建 Notification 
+    try:
+        from reminder.models import Notification
+        n = Notification.objects.create(
+            student_id=student.student_id,
+            message_type="weekly_bonus",
+            title="Bonus Earned!",
+            preview=f"You received a bonus of {delta}",
+            content=f"Your bonus increased to {new_bonus}",
+        )
+        print(f">>> [DEBUG] Notification created! ID={n.id}", flush=True)
+    except Exception as e:
+        print(f">>> [DEBUG] Notification creation FAILED: {e}", flush=True)
 
 
+    return JsonResponse({
+        "success": True,
+        "data": {
+            "bonus": str(student.bonus),
+        },
+    })
 
 
+@csrf_exempt
+@require_POST
+def reset_bonus_api(request):
+    
+    auth = request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth.startswith("Bearer "):
+        return JsonResponse(
+            {"success": False, "message": "Unauthorized", "data": None},
+            status=401,
+        )
 
+    token = auth.split(" ", 1)[1].strip()
+    if not token:
+        return JsonResponse(
+            {"success": False, "message": "Unauthorized", "data": None},
+            status=401,
+        )
 
+    try:
+        stu = StudentAccount.objects.get(current_token=token)
+    except StudentAccount.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "message": "Unauthorized", "data": None},
+            status=401,
+        )
+
+    stu.bonus = Decimal("0.00")
+    stu.save(update_fields=["bonus"])
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Bonus reset",
+            "data": {
+                "student_id": stu.student_id,
+                "bonus": "0.00",
+            },
+        }
+    )
 
 
 

@@ -96,6 +96,11 @@ export function AdminManageCourse() {
   // Question相关状态
   const [questionModalOpen, setQuestionModalOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<any>(null)
+  
+  // 批量删除状态
+  const [batchDeleteMode, setBatchDeleteMode] = useState(false)
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([])
+  
   const [questions, setQuestions] = useState<any[]>([])
   
   // 批量题目支持：存储多个待创建的题目
@@ -230,10 +235,15 @@ export function AdminManageCourse() {
   // 创建新任务
   const handleCreateTask = async () => {
   // 基本校验
-  const today = new Date();
-  const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    .toISOString()
-    .slice(0, 10); 
+  if (!newTask.title?.trim()) { alert('Title is required'); return; }
+  if (!selectedCourse) { alert('No course selected'); return; }
+  
+  // 验证deadline格式: 支持 YYYY-MM-DD 或 YYYY-MM-DDTHH:MM 或 YYYY-MM-DDTHH:MM:SS
+  if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/.test(newTask.deadline)) {
+    alert('Please select a valid deadline');
+    return;
+  }
+  
   const pct = newTask.percentContribution;
   if (
     typeof pct !== 'number' ||
@@ -244,14 +254,15 @@ export function AdminManageCourse() {
     alert('Percentage must be a number between 1 and 100');
     return;
   }
-  if (newTask.deadline < todayStr) {
+  
+  // 检查deadline是否早于今天
+  const today = new Date();
+  const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    .toISOString()
+    .slice(0, 10);
+  const deadlineDate = newTask.deadline.slice(0, 10); // 提取日期部分
+  if (deadlineDate < todayStr) {
     alert('Deadline ahead of today!');
-    return;
-  }
-  if (!newTask.title?.trim()) { alert('Title is required'); return; }
-  if (!selectedCourse) { alert('No course selected'); return; }
-  if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}$/.test(newTask.deadline)) {
-    alert('Please select a valid deadline (YYYY-MM-DD)');
     return;
   }
 
@@ -364,15 +375,19 @@ export function AdminManageCourse() {
 
   // 1) 基本校验
   if (!newTask.title?.trim()) { alert('Title is required'); return; }
-  if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}$/.test(newTask.deadline)) {
-    alert('Please select a valid deadline (YYYY-MM-DD)');
+  
+  // 验证deadline格式: 支持 YYYY-MM-DD 或 YYYY-MM-DDTHH:MM 或 YYYY-MM-DDTHH:MM:SS
+  if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/.test(newTask.deadline)) {
+    alert('Please select a valid deadline');
     return;
   }
+  
   // 不允许选择过去日期（允许今天）
   const today = new Date();
   const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     .toISOString().slice(0, 10);
-  if (newTask.deadline < todayStr) {
+  const deadlineDate = newTask.deadline.slice(0, 10); // 提取日期部分
+  if (deadlineDate < todayStr) {
     alert('Deadline 不能早于今天');
     return;
   }
@@ -906,18 +921,36 @@ export function AdminManageCourse() {
 
   // 解析单个题目对象
   const parseQuestionObject = (data: any, currentType: string) => {
+    // 智能判断题目类型：优先从数据本身判断，其次使用currentType
+    let detectedType = currentType;
+    
+    // 如果数据中明确指定了type/qtype，使用数据中的类型
+    if (data.type) {
+      detectedType = data.type;
+    } else if (data.qtype) {
+      detectedType = data.qtype === 'mcq' ? 'multiple-choice' : 'short-answer';
+    } 
+    // 如果有options或correctAnswer字段，判断为选择题
+    else if (data.options || data.correctAnswer || data.correct_answer) {
+      detectedType = 'multiple-choice';
+    } 
+    // 如果有keyPoints或sampleAnswer字段，判断为简答题
+    else if (data.keyPoints || data.key_points || data.sampleAnswer || data.sample_answer) {
+      detectedType = 'short-answer';
+    }
+    
     return {
-      type: currentType,
+      type: detectedType,
       topic: data.topic || '',
       title: data.title || '',
       description: data.description || '',
       keywords: data.keywords || '',
       questionText: data.question || data.questionText || '',
-      options: currentType === 'multiple-choice' ? (data.options || ['', '', '', '']) : ['', '', '', ''],
-      correctAnswer: currentType === 'multiple-choice' ? (data.correctAnswer || data.correct_answer || '') : '',
+      options: detectedType === 'multiple-choice' ? (data.options || ['', '', '', '']) : ['', '', '', ''],
+      correctAnswer: detectedType === 'multiple-choice' ? (data.correctAnswer || data.correct_answer || '') : '',
       answer: '',
-      sampleAnswer: currentType === 'short-answer' ? (data.sampleAnswer || data.sample_answer || '') : '',
-      keyPoints: currentType === 'short-answer' ? (data.keyPoints || data.key_points || '') : '',
+      sampleAnswer: detectedType === 'short-answer' ? (data.sampleAnswer || data.sample_answer || '') : '',
+      keyPoints: detectedType === 'short-answer' ? (data.keyPoints || data.key_points || '') : '',
       score: data.score || 10,
       difficulty: data.difficulty || 'Medium',
       gradingCriteria: data.gradingCriteria || data.grading_criteria || '',
@@ -1238,6 +1271,7 @@ const handleBatchCreateQuestions = async () => {
 
   let successCount = 0;
   let failCount = 0;
+  const createdQuestions: any[] = []; // 收集成功创建的题目
 
   for (let i = 0; i < updatedBatch.length; i++) {
     const question = updatedBatch[i];
@@ -1305,14 +1339,14 @@ const handleBatchCreateQuestions = async () => {
       const res = await apiService.adminCreateCourseQuestion(courseId, payload);
       const realId = String(res.id);
 
-      // 添加到本地列表
+      // 添加到收集列表
       const newQuestionItem = {
         id: realId,
         ...question,
         createdAt: new Date().toISOString(),
       };
 
-      setQuestions(prev => [...prev, newQuestionItem]);
+      createdQuestions.push(newQuestionItem);
       successCount++;
     } catch (err) {
       console.error(`Failed to create question ${i + 1}:`, err);
@@ -1320,21 +1354,25 @@ const handleBatchCreateQuestions = async () => {
     }
   }
 
-  // 更新 localStorage
-  if (adminId && successCount > 0) {
-    const updatedQuestions = questions;
-    const courseKey = `admin:${adminId}:course_questions_${courseId}`;
-    const globalKey = `admin:${adminId}:questions`;
+  // 一次性更新所有题目到状态和localStorage
+  if (successCount > 0) {
+    const updatedQuestions = [...questions, ...createdQuestions];
+    setQuestions(updatedQuestions);
 
-    localStorage.setItem(courseKey, JSON.stringify(updatedQuestions));
+    if (adminId) {
+      const courseKey = `admin:${adminId}:course_questions_${courseId}`;
+      const globalKey = `admin:${adminId}:questions`;
 
-    try {
-      const allStr = localStorage.getItem(globalKey);
-      const all = allStr ? JSON.parse(allStr) : {};
-      all[courseId] = updatedQuestions;
-      localStorage.setItem(globalKey, JSON.stringify(all));
-    } catch (err) {
-      console.error('[localStorage] update failed', err);
+      localStorage.setItem(courseKey, JSON.stringify(updatedQuestions));
+
+      try {
+        const allStr = localStorage.getItem(globalKey);
+        const all = allStr ? JSON.parse(allStr) : {};
+        all[courseId] = updatedQuestions;
+        localStorage.setItem(globalKey, JSON.stringify(all));
+      } catch (err) {
+        console.error('[localStorage] update failed', err);
+      }
     }
   }
 
@@ -1651,6 +1689,86 @@ if (adminId) {
   }
   };
 
+  // 批量删除题目
+  const handleBatchDelete = async () => {
+    if (!selectedCourse) return alert('No course selected.');
+    if (selectedQuestions.length === 0) return alert('Please select questions to delete.');
+    
+    const confirmMsg = `Are you sure you want to delete ${selectedQuestions.length} question(s)?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const courseId = selectedCourse.id;
+    const adminId = localStorage.getItem('current_user_id') || '';
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const questionId of selectedQuestions) {
+      try {
+        const res = await apiService.adminDeleteCourseQuestion(courseId, String(questionId));
+        if (res.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        console.error(`Failed to delete question ${questionId}:`, err);
+        failCount++;
+      }
+    }
+
+    // 更新前端状态
+    const updated = questions.filter(q => !selectedQuestions.includes(String(q.id)));
+    setQuestions(updated);
+
+    // 同步到 localStorage
+    const courseKey = `admin:${adminId}:course_questions_${courseId}`;
+    const globalKey = `admin:${adminId}:questions`;
+
+    localStorage.setItem(courseKey, JSON.stringify(updated));
+
+    try {
+      const allStr = localStorage.getItem(globalKey);
+      const all = allStr ? JSON.parse(allStr) : {};
+      if (typeof all === 'object' && !Array.isArray(all)) {
+        all[courseId] = updated;
+        localStorage.setItem(globalKey, JSON.stringify(all));
+      }
+    } catch {
+      localStorage.setItem(globalKey, JSON.stringify({ [courseId]: updated }));
+    }
+
+    // 重置批量删除状态
+    setSelectedQuestions([]);
+    setBatchDeleteMode(false);
+
+    alert(`Batch delete completed!\nSuccess: ${successCount}\nFailed: ${failCount}`);
+  };
+
+  // 切换批量删除模式
+  const toggleBatchDeleteMode = () => {
+    setBatchDeleteMode(!batchDeleteMode);
+    setSelectedQuestions([]);
+  };
+
+  // 切换题目选中状态
+  const toggleQuestionSelection = (questionId: string) => {
+    setSelectedQuestions(prev => 
+      prev.includes(questionId) 
+        ? prev.filter(id => id !== questionId)
+        : [...prev, questionId]
+    );
+  };
+
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedQuestions.length === questions.length) {
+      setSelectedQuestions([]);
+    } else {
+      setSelectedQuestions(questions.map(q => String(q.id)));
+    }
+  };
+
   // 获取课程图片索引 - 使用课程创建时保存的索引
   const getCourseIllustrationIndex = (courseId: string) => {
     if (!courseId) return 0;
@@ -1870,35 +1988,83 @@ if (adminId) {
                   <div className="function-section">
                     <div className="section-header">
                       <h3 className="section-title">Question Bank</h3>
-                      <button className="add-btn" onClick={handleAddQuestion}>+ Add Question</button>
+                      <div style={{display: 'flex', gap: '8px'}}>
+                        {batchDeleteMode && questions.length > 0 && (
+                          <>
+                            <button 
+                              className="batch-delete-btn" 
+                              onClick={toggleSelectAll}
+                              style={{background: selectedQuestions.length === questions.length ? '#BB87AC' : '#fff', color: selectedQuestions.length === questions.length ? '#fff' : '#BB87AC'}}
+                            >
+                              {selectedQuestions.length === questions.length ? '✓ Deselect All' : 'Select All'}
+                            </button>
+                            <button 
+                              className="batch-delete-btn delete" 
+                              onClick={handleBatchDelete}
+                              disabled={selectedQuestions.length === 0}
+                            >
+                              Delete ({selectedQuestions.length})
+                            </button>
+                          </>
+                        )}
+                        <button 
+                          className={`add-btn ${batchDeleteMode ? 'cancel' : ''}`} 
+                          onClick={toggleBatchDeleteMode}
+                        >
+                          {batchDeleteMode ? 'Cancel' : 'Batch Delete'}
+                        </button>
+                        <button className="add-btn" onClick={handleAddQuestion}>+ Add Question</button>
+                      </div>
                     </div>
                     <div className={`section-content ${questions.length === 0 ? 'empty' : ''}`}>
                       {questions.length > 0 ? (
                         <div className="question-list">
                           {questions.map((question) => (
                             <div key={question.id} className="question-item">
+                              {batchDeleteMode && (
+                                <div className="question-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedQuestions.includes(String(question.id))}
+                                    onChange={() => toggleQuestionSelection(String(question.id))}
+                                  />
+                                </div>
+                              )}
                               <div className="question-info">
-                                <h4 className="question-title">{question.title}</h4>
-                                <p className="question-description">{question.description}</p>
+                                <h4 className="question-title">{question.topic || question.title || 'Untitled Question'}</h4>
+                                <p className="question-description">{question.questionText || question.description || 'No description'}</p>
                                 <div className="question-meta">
                                   <span className="meta-chip">Type: {question.type === 'multiple-choice' ? 'Multiple Choice' : 'Short Answer'}</span>
-                                  <span className="meta-chip">Keywords: {question.keywords}</span>
+                                  {question.type === 'multiple-choice' ? (
+                                    <span className="meta-chip">
+                                      Correct Answer: {question.correctAnswer || 'Not set'}
+                                      {question.correctAnswer && question.options && question.options.length > 0 && (() => {
+                                        const answerIndex = ['A', 'B', 'C', 'D'].indexOf(question.correctAnswer);
+                                        const answerText = answerIndex >= 0 ? question.options[answerIndex] : '';
+                                        return answerText ? ` - ${answerText}` : '';
+                                      })()}
+                                    </span>
+                                  ) : (
+                                    <span className="meta-chip">Key Points: {question.keywords || question.keyPoints || 'No key points'}</span>
+                                  )}
                                 </div>
                               </div>
-                              <div className="question-actions">
-                                <button 
-                                  className="edit-btn" 
-                                  onClick={() => handleEditQuestion(question)}
-                                >
-                                  Edit
-                                </button>
-                                <button 
-                                  className="delete-btn" 
-                                  onClick={() => handleDeleteQuestion(question.id)}
-                                >
-                                  Delete
-                                </button>
-                              </div>
+                              {!batchDeleteMode && (
+                                <div className="question-actions">
+                                  <button 
+                                    className="edit-btn" 
+                                    onClick={() => handleEditQuestion(question)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    className="delete-btn" 
+                                    onClick={() => handleDeleteQuestion(question.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -1951,7 +2117,7 @@ if (adminId) {
             <div className="task-modal-content">
               {/* Task Title */}
               <div className="task-input-group">
-                <label className="task-label">Task Title:</label>
+                <label className="task-label">Task Title: <span className="required">*</span></label>
                 <input
                   type="text"
                   className="task-input"
@@ -1965,7 +2131,7 @@ if (adminId) {
               </div>
 
               <div className="task-input-group">
-                <label className="task-label">Percentage (%):</label>
+                <label className="task-label">Percentage (%): <span className="required">*</span></label>
                 <input
                   type="number"
                   className="task-input"
@@ -2125,7 +2291,7 @@ if (adminId) {
             <div className="material-modal-content">
               {/* Material Name */}
               <div className="material-input-group">
-                <label className="material-label">Material Name:</label>
+                <label className="material-label">Material Name: <span className="required">*</span></label>
                 <input
                   type="text"
                   className="material-input"
@@ -3249,10 +3415,70 @@ const css = `
   background: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   transition: transform 0.2s ease;
+  gap: 12px;
 }
 
 .question-item:hover {
   transform: translateY(-2px);
+}
+
+/* 批量删除复选框 */
+.question-checkbox {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 4px;
+}
+
+.question-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #BB87AC;
+}
+
+/* 批量删除按钮样式 */
+.batch-delete-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #BB87AC;
+  background: #fff;
+  color: #BB87AC;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.batch-delete-btn:hover {
+  background: #F5EFFF;
+}
+
+.batch-delete-btn.delete {
+  background: #E31B54;
+  color: #fff;
+  border-color: #E31B54;
+}
+
+.batch-delete-btn.delete:hover {
+  background: #C01747;
+}
+
+.batch-delete-btn.delete:disabled {
+  background: #D0D5DD;
+  border-color: #D0D5DD;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.add-btn.cancel {
+  background: #fff;
+  color: #6D6D78;
+  border: 1px solid #D0D5DD;
+}
+
+.add-btn.cancel:hover {
+  background: #F5F5F5;
 }
 
 .material-info {
@@ -3596,6 +3822,11 @@ const css = `
   font-family: 'Montserrat', sans-serif;
 }
 
+.task-label .required {
+  color: #E31B54;
+  margin-left: 4px;
+}
+
 .task-input {
   width: 100%;
   max-width: 400px;
@@ -3790,6 +4021,11 @@ const css = `
   font-weight: 600;
   color: #172239;
   font-family: 'Montserrat', sans-serif;
+}
+
+.material-label .required {
+  color: #E31B54;
+  margin-left: 4px;
 }
 
 .material-input {
