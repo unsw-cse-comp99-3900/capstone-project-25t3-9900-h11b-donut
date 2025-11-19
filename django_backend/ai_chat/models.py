@@ -76,6 +76,24 @@ class PracticeSetupState(models.Model):
     def __str__(self):
         return f"PracticeSetup {self.student_id} - {self.step}"
 
+class StudyPlanQnAState(models.Model):
+    """学习计划问答状态模型 - 存储用户的学习计划解释流程状态"""
+    student_id = models.CharField(max_length=20, unique=True)  # 学生ID
+    current_mode = models.CharField(max_length=20, default='general_chat', choices=[
+        ('general_chat', 'General Chat'),
+        ('practice_setup', 'Practice Setup'),
+        ('study_plan_qna', 'Study Plan Q&A'),
+    ])
+    sub_state = models.CharField(max_length=20, blank=True, null=True)  # 子状态，如awaiting_question
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        return f"StudyPlanQnA {self.student_id} - {self.current_mode}"
+
 # 自动清理旧数据的管理器
 class ChatManager:
     @staticmethod

@@ -238,19 +238,74 @@ def generate_ai_plan(request):
         from pprint import pprint
         pprint(ai_result)
         
-        # 将AI生成的详细内容添加到返回结果中，供前端保存时使用
-        if "aiSummary" in ai_result:
-            ai_result["aiDetails"] = {
-                "aiSummary": ai_result["aiSummary"],
-                "generationReason": f"AI-generated learning plan based on {len(tasks_meta)} course assignment PDFs and user preferences",
-                "generationTime": timezone.now().isoformat(),
-                "preferences": ai_preferences,
-                "tasksAnalysis": tasks_meta
-            }
-            print("🤖 [GENERATE_AI_PLAN] AI详细内容已添加到返回数据")
+        # 📥 构造AI详细内容用于数据库存储
+        ai_details = {
+            "aiSummary": ai_result.get("aiSummary", {}),
+            "generationReason": f"AI-generated learning plan based on {len(tasks_meta)} course assignment PDFs and user preferences",
+            "generationTime": timezone.now().isoformat(),
+            "preferences": ai_preferences,
+            "tasksAnalysis": tasks_meta
+        }
         
-        # 直接返回结果
-        return JsonResponse({"success": True, "message": "OK", "data": ai_result})
+        print("🤖 [GENERATE_AI_PLAN] 准备保存AI计划到数据库...")
+        print("🔍 [GENERATE_AI_PLAN] AI结果结构:", list(ai_result.keys()) if isinstance(ai_result, dict) else type(ai_result))
+        
+        # 🔄 将AI结果映射为前端所需的格式并直接保存
+        from .services import map_ai_result_to_weekly_format, _save_plan_to_database_directly
+        try:
+            print("🔄 [GENERATE_AI_PLAN] 开始映射AI结果...")
+            weekly_plan = map_ai_result_to_weekly_format(ai_result, tz)
+            print("✅ [GENERATE_AI_PLAN] AI结果映射完成")
+            
+            print("💾 [GENERATE_AI_PLAN] 开始保存到数据库...")
+            # 保存到StudyPlan表（包含AI详细内容）
+            save_result = _save_plan_to_database_directly(student, weekly_plan, ai_details)
+            print("✅ [GENERATE_AI_PLAN] 保存操作完成:", save_result)
+        except Exception as save_error:
+            print(f"❌ [GENERATE_AI_PLAN] 保存过程出错: {save_error}")
+            print(f"❌ [GENERATE_AI_PLAN] 错误类型: {type(save_error)}")
+            import traceback
+            traceback.print_exc()
+            
+            # 即使保存失败，也返回AI结果（不包含保存状态）
+            return JsonResponse({
+                "success": True, 
+                "message": "AI计划生成成功，但保存失败", 
+                "data": ai_result,
+                "saved": False,
+                "plan_id": None
+            })
+        
+        if save_result["success"]:
+            print("✅ [GENERATE_AI_PLAN] 计划已成功保存到数据库")
+            
+            # 同时保存到AI对话模块以供Explain功能使用
+            try:
+                from ai_chat.chat_service import AIChatService
+                chat_service = AIChatService()
+                chat_success = chat_service.save_study_plan(student, ai_result)
+                if chat_success:
+                    print("✅ [GENERATE_AI_PLAN] 计划已同步到AI对话模块")
+                else:
+                    print("⚠️ [GENERATE_AI_PLAN] 计划保存到AI对话模块失败")
+            except Exception as chat_error:
+                print(f"⚠️ [GENERATE_AI_PLAN] AI对话模块保存错误: {chat_error}")
+            
+            # 返回包含AI详细内容的完整数据给前端
+            ai_result["aiDetails"] = ai_details
+            return JsonResponse({
+                "success": True, 
+                "message": "OK", 
+                "data": ai_result,
+                "saved": True,
+                "plan_id": save_result.get("plan_id")
+            })
+        else:
+            print(f"❌ [GENERATE_AI_PLAN] 数据库保存失败: {save_result.get('error')}")
+            return JsonResponse({
+                "success": False,
+                "message": f"Failed to save plan: {save_result.get('error')}"
+            }, status=500)
 
     except Exception as e:
         print("[AI_GENERATE_PLAN_ERROR]", str(e))

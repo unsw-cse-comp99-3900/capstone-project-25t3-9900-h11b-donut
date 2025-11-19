@@ -30,9 +30,9 @@ class QuestionGenerator:
         # 配置 Gemini
         genai.configure(api_key=self.api_key)
         
-        # 使用经过测试的可用模型，配置生成参数
+        # 使用可用的Gemini模型，配置生成参数
         self.model = genai.GenerativeModel(
-            'models/gemini-2.5-flash-preview-05-20',
+            'gemini-2.5-flash',
             generation_config={
                 'temperature': 0.7,
                 'top_p': 0.9,

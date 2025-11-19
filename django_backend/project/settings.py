@@ -98,18 +98,17 @@ WSGI_APPLICATION = "project.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",  
-        "NAME": os.getenv("DB_DATABASE", "test"),  
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("DB_DATABASE", "test"),
         "USER": os.getenv("DB_USERNAME", "dfQsmvb7nbPzbba.root"),
         "PASSWORD": os.getenv("DB_PASSWORD", "EvatLWiBHg22MK2A"),
         "HOST": os.getenv("DB_HOST", "gateway01.ap-northeast-1.prod.aws.tidbcloud.com"),
         "PORT": os.getenv("DB_PORT", "4000"),
         "OPTIONS": {
-            "charset": "utf8mb4",  
+            "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_ALL_TABLES'",
-            "ssl": {"ssl": {}},  
+            "ssl": {"ssl_mode": "VERIFY_IDENTITY"},  # TiDB Cloud需要SSL连接
         },
-        "CONN_MAX_AGE": 60, 
     }
 }
 

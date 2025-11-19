@@ -54,42 +54,89 @@ Due: {due_date}
 Content: {limited_text}
 
 JSON only, no markdown:"""
-    try:
-        resp = _model.generate_content(prompt)
-        print(f"[DEBUG] Gemini 响应: {resp}")
-        cands = getattr(resp, "candidates", None) or []
-        print(f"[DEBUG] 候选数量: {len(cands)}")
-        if not cands or not getattr(cands[0], "content", None):
-            print("[DEBUG] 无有效候选或内容")
-            return None
-        parts = getattr(cands[0].content, "parts", None) or []
-        texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
-        raw = "\n".join(texts).strip()
-        print(f"[DEBUG] 提取的文本: {raw[:500]}...")
-        if not raw:
-            print("[DEBUG] 提取的文本为空")
-            return None
+    # 🔥 添加重试机制，处理网络连接问题
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"[DEBUG] Gemini API 调用尝试 {attempt + 1}/{max_retries}")
             
-        # 清理可能的markdown格式
-        clean_json = raw.strip()
-        if clean_json.startswith('```json'):
-            clean_json = clean_json[7:]
-        if clean_json.startswith('```'):
-            clean_json = clean_json[3:]
-        if clean_json.endswith('```'):
-            clean_json = clean_json[:-3]
-        clean_json = clean_json.strip()
-        
-        print(f"[DEBUG] 清理后的JSON: {clean_json}")
-        data = json.loads(clean_json)
-        print(f"[DEBUG] 解析的 JSON: {data}")
-        # 简单校验
-        if "suggestedParts" not in data or not isinstance(data["suggestedParts"], list):
-            print("[DEBUG] JSON 格式不符合预期")
+            # 设置超时时间
+            import socket
+            original_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(30)  # 30秒超时
+            
+            try:
+                resp = _model.generate_content(prompt)
+                print(f"[DEBUG] Gemini 响应: {resp}")
+            finally:
+                socket.setdefaulttimeout(original_timeout)
+            
+            cands = getattr(resp, "candidates", None) or []
+            print(f"[DEBUG] 候选数量: {len(cands)}")
+            if not cands or not getattr(cands[0], "content", None):
+                print("[DEBUG] 无有效候选或内容")
+                if attempt < max_retries - 1:
+                    print(f"[DEBUG] 重试 ({attempt + 2}/{max_retries})...")
+                    continue
+                return None
+            parts = getattr(cands[0].content, "parts", None) or []
+            texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
+            raw = "\n".join(texts).strip()
+            print(f"[DEBUG] 提取的文本: {raw[:500]}...")
+            if not raw:
+                print("[DEBUG] 提取的文本为空")
+                if attempt < max_retries - 1:
+                    print(f"[DEBUG] 重试 ({attempt + 2}/{max_retries})...")
+                    continue
+                return None
+                
+            # 清理可能的markdown格式
+            clean_json = raw.strip()
+            if clean_json.startswith('```json'):
+                clean_json = clean_json[7:]
+            if clean_json.startswith('```'):
+                clean_json = clean_json[3:]
+            if clean_json.endswith('```'):
+                clean_json = clean_json[:-3]
+            clean_json = clean_json.strip()
+            
+            print(f"[DEBUG] 清理后的JSON: {clean_json}")
+            data = json.loads(clean_json)
+            print(f"[DEBUG] 解析的 JSON: {data}")
+            # 简单校验
+            if "suggestedParts" not in data or not isinstance(data["suggestedParts"], list):
+                print("[DEBUG] JSON 格式不符合预期")
+                if attempt < max_retries - 1:
+                    print(f"[DEBUG] 重试 ({attempt + 2}/{max_retries})...")
+                    continue
+                return None
+            
+            # 成功解析，返回结果
+            print(f"[DEBUG] ✅ 成功解析Gemini响应")
+            return data
+            
+        except (BrokenPipeError, ConnectionError, OSError) as e:
+            print(f"[DEBUG] 网络连接错误 (尝试 {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
+            if attempt < max_retries - 1:
+                import time
+                wait_time = (attempt + 1) * 2  # 递增等待时间: 2s, 4s, 6s
+                print(f"[DEBUG] 等待 {wait_time} 秒后重试...")
+                time.sleep(wait_time)
+                continue
+            else:
+                print(f"[DEBUG] ❌ 达到最大重试次数，放弃")
+                import traceback
+                traceback.print_exc()
+                return None
+        except Exception as e:
+            print(f"[DEBUG] Gemini 调用异常: {type(e).__name__} - {e}")
+            import traceback
+            traceback.print_exc()
+            if attempt < max_retries - 1:
+                import time
+                print(f"[DEBUG] 等待 2 秒后重试...")
+                time.sleep(2)
+                continue
             return None
-        return data
-    except Exception as e:
-        print(f"[DEBUG] Gemini 调用异常: {e}")
-        import traceback
-        traceback.print_exc()
-        return None
+    
+    return None

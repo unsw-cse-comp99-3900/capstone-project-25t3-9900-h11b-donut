@@ -170,6 +170,444 @@ class AIChatService:
         
         return False, None
     
+    # ==================== 学习计划问答状态管理方法 ====================
+    
+    def get_current_mode(self, user_id: str, get_sub_state: bool = False) -> str:
+        """获取用户当前的模式"""
+        from .models import StudyPlanQnAState
+        
+        try:
+            state = StudyPlanQnAState.objects.get(student_id=user_id)
+            if get_sub_state:
+                return state.sub_state
+            return state.current_mode
+        except StudyPlanQnAState.DoesNotExist:
+            # 如果没有状态记录，返回默认模式
+            StudyPlanQnAState.objects.create(student_id=user_id, current_mode='general_chat', sub_state=None)
+            return 'general_chat' if not get_sub_state else None
+    
+    def set_current_mode(self, user_id: str, mode: str, sub_state: str = None):
+        """设置用户当前的模式和子状态"""
+        from .models import StudyPlanQnAState
+        
+        state, created = StudyPlanQnAState.objects.update_or_create(
+            student_id=user_id,
+            defaults={
+                'current_mode': mode,
+                'sub_state': sub_state
+            }
+        )
+        
+        if not created:
+            state.current_mode = mode
+            state.sub_state = sub_state
+            state.save()
+        
+        print(f"[DEBUG] 设置模式: user={user_id}, mode={mode}, sub_state={sub_state}")
+    
+    def clear_mode(self, user_id: str):
+        """清除模式，回到general_chat"""
+        from .models import StudyPlanQnAState
+        
+        try:
+            state = StudyPlanQnAState.objects.get(student_id=user_id)
+            state.current_mode = 'general_chat'
+            state.sub_state = None
+            state.save()
+            print(f"[DEBUG] 清除模式: user={user_id}")
+        except StudyPlanQnAState.DoesNotExist:
+            pass
+    
+    def is_explain_plan_request(self, message: str) -> bool:
+        """检测是否是解释学习计划的请求"""
+        explain_patterns = [
+            r'explain.*plan',
+            r'please.*explain.*plan',
+            r'please.*explain.*study.*plan',
+            r'tell.*about.*plan',
+            r'plan.*explain',
+            r'study.*plan.*explain',
+            r'explain.*study.*plan'
+        ]
+        
+        message_lower = message.lower()
+        for pattern in explain_patterns:
+            if re.search(pattern, message_lower):
+                return True
+        return False
+    
+    def is_stop_request(self, message: str) -> bool:
+        """检测是否是停止当前模式的请求"""
+        stop_patterns = [
+            r'\bstop\b',
+            r'\bexit\b', 
+            r'\bback\b'
+        ]
+        
+        message_lower = message.lower().strip()
+        for pattern in stop_patterns:
+            if re.search(pattern, message_lower):
+                return True
+        return False
+    
+    def is_why_plan_request(self, message: str) -> bool:
+        """检测是否是询问计划整体原因的请求"""
+        why_patterns = [
+            r'why.*plan',
+            r'plan.*why',
+            r'reason.*plan',
+            r'plan.*reason'
+        ]
+        
+        message_lower = message.lower()
+        for pattern in why_patterns:
+            if re.search(pattern, message_lower):
+                return True
+        return False
+    
+    def parse_explain_task_part_request(self, message: str) -> tuple[Optional[int], Optional[str]]:
+        """解析解释具体Task/Part的请求"""
+        # 先尝试匹配标准格式 "Explain Task X – Part Y"
+        pattern = r'explain\s+task\s+(\d+)\s*[-–]\s*part\s+([A-Za-z])'
+        match = re.search(pattern, message.lower())
+        
+        if match:
+            task_num = int(match.group(1))
+            part_letter = match.group(2).upper()
+            return task_num, part_letter
+        
+        # 如果标准格式不匹配，尝试从用户的计划中查找匹配的part标签
+        # 这种情况下需要获取用户的计划数据
+        # 这里返回None，在handle_study_plan_qna_mode中处理更复杂的匹配
+        
+        return None, None
+    
+    def find_part_by_label(self, message: str, plan_data: dict[str, Any]) -> Optional[tuple[int, str]]:
+        """通过标签在计划中查找对应的任务和部分"""
+        message_lower = message.lower()
+        
+        aiSummary = plan_data.get('aiSummary', {})
+        tasks = aiSummary.get('tasks', [])
+        
+        for task_idx, task in enumerate(tasks, 1):
+            parts = task.get('parts', [])
+            for part_idx, part in enumerate(parts):
+                label = part.get('label', '').lower()
+                detail = part.get('detail', '').lower()
+                
+                # 检查消息中是否包含part的label或detail
+                if label and label in message_lower:
+                    part_letter = chr(65 + part_idx)  # A, B, C, ...
+                    return task_idx, part_letter
+                elif detail and any(word in detail for word in message_lower.split() if len(word) > 3):
+                    part_letter = chr(65 + part_idx)
+                    return task_idx, part_letter
+        
+        return None
+    
+    def get_current_plan_for_user(self, account: StudentAccount) -> Optional[dict[str, Any]]:
+        """获取用户的当前学习计划"""
+        return self.get_user_study_plan(account)
+    
+    def generate_explain_plan_welcome(self) -> str:
+        """生成进入explain my plan模式的欢迎消息"""
+        return """<div>
+    <div style="font-weight: 700; margin-bottom: 8px;">
+        Of course, I'd be happy to explain your study plan. 😊
+    </div>
+    <div style="line-height: 1.6;">
+        You can ask me about:
+        <ol style="padding-left: 18px; margin: 8px 0;">
+            <li>Why this plan was generated in this way, or</li>
+            <li>The details of a specific task or part in your plan.</li>
+        </ol>
+        <div style="margin-bottom: 8px;">
+            For example, you can say:
+        </div>
+        <ul style="padding-left: 18px; margin: 0 0 12px 0; font-style: italic;">
+            <li>"Why did you give me this plan?"</li>
+            <li>"Explain Task 1 – Part A."</li>
+            <li>"Explain Task 1 – Part B."</li>
+        </ul>
+        If you want to go back to normal chat at any time, just type "stop".
+    </div>
+</div>"""
+    
+    def generate_why_plan_explanation(self, plan_data: dict[str, Any]) -> str:
+        """生成为什么是这样安排计划的解释"""
+        # 🔑 从aiSummary中获取任务信息
+        ai_summary = plan_data.get('aiSummary', {})
+        tasks = ai_summary.get('tasks', [])
+        
+        # 构建解释内容
+        explanation_parts = []
+        
+        # 标题
+        explanation_parts.append("""<div>
+    <div style="font-weight: 700; margin-bottom: 8px;">
+        Great question! 🌟
+    </div>
+    <div style="margin-bottom: 12px;">
+        Here's why your study plan was designed this way:
+    </div>""")
+        
+        # 如果有任务,显示每个任务的解释
+        if tasks:
+            explanation_parts.append("""<div style="margin-bottom: 16px;">""")
+            
+            for idx, task in enumerate(tasks, 1):
+                task_title = task.get('taskTitle', f'Task {idx}')
+                task_explanation = task.get('explanation', '')
+                parts_count = len(task.get('parts', []))
+                total_minutes = task.get('totalMinutes', 0)
+                hours = total_minutes // 60
+                mins = total_minutes % 60
+                time_str = f"{hours}h {mins}m" if mins > 0 else f"{hours}h"
+                
+                # 任务卡片
+                explanation_parts.append(f"""
+    <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid #4CAF50;">
+        <div style="font-weight: 600; margin-bottom: 6px;">📚 {task_title}</div>
+        <div style="font-size: 0.9em; color: #666; margin-bottom: 8px;">{parts_count} parts • {time_str} total</div>""")
+                
+                # 🔑 显示AI的解释
+                if task_explanation:
+                    explanation_parts.append(f"""
+        <div style="line-height: 1.5;">
+            <strong>Why this breakdown:</strong><br/>
+            {task_explanation}
+        </div>""")
+                
+                explanation_parts.append("""
+    </div>""")
+            
+            explanation_parts.append("""</div>""")
+        else:
+            # 如果没有任务数据,显示通用说明
+            overall_reason = plan_data.get('overall_reason', 'This plan was designed to help you complete your assignments efficiently while balancing your workload.')
+            explanation_parts.append(f"""
+    <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; line-height: 1.6;">
+        {overall_reason}
+    </div>""")
+        
+        # 提示用户可以继续提问
+        explanation_parts.append("""
+    <div style="line-height: 1.6;">
+        If you'd like more details, you can ask about a specific task or part, for example:
+        <ul style="padding-left: 18px; margin: 8px 0; font-style: italic;">
+            <li>"Explain Task 1 – Part A."</li>
+            <li>"Explain Task 1 – Part B."</li>
+        </ul>
+        Or type "stop" if you want to go back to normal chat.
+    </div>
+</div>""")
+        
+        return ''.join(explanation_parts)
+    
+    def generate_task_part_explanation(self, plan_data: dict[str, Any], task_index: int, part_letter: str) -> str:
+        """生成具体Task/Part的解释"""
+        try:
+            # 从计划数据中找到对应的task和part
+            ai_summary = plan_data.get('aiSummary', {})
+            tasks = ai_summary.get('tasks', [])
+            
+            if task_index <= 0 or task_index > len(tasks):
+                return self.generate_task_part_not_found(plan_data)
+            
+            task = tasks[task_index - 1]
+            parts = task.get('parts', [])
+            
+            # 将字母转换为索引 (A=0, B=1, etc.)
+            part_index = ord(part_letter) - ord('A')
+            
+            if part_index < 0 or part_index >= len(parts):
+                return self.generate_task_part_not_found(plan_data)
+            
+            part = parts[part_index]
+            part_label = part.get('label', f'Task {task_index} – Part {part_letter}')
+            part_detail = part.get('detail', f'This part focuses on key concepts needed for {task.get("taskTitle", "this assignment")}.')
+            part_why_in_plan = part.get('why_in_plan', 'This part builds foundational skills for the assignment.')
+            
+            return f"""<div>
+    <div style="font-weight: 700; margin-bottom: 8px;">
+        Sure! Let's look at {part_label}. ✏️
+    </div>
+    <div style="margin-bottom: 12px;">
+        <div style="font-weight: 600; margin-bottom: 4px;">What this part is about:</div>
+        <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; line-height: 1.6;">
+            {part_detail}
+        </div>
+    </div>
+    <div style="margin-bottom: 12px;">
+        <div style="font-weight: 600; margin-bottom: 4px;">Why it appears in your plan at this time:</div>
+        <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; line-height: 1.6;">
+            {part_why_in_plan}
+        </div>
+    </div>
+    <div style="line-height: 1.6;">
+        In other words, this part helps you:
+        <ul style="padding-left: 18px; margin: 8px 0;">
+            <li>Build the skills you need for later parts of the assignment, and</li>
+            <li>Make steady progress without leaving everything to the last minute.</li>
+        </ul>
+        <div style="margin-top: 12px;">
+            You can continue asking about other parts or tasks, or type "stop" to go back to normal chat.
+        </div>
+    </div>
+</div>"""
+            
+        except Exception as e:
+            print(f"[DEBUG] 生成task/part解释时出错: {e}")
+            return self.generate_task_part_not_found(plan_data)
+    
+    def generate_task_part_not_found(self, plan_data: dict[str, Any]) -> str:
+        """生成找不到对应Task/Part的fallback消息"""
+        try:
+            ai_summary = plan_data.get('aiSummary', {})
+            tasks = ai_summary.get('tasks', [])
+            
+            # 构建任务列表
+            task_list = []
+            for i, task in enumerate(tasks, 1):
+                task_name = task.get('taskTitle', f'Task {i}')
+                parts = task.get('parts', [])
+                part_list = []
+                
+                for j, part in enumerate(parts):
+                    part_label = part.get('label', f'Part {chr(65 + j)}')
+                    part_list.append(f'Part {chr(65 + j)} – {part_label}')
+                
+                task_list.append(f"{i}) Task {i} – {task_name}\n   " + "\n   ".join(f"• {part}" for part in part_list))
+            
+            tasks_text = "\n".join(task_list)
+            
+        except Exception:
+            tasks_text = "No tasks found in your plan."
+        
+        return f"""<div>
+    <div style="font-weight: 700; margin-bottom: 8px;">
+        I'm not sure which part you mean. 🤔
+    </div>
+    <div style="margin-bottom: 12px;">
+        Here are the tasks and parts in your current plan:
+    </div>
+    <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-family: monospace; white-space: pre-line; line-height: 1.6;">
+{tasks_text}
+    </div>
+    <div style="line-height: 1.6;">
+        Please ask again using this format, for example:
+        <ul style="padding-left: 18px; margin: 8px 0; font-style: italic;">
+            <li>"Explain Task 1 – Part A."</li>
+            <li>"Explain Task 1 – Part B."</li>
+        </ul>
+        Or type "stop" if you want to go back to normal chat.
+    </div>
+</div>"""
+    
+    def generate_no_plan_error(self) -> str:
+        """生成没有学习计划的错误消息"""
+        return """<div>
+    <div style="font-weight: 700; margin-bottom: 8px;">
+        I don't see an active study plan for you yet. 📋
+    </div>
+    <div style="line-height: 1.6;">
+        To get a personalized explanation, please generate your study plan first from the "My Plan" section.
+        <br /><br />
+        Once you have a plan, I can explain:
+        <ul style="padding-left: 18px; margin: 8px 0;">
+            <li>Why tasks are scheduled in a specific order</li>
+            <li>How deadlines and workload are balanced</li>
+            <li>Tips for following your personalized schedule</li>
+        </ul>
+    </div>
+</div>"""
+    
+    def generate_mode_exit_message(self) -> str:
+        """生成退出模式的确认消息"""
+        return """<div>
+    <div style="font-weight: 700; margin-bottom: 8px;">
+        No problem, we can switch back to normal chat. 😊
+    </div>
+    <div style="line-height: 1.6;">
+        You can ask me anything about your studies, practice questions, or tasks now.
+    </div>
+</div>"""
+    
+    def handle_study_plan_qna_mode(self, account: StudentAccount, message: str) -> Optional[str]:
+        """处理学习计划问答模式下的用户输入"""
+        user_id = account.student_id
+        current_sub_state = self.get_current_mode(user_id, get_sub_state=True)
+        print(f"[DEBUG] handle_study_plan_qna_mode 被调用: user={user_id}, sub_state={current_sub_state}, message={message}")
+        
+        # 🔑 优先检查是否是练习请求 - 如果是,退出explain模式并返回None让主流程处理
+        if self.is_practice_request(message):
+            print(f"[DEBUG] 在explain模式中检测到练习请求,退出explain模式")
+            self.clear_mode(user_id)
+            return None  # 返回None让process_message重新处理这个消息
+        
+        # 检查是否是停止请求
+        if self.is_stop_request(message):
+            self.clear_mode(user_id)
+            return self.generate_mode_exit_message()
+        
+        # 获取用户的计划数据（很多地方都需要）
+        plan_data = self.get_current_plan_for_user(account)
+        if not plan_data:
+            self.clear_mode(user_id)
+            return self.generate_no_plan_error()
+        
+        # 检查是否是询问整体原因
+        if self.is_why_plan_request(message):
+            # 🔑 更新状态为active
+            self.set_current_mode(user_id, 'study_plan_qna', 'active')
+            return self.generate_why_plan_explanation(plan_data)
+        
+        # 检查是否是询问具体Task/Part（标准格式）
+        task_num, part_letter = self.parse_explain_task_part_request(message)
+        if task_num and part_letter:
+            # 🔑 更新状态为active
+            self.set_current_mode(user_id, 'study_plan_qna', 'active')
+            return self.generate_task_part_explanation(plan_data, task_num, part_letter)
+        
+        # 先检查是否是通用的解释请求，避免误匹配到具体Part
+        explain_patterns = [
+            r'\bexplain\b.*\bplan\b',
+            r'\bplan\b.*\bexplain\b',
+            r'tell.*about.*plan',
+            r'how.*plan.*work'
+        ]
+        message_lower = message.lower()
+        for pattern in explain_patterns:
+            if re.search(pattern, message_lower):
+                # 这是通用的解释请求，返回欢迎消息
+                self.set_current_mode(user_id, 'study_plan_qna', 'active')
+                return self.generate_explain_plan_welcome()
+        
+        # 尝试通过标签查找匹配的部分（只在明确提到具体内容时）
+        part_result = self.find_part_by_label(message, plan_data)
+        if part_result:
+            task_num, part_letter = part_result
+            # 🔑 更新状态为active
+            self.set_current_mode(user_id, 'study_plan_qna', 'active')
+            return self.generate_task_part_explanation(plan_data, task_num, part_letter)
+        
+        # 如果都不匹配，返回友好提示
+        self.set_current_mode(user_id, 'study_plan_qna', 'active')
+        return """<div>
+    <div style="font-weight: 700; margin-bottom: 8px;">
+        I'm not sure what you're asking about. 🤔
+    </div>
+    <div style="line-height: 1.6;">
+        In this mode, you can ask me:
+        <ul style="padding-left: 18px; margin: 8px 0;">
+            <li>"Why did you give me this plan?" - to learn about the overall plan reasoning</li>
+            <li>"Explain Task 1 – Part A." - to get details about a specific task part</li>
+            <li>You can also mention specific part names like "HTML Fundamentals"</li>
+        </ul>
+        Or type "stop" to go back to normal chat.
+    </div>
+</div>"""
+
     # ==================== 练习状态管理方法 ====================
     
     def set_practice_setup_mode(self, user_id: str, step: str, course: str = None, topic: str = None):
@@ -392,16 +830,25 @@ class AIChatService:
         if tasks:
             explanation_parts.append(f"""<div style="font-weight: 600; margin: 8px 0 4px;">Your plan includes {len(tasks)} main tasks:</div><ul style="padding-left: 18px; margin: 0;">""")
             
-            for task in tasks[:3]:  # 只显示前3个任务避免过长
+            for idx, task in enumerate(tasks, 1):  # 显示所有任务并添加索引
                 task_title = task.get('taskTitle', 'Unknown Task')
+                task_explanation = task.get('explanation', '')  # 🔑 获取AI的解释
                 parts_count = len(task.get('parts', []))
                 total_minutes = task.get('totalMinutes', 0)
                 hours = total_minutes // 60
+                mins = total_minutes % 60
                 
-                explanation_parts.append(f"""<li><strong>{task_title}:</strong> {parts_count} parts, ~{hours} hours total</li>""")
-            
-            if len(tasks) > 3:
-                explanation_parts.append(f"<li><em>...and {len(tasks) - 3} more tasks</em></li>")
+                # 格式化时间显示
+                time_str = f"{hours}h {mins}m" if mins > 0 else f"{hours}h"
+                
+                # 任务卡片开始
+                explanation_parts.append(f"""<li style="margin-bottom: 12px;"><strong>{task_title}:</strong> {parts_count} parts, {time_str} total""")
+                
+                # 🔑 显示AI的解释 - 这是关键!
+                if task_explanation:
+                    explanation_parts.append(f"""<br/><div style="margin-top: 6px; padding: 8px; background: #e8f5e9; border-radius: 4px; font-size: 0.95em; line-height: 1.5;"><strong>📋 Why this breakdown:</strong><br/>{task_explanation}</div>""")
+                
+                explanation_parts.append("</li>")
             
             explanation_parts.append("</ul>")
         
@@ -1024,56 +1471,49 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
             conversation.last_activity_at = timezone.now()
             conversation.save()
             
-            # 优先检查是否在练习设置模式中
-            if self.is_in_practice_setup_mode(account.student_id):
-                # 在练习设置模式中，使用专门的处理逻辑
-                ai_response = self.handle_practice_setup_mode(account, message)
-                if ai_response is None:
-                    # 如果返回None，说明模式已结束，回退到普通处理
-                    self.clear_practice_setup_mode(account.student_id)
-                    intent = self.detect_intent(message)
-                    ai_response = self.generate_general_response()
-                else:
-                    # 在练习设置模式中，设置intent为practice
-                    intent = 'practice'
-            else:
-                # 检测意图
-                intent = self.detect_intent(message)
-                
+            # 获取当前用户模式
+            current_mode = self.get_current_mode(account.student_id)
+            print(f"[DEBUG] 当前用户模式: {current_mode}")
+            
+            # 优先级1: 检查是否是显式模块触发词
+            if self.is_explain_plan_request(message) and current_mode != 'study_plan_qna':
+                # 进入study_plan_qna模式
+                self.set_current_mode(account.student_id, 'study_plan_qna', 'awaiting_question')
+                ai_response = self.generate_explain_plan_welcome()
+                intent = 'study_plan_qna'
+            elif self.is_practice_request(message) and current_mode != 'practice_setup':
                 # 检查是否是练习请求,如果是,启动练习设置模式
-                if self.is_practice_request(message):
-                    # 先检查用户是否已经提供了课程和主题
-                    available_courses = self.get_student_courses(account)
-                    mentioned_course, mentioned_topic = self.extract_course_and_topic_from_message(message, available_courses)
-                    
-                    print(f"[DEBUG] 练习请求检测: 课程={mentioned_course}, 主题={mentioned_topic}")
-                    
-                    # 如果用户同时提供了课程和主题,直接生成练习
-                    if mentioned_course and mentioned_topic:
-                        # 验证课程和主题
-                        is_course_valid, valid_course = self.validate_course_input(mentioned_course, available_courses)
-                        if is_course_valid:
-                            topics = self.get_course_topics(valid_course)
-                            is_topic_valid, valid_topic = self.validate_topic_input(mentioned_topic, topics)
-                            
-                            if is_topic_valid:
-                                # 课程和主题都有效,返回"正在生成"消息，让前端处理
-                                print(f"[DEBUG] 开始练习生成流程: {valid_course} - {valid_topic}")
-                                ai_response = f"""
-                                <div>
-                                    <div style="font-weight: 700; margin-bottom: 8px;">
-                                        Great choice 💪
-                                    </div>
-                                    <div style="margin-bottom: 12px;">
-                                        I'm now generating a practice set for {valid_course} – {valid_topic}.
-                                        Please wait a moment…
-                                    </div>
+                available_courses = self.get_student_courses(account)
+                mentioned_course, mentioned_topic = self.extract_course_and_topic_from_message(message, available_courses)
+                
+                print(f"[DEBUG] 练习请求检测: 课程={mentioned_course}, 主题={mentioned_topic}")
+                
+                # 如果用户同时提供了课程和主题,直接生成练习
+                if mentioned_course and mentioned_topic:
+                    # 验证课程和主题
+                    is_course_valid, valid_course = self.validate_course_input(mentioned_course, available_courses)
+                    if is_course_valid:
+                        topics = self.get_course_topics(valid_course)
+                        is_topic_valid, valid_topic = self.validate_topic_input(mentioned_topic, topics)
+                        
+                        if is_topic_valid:
+                            # 课程和主题都有效,返回"正在生成"消息，让前端处理
+                            print(f"[DEBUG] 开始练习生成流程: {valid_course} - {valid_topic}")
+                            ai_response = f"""
+                            <div>
+                                <div style="font-weight: 700; margin-bottom: 8px;">
+                                    Great choice 💪
                                 </div>
-                                """
-                            else:
-                                # 主题无效
-                                self.set_practice_setup_mode(account.student_id, 'topic', valid_course)
-                                ai_response = f"""
+                                <div style="margin-bottom: 12px;">
+                                    I'm now generating a practice set for {valid_course} – {valid_topic}.
+                                    Please wait a moment…
+                                </div>
+                            </div>
+                            """
+                        else:
+                            # 主题无效
+                            self.set_practice_setup_mode(account.student_id, 'topic', valid_course)
+                            ai_response = f"""
                         <div>
                             <div style="font-weight: 700; margin-bottom: 8px;">
                                 I couldn't find that topic in {valid_course} 😅
@@ -1089,10 +1529,10 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
                             </div>
                         </div>
                         """
-                        else:
-                            # 课程无效
-                            self.set_practice_setup_mode(account.student_id, 'course')
-                            ai_response = f"""
+                    else:
+                        # 课程无效
+                        self.set_practice_setup_mode(account.student_id, 'course')
+                        ai_response = f"""
                         <div>
                             <div style="font-weight: 700; margin-bottom: 8px;">
                                 I couldn't find that course 😅
@@ -1108,11 +1548,11 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
                             </div>
                         </div>
                         """
-                    # 如果没有提供课程和主题,启动练习设置模式
-                    else:
-                        if available_courses:
-                            self.set_practice_setup_mode(account.student_id, 'course')
-                            ai_response = f"""
+                # 如果没有提供课程和主题,启动练习设置模式
+                else:
+                    if available_courses:
+                        self.set_practice_setup_mode(account.student_id, 'course')
+                        ai_response = f"""
                         <div>
                             <div style="font-weight: 700; margin-bottom: 8px;">
                                 Great idea to work on your weak topics 😊
@@ -1131,8 +1571,8 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
                             </div>
                         </div>
                         """
-                        else:
-                            ai_response = """
+                    else:
+                        ai_response = """
                         <div>
                             <div style="font-weight: 700; margin-bottom: 8px;">
                                 I don't see any courses in your enrollment yet 📚
@@ -1143,23 +1583,146 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
                             </div>
                         </div>
                         """
-                else:
-                    # 普通模式：根据意图生成回复
-                    if intent == 'explain_plan':
-                        # 对于计划解释请求，返回保存的计划描述
-                        ai_response = self.generate_plan_explanation(account)
-                    elif intent == 'task_help':
-                        # 对于任务帮助请求，生成任务相关的回复
-                        ai_response = self.generate_ai_response(message, account, conversation_history)
-                    elif intent == 'encouragement':
-                        # 对于鼓励请求，生成鼓励性回复
-                        ai_response = self.generate_ai_response(message, account, conversation_history)
-                    elif intent == 'greeting':
-                        # 对于问候，生成问候回复
-                        ai_response = self.generate_ai_response(message, account, conversation_history)
+                intent = 'practice'
+            # 优先级2: 检查是否在特定模式中
+            elif current_mode == 'study_plan_qna':
+                # 在study_plan_qna模式中，使用专门的处理逻辑
+                ai_response = self.handle_study_plan_qna_mode(account, message)
+                if ai_response is None:
+                    # 🔑 如果返回None，说明检测到了其他请求(如practice)，需要重新处理
+                    # 重新检测意图并处理
+                    if self.is_practice_request(message):
+                        # 处理练习请求
+                        available_courses = self.get_student_courses(account)
+                        mentioned_course, mentioned_topic = self.extract_course_and_topic_from_message(message, available_courses)
+                        
+                        if mentioned_course and mentioned_topic:
+                            # 验证课程和主题
+                            is_course_valid, valid_course = self.validate_course_input(mentioned_course, available_courses)
+                            if is_course_valid:
+                                topics = self.get_course_topics(valid_course)
+                                is_topic_valid, valid_topic = self.validate_topic_input(mentioned_topic, topics)
+                                
+                                if is_topic_valid:
+                                    ai_response = f"""
+                            <div>
+                                <div style="font-weight: 700; margin-bottom: 8px;">
+                                    Great choice 💪
+                                </div>
+                                <div style="margin-bottom: 12px;">
+                                    I'm now generating a practice set for {valid_course} – {valid_topic}.
+                                    Please wait a moment…
+                                </div>
+                            </div>
+                            """
+                                else:
+                                    self.set_practice_setup_mode(account.student_id, 'topic', valid_course)
+                                    ai_response = f"""
+                        <div>
+                            <div style="font-weight: 700; margin-bottom: 8px;">
+                                I couldn't find that topic in {valid_course} 😅
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                Here are some topics covered in this course:
+                            </div>
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; line-height: 1.6;">
+                                {chr(10).join(f'• {topic}' for topic in topics)}
+                            </div>
+                            <div>
+                                Please type the topic name you want to practise.
+                            </div>
+                        </div>
+                        """
+                            else:
+                                self.set_practice_setup_mode(account.student_id, 'course')
+                                ai_response = f"""
+                        <div>
+                            <div style="font-weight: 700; margin-bottom: 8px;">
+                                I couldn't find that course 😅
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                Here are the courses you're currently enrolled in:
+                            </div>
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-family: monospace;">
+                                {', '.join(available_courses)}
+                            </div>
+                            <div>
+                                Please type the course name you want to practise.
+                            </div>
+                        </div>
+                        """
+                        else:
+                            # 没有提供课程和主题,启动练习设置模式
+                            if available_courses:
+                                self.set_practice_setup_mode(account.student_id, 'course')
+                                ai_response = f"""
+                        <div>
+                            <div style="font-weight: 700; margin-bottom: 8px;">
+                                Great idea to work on your weak topics 😊
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                Before we start, which course would you like to practise?
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                Here are the courses you're currently enrolled in:
+                            </div>
+                            <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-family: monospace;">
+                                {', '.join(available_courses)}
+                            </div>
+                            <div>
+                                Please type the course name you want to practise.
+                            </div>
+                        </div>
+                        """
+                            else:
+                                ai_response = """
+                        <div>
+                            <div style="font-weight: 700; margin-bottom: 8px;">
+                                I don't see any courses in your enrollment yet 📚
+                            </div>
+                            <div style="line-height: 1.6;">
+                                To get started with practice, please enroll in some courses first. 
+                                You can do this from the "My Courses" section.
+                            </div>
+                        </div>
+                        """
+                        intent = 'practice'
                     else:
-                        # 对于其他消息，使用AI生成智能回复
-                        ai_response = self.generate_ai_response(message, account, conversation_history)
+                        # 其他情况，使用通用回复
+                        intent = self.detect_intent(message)
+                        ai_response = self.generate_general_response()
+                else:
+                    intent = 'study_plan_qna'
+            elif self.is_in_practice_setup_mode(account.student_id):
+                # 在练习设置模式中，使用专门的处理逻辑
+                ai_response = self.handle_practice_setup_mode(account, message)
+                if ai_response is None:
+                    # 如果返回None，说明模式已结束，回退到普通处理
+                    self.clear_practice_setup_mode(account.student_id)
+                    intent = self.detect_intent(message)
+                    ai_response = self.generate_general_response()
+                else:
+                    # 在练习设置模式中，设置intent为practice
+                    intent = 'practice'
+            else:
+                # 普通模式：根据意图生成回复
+                intent = self.detect_intent(message)
+                
+                if intent == 'explain_plan':
+                    # 对于计划解释请求，返回保存的计划描述
+                    ai_response = self.generate_plan_explanation(account)
+                elif intent == 'task_help':
+                    # 对于任务帮助请求，生成任务相关的回复
+                    ai_response = self.generate_ai_response(message, account, conversation_history)
+                elif intent == 'encouragement':
+                    # 对于鼓励请求，生成鼓励性回复
+                    ai_response = self.generate_ai_response(message, account, conversation_history)
+                elif intent == 'greeting':
+                    # 对于问候，生成问候回复
+                    ai_response = self.generate_ai_response(message, account, conversation_history)
+                else:
+                    # 对于其他消息，使用AI生成智能回复
+                    ai_response = self.generate_ai_response(message, account, conversation_history)
             
             # 保存AI回复
             print(f"[DEBUG] 保存AI回复到数据库: user={account.student_id}, response={ai_response[:50]}...")
@@ -1248,11 +1811,25 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
     def save_study_plan(self, account: StudentAccount, plan_data: dict[str, Any]) -> bool:
         """保存用户的学习计划数据"""
         try:
-            # 创建临时User对象
-            user, _ = User.objects.get_or_create(  # type: ignore
+            # 确保User和StudentAccount一致
+            user, created = User.objects.get_or_create(  # type: ignore
                 username=account.student_id,
-                defaults={'email': account.email or f'{account.student_id}@temp.com'}
+                defaults={
+                    'email': account.email or f'{account.student_id}@temp.com',
+                    'first_name': account.name if account.name else f'Student {account.student_id}'
+                }
             )
+            
+            if created:
+                print(f"[DEBUG] 创建了新的Django User: {user.username} for StudentAccount: {account.student_id}")
+            else:
+                # 确保现有User的email与StudentAccount同步
+                if account.email and user.email != account.email:
+                    user.email = account.email
+                    user.save()
+                    print(f"[DEBUG] 同步了User email: {user.email}")
+                    
+            print(f"[DEBUG] 保存计划 - StudentAccount: {account.student_id} -> Django User: {user.username}")
             
             # 将之前的计划设为非活跃
             UserStudyPlan.objects.filter(user=user, is_active=True).update(is_active=False)  # type: ignore

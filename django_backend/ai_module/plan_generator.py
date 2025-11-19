@@ -92,62 +92,103 @@ IMPORTANT:
 Task: "{task_title}"
 Due: {due_date}
 """
-    try:
-        resp = _split_model.generate_content(prompt)
-        cands = getattr(resp, "candidates", None) or []
-        raw = None
-        if cands and getattr(cands[0], "content", None):
-            parts = getattr(cands[0].content, "parts", None) or []
-            texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
-            raw = "\n".join(texts).strip() if texts else None
-        if not raw:
-            raise ValueError("Empty model response")
+    # 🔥 添加重试机制，处理网络连接问题
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"[DEBUG] Gemini API 调用尝试 {attempt + 1}/{max_retries} (plan_generator)")
+            
+            # 设置超时时间
+            import socket
+            original_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(30)  # 30秒超时
+            
+            try:
+                resp = _split_model.generate_content(prompt)
+            finally:
+                socket.setdefaulttimeout(original_timeout)
+            
+            cands = getattr(resp, "candidates", None) or []
+            raw = None
+            if cands and getattr(cands[0], "content", None):
+                parts = getattr(cands[0].content, "parts", None) or []
+                texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
+                raw = "\n".join(texts).strip() if texts else None
+            if not raw:
+                if attempt < max_retries - 1:
+                    print(f"[DEBUG] 模型返回为空，重试 ({attempt + 2}/{max_retries})...")
+                    continue
+                raise ValueError("Empty model response")
 
-        # 清理 Gemini 返回的 markdown 格式
-        clean_json = raw.strip()
-        if clean_json.startswith('```json'):
-            clean_json = clean_json[7:]  # 移除 ```json
-        if clean_json.endswith('```'):
-            clean_json = clean_json[:-3]  # 移除 ```
-        clean_json = clean_json.strip()
-        
-        # 修复常见的 JSON 格式问题
-        import re
-        # 在 "key":"value" 后面添加逗号（如果后面跟着 "key"）
-        clean_json = re.sub(r'(":\s*"[^"]*")\s*("[\w]+":)', r'\1,\2', clean_json)
-        # 在 "key":number 后面添加逗号（如果后面跟着 "key"）
-        clean_json = re.sub(r'(":\s*\d+)\s*("[\w]+":)', r'\1,\2', clean_json)
-        # 在对象结束 } 前面添加逗号（如果后面跟着 {）
-        clean_json = re.sub(r'}\s*{', r'},{', clean_json)
-        # 修复未终止的字符串：如果字符串没有结束引号，尝试添加
-        if clean_json.count('"') % 2 != 0:
-            clean_json += '"'
-        # 确保 JSON 对象正确关闭
-        open_braces = clean_json.count('{') - clean_json.count('}')
-        clean_json += '}' * open_braces
-        open_brackets = clean_json.count('[') - clean_json.count(']')
-        clean_json += ']' * open_brackets
-        
-        data = json.loads(clean_json)
-        out: List[Part] = []
-        for i, p in enumerate(data.get("parts", [])):
-            base_title = str(p.get("title") or f"General Task")
-            order = int(p.get("order") or (i+1))
-            formatted_title = f"Part {order} - {base_title}"
-            out.append(Part(
-                partId=str(p.get("partId") or f"p{i+1}"),
-                order=order,
-                title=formatted_title,
-                minutes=int(p.get("minutes") or 0),
-                notes=p.get("notes") or f"{formatted_title}: focus the next concrete step."
-            ))
-        if not out or sum(max(0, x.minutes) for x in out) <= 0:
-            mins = _equal_split(estimated_minutes, 3)
-            out = [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1} - General Task", minutes=mins[i]) for i in range(len(mins))]
-        return out
-    except Exception:
-        # Gemini 失败时，使用智能 fallback
-        return _intelligent_fallback_split(task_title, estimated_minutes)
+            # 清理 Gemini 返回的 markdown 格式
+            clean_json = raw.strip()
+            if clean_json.startswith('```json'):
+                clean_json = clean_json[7:]  # 移除 ```json
+            if clean_json.endswith('```'):
+                clean_json = clean_json[:-3]  # 移除 ```
+            clean_json = clean_json.strip()
+            
+            # 修复常见的 JSON 格式问题
+            import re
+            # 在 "key":"value" 后面添加逗号（如果后面跟着 "key"）
+            clean_json = re.sub(r'(":\s*"[^"]*")\s*("[\w]+":)', r'\1,\2', clean_json)
+            # 在 "key":number 后面添加逗号（如果后面跟着 "key"）
+            clean_json = re.sub(r'(":\s*\d+)\s*("[\w]+":)', r'\1,\2', clean_json)
+            # 在对象结束 } 前面添加逗号（如果后面跟着 {）
+            clean_json = re.sub(r'}\s*{', r'},{', clean_json)
+            # 修复未终止的字符串：如果字符串没有结束引号，尝试添加
+            if clean_json.count('"') % 2 != 0:
+                clean_json += '"'
+            # 确保 JSON 对象正确关闭
+            open_braces = clean_json.count('{') - clean_json.count('}')
+            clean_json += '}' * open_braces
+            open_brackets = clean_json.count('[') - clean_json.count(']')
+            clean_json += ']' * open_brackets
+            
+            data = json.loads(clean_json)
+            out: List[Part] = []
+            for i, p in enumerate(data.get("parts", [])):
+                base_title = str(p.get("title") or f"General Task")
+                order = int(p.get("order") or (i+1))
+                formatted_title = f"Part {order} - {base_title}"
+                out.append(Part(
+                    partId=str(p.get("partId") or f"p{i+1}"),
+                    order=order,
+                    title=formatted_title,
+                    minutes=int(p.get("minutes") or 0),
+                    notes=p.get("notes") or f"{formatted_title}: focus the next concrete step."
+                ))
+            if not out or sum(max(0, x.minutes) for x in out) <= 0:
+                mins = _equal_split(estimated_minutes, 3)
+                out = [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1} - General Task", minutes=mins[i]) for i in range(len(mins))]
+            
+            # 成功解析，返回结果
+            print(f"[DEBUG] ✅ 成功拆分为 {len(out)} 个parts")
+            return out
+            
+        except (BrokenPipeError, ConnectionError, OSError) as e:
+            print(f"[DEBUG] 网络连接错误 (尝试 {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
+            if attempt < max_retries - 1:
+                import time
+                wait_time = (attempt + 1) * 2  # 递增等待时间: 2s, 4s, 6s
+                print(f"[DEBUG] 等待 {wait_time} 秒后重试...")
+                time.sleep(wait_time)
+                continue
+            else:
+                print(f"[DEBUG] ❌ 达到最大重试次数，使用fallback")
+                return _intelligent_fallback_split(task_title, estimated_minutes)
+        except Exception as e:
+            print(f"[DEBUG] Gemini 调用异常 (尝试 {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
+            if attempt < max_retries - 1:
+                import time
+                print(f"[DEBUG] 等待 2 秒后重试...")
+                time.sleep(2)
+                continue
+            # 最后一次尝试失败，使用 fallback
+            return _intelligent_fallback_split(task_title, estimated_minutes)
+    
+    # 不应该到达这里，但以防万一
+    return _intelligent_fallback_split(task_title, estimated_minutes)
 
 def _parts_from_summary_or_fallback(task_title: str, due_date: str,
                                     est_minutes: int,
@@ -182,6 +223,37 @@ def _parts_from_summary_or_fallback(task_title: str, due_date: str,
     parts = _ai_split_parts(task_title, due_date, est_minutes)
     return parts, explanation
 
+def _generate_reason_for_part(label: str, index: int, total_parts: int) -> str:
+    """为每个part生成在计划中的原因"""
+    reasons = [
+        "This is foundational and needs to be completed first.",
+        "This builds on the previous part and develops core skills.",
+        "This applies the concepts from earlier parts.",
+        "This reinforces learning and ensures comprehensive understanding.",
+        "This finalizes the work and prepares for submission."
+    ]
+    
+    # 根据label的特定关键词生成更具体的原因
+    label_lower = label.lower()
+    
+    if any(word in label_lower for word in ["setup", "research", "planning", "analysis"]):
+        return "This is the foundation phase and must be completed before implementation."
+    elif any(word in label_lower for word in ["implementation", "coding", "development", "design"]):
+        return "This is the main implementation work that applies your planning and research."
+    elif any(word in label_lower for word in ["test", "testing", "validation", "review"]):
+        return "Testing ensures your implementation works correctly and meets requirements."
+    elif any(word in label_lower for word in ["documentation", "report", "write", "final"]):
+        return "This finalizes your work and communicates your solution clearly."
+    elif any(word in label_lower for word in ["data", "database", "schema", "model"]):
+        return "This establishes the data structure needed for the rest of the project."
+    elif any(word in label_lower for word in ["ui", "interface", "frontend", "user"]):
+        return "This creates the user-facing components of your application."
+    elif any(word in label_lower for word in ["backend", "server", "api", "logic"]):
+        return "This implements the core business logic and functionality."
+    else:
+        # 使用通用原因
+        return reasons[index % len(reasons)]
+
 def _estimate_minutes(est_hours_meta, summary, detail_text: Optional[str]) -> int:
     if est_hours_meta and float(est_hours_meta) > 0:
         return int(round(float(est_hours_meta) * 60))
@@ -215,16 +287,28 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
     # 4) 生成 parts + explanation
     parts, explanation = _parts_from_summary_or_fallback(meta["task"], meta["dueDate"], est_minutes, summary)
 
-    # 5) 计算百分比，并构造 aiTaskInfo
+    # 5) 计算百分比，并构造 aiTaskInfo（包含Explain My Plan需要的字段）
     total = sum(max(0, int(p.minutes)) for p in parts) or 1
     ai_parts = []
-    for p in sorted(parts, key=lambda x: x.order):
+    for i, p in enumerate(sorted(parts, key=lambda x: x.order)):
+        # 生成描述性标签（移除"Part X - "前缀）
+        label = p.title.replace(f"Part {p.order} - ", "") if f"Part {p.order} - " in p.title else p.title
+        
+        # 生成详细说明
+        detail = p.notes or f"Work on {label}"
+        
+        # 生成在计划中的原因
+        why_in_plan = _generate_reason_for_part(label, i, len(parts))
+        
         ai_parts.append({
             "partId": p.partId,
             "order": p.order,
-            "title": p.title,  # 现在 p.title 已经包含了 "Part X - " 前缀
+            "title": p.title,  # 保留原始标题
+            "label": label,   # 新增：描述性标签
             "minutes": int(p.minutes),
             "notes": p.notes or "",
+            "detail": detail,    # 新增：详细说明
+            "why_in_plan": why_in_plan,  # 新增：在计划中的原因
             "percent": round(int(p.minutes) / total * 100, 1)
         })
 

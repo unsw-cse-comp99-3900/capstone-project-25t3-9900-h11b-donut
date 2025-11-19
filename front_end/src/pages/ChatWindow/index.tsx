@@ -123,22 +123,36 @@ export function ChatWindow() {
       console.log('📡 练习生成API响应:', data)
 
       if (data.success) {
-        // 生成成功，添加练习就绪消息
-        const practiceReadyMessage: PracticeReadyMessage = {
-          id: Date.now() + 1,
-          type: 'ai',
-          messageType: 'practice_ready',
-          content: `I've generated ${data.total_questions} practice questions for ${data.course} – ${data.topic}. Ready to practice?`,
-          timestamp: new Date().toISOString(),
-          practiceInfo: {
-            course: data.course,
-            topic: data.topic,
-            sessionId: data.session_id,
-            totalQuestions: data.total_questions
-          }
+        // 🔥 生成成功后，从后端获取最新的练习就绪消息，而不是前端自己创建
+        // 等待一小段时间确保后端消息已保存
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 获取最新的历史消息（只获取最后1条）
+        const historyResponse = await aiChatService.getChatHistory(1);
+        if (historyResponse.success && historyResponse.messages.length > 0) {
+          const latestMessage = historyResponse.messages[0];
+          
+          // 转换为 PracticeReadyMessage 格式
+          const practiceReadyMessage: PracticeReadyMessage = latestMessage.metadata?.messageType === 'practice_ready' && latestMessage.metadata?.practiceInfo ? {
+            ...latestMessage,
+            messageType: 'practice_ready' as const,
+            practiceInfo: latestMessage.metadata.practiceInfo
+          } : {
+            id: latestMessage.id,
+            type: 'ai',
+            messageType: 'practice_ready',
+            content: latestMessage.content,
+            timestamp: latestMessage.timestamp,
+            practiceInfo: {
+              course: data.course,
+              topic: data.topic,
+              sessionId: data.session_id,
+              totalQuestions: data.total_questions
+            }
+          };
+          
+          setChatMessages(prev => [...prev, practiceReadyMessage]);
         }
-
-        setChatMessages(prev => [...prev, practiceReadyMessage])
       } else {
         // 生成失败，显示错误消息
         const errorMessage: ChatMessage = {

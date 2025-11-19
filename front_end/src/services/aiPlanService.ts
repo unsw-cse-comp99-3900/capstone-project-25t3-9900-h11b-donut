@@ -104,28 +104,49 @@ export async function fetchAndMapAiPlan(): Promise<WeeklyPlan> {
   console.log('🔍 AI计划的aiSummary数据:', aiPlan?.aiSummary);
   
   // 检查AI计划数据
-  if (!aiPlan) {
-    throw new Error('后端返回空的AI计划数据');
+  if (!aiPlan || !aiPlan.ok) {
+    throw new Error(aiPlan?.message || 'AI计划生成失败');
   }
   
-  if (aiPlan.ok === false) {
-    throw new Error(aiPlan.message || 'AI计划生成失败');
+  // aiPlan本身就是计划数据(api.ts已经返回了res.data)
+  const planData = aiPlan;
+  if (!planData || !planData.days) {
+    throw new Error('后端返回空的AI计划数据。请检查网络连接或稍后重试。');
   }
   
-  // 如果成功获取到计划，同时保存到AI对话模块
-  if (aiPlan && aiPlan.ok && aiPlan.data) {
-    try {
-      // 保存实际的AI计划数据，而不是整个响应对象
-      await aiChatService.saveStudyPlan(aiPlan.data);
-      console.log('✅ 学习计划已保存到AI对话模块');
-    } catch (error) {
-      console.warn('Failed to save plan to AI chat module:', error);
-      // 不影响主要流程，继续执行
+  // 检查后端是否已经保存了计划（新的设计）
+  if (aiPlan.saved) {
+    console.log('✅ [fetchAndMapAiPlan] 后端已保存计划，计划ID:', aiPlan.plan_id);
+    console.log('🤖 [fetchAndMapAiPlan] AI详细内容已包含在响应中');
+  } else {
+    console.log('⚠️ [fetchAndMapAiPlan] 后端未保存计划，使用旧逻辑');
+    
+    // 如果后端没有保存，则使用前端保存逻辑（兼容性）
+    const weeklyPlan = mapAiPlanToWeeklyPlan(planData);
+    const savePayload = {
+      weeklyPlans: weeklyPlan,
+      aiDetails: planData.aiDetails || null,
+      generationReason: planData.aiDetails?.generationReason || '',
+      generationTime: planData.aiDetails?.generationTime || null
+    };
+    
+    const saveResult = await apiService.saveWeeklyPlansToServer(
+      savePayload.weeklyPlans, 
+      savePayload.aiDetails, 
+      savePayload.generationReason, 
+      savePayload.generationTime
+    );
+    
+    if (!saveResult.ok) {
+      console.error('❌ 学习计划保存失败:', saveResult.error);
+      throw new Error(`学习计划保存失败: ${saveResult.error || '未知错误'}`);
     }
+    
+    console.log('✅ 学习计划已通过前端逻辑保存到数据库');
   }
   
-  // 映射AI计划到周计划格式
-  const weeklyPlan = mapAiPlanToWeeklyPlan(aiPlan);
+  // 映射AI计划到周计划格式用于前端显示
+  const weeklyPlan = mapAiPlanToWeeklyPlan(planData);
   console.log('🗓️ 映射后的周计划:', weeklyPlan);
   
   return weeklyPlan;

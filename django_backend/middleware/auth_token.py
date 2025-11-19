@@ -7,6 +7,9 @@ from adm_accounts.models import AdminAccount
 class AuthTokenMiddleware(MiddlewareMixin):
     # 登录、注册等公共接口
     PUBLIC_PREFIXES = (
+        "/api/login",
+        "/api/logout",
+        "/api/register",
         "/api/auth/login",
         "/api/auth/logout",
         "/api/auth/register",   
@@ -19,7 +22,6 @@ class AuthTokenMiddleware(MiddlewareMixin):
         "/api/ai/questions/session/",  # 获取练习题目
         "/api/ai/answers/submit",  # 提交答案
         "/api/overdue/report-day", 
-
     )
 
     # 静态文件白名单路径
