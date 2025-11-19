@@ -829,8 +829,12 @@ async addBonus(delta: number = 0.1): Promise<number> {
       return null;
     }
     
-    // 提取实际的AI计划数据
+    // 提取实际的AI计划数据，并保存整个响应的元数据
     const aiPlan = res.data;
+    // 保存后端响应的元数据（saved, plan_id等）- 这些可能在根级别或aiPlan内部
+    aiPlan.saved = res.saved !== undefined ? res.saved : aiPlan.saved;
+    aiPlan.plan_id = res.plan_id !== undefined ? res.plan_id : aiPlan.plan_id;
+    
     console.log("🧩 提取的 AI 计划数据:", aiPlan);
     
     if (!aiPlan) {

@@ -26,7 +26,7 @@ class AutoGrader:
         
         # 使用经过测试的可用模型，配置生成参数以提高一致性
         self.model = genai.GenerativeModel(
-            'models/gemini-2.5-flash-preview-05-20',
+            'gemini-2.5-flash',
             generation_config={
                 'temperature': 0.1,
                 'top_p': 0.8,

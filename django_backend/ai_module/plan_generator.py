@@ -92,16 +92,16 @@ IMPORTANT:
 Task: "{task_title}"
 Due: {due_date}
 """
-    # 🔥 添加重试机制，处理网络连接问题
-    max_retries = 3
+    # 🔥 演示优化：1次尝试 + 15秒超时，快速失败使用fallback
+    max_retries = 1
     for attempt in range(max_retries):
         try:
             print(f"[DEBUG] Gemini API 调用尝试 {attempt + 1}/{max_retries} (plan_generator)")
             
-            # 设置超时时间
+            # 设置超时时间 - 演示模式使用10秒超时
             import socket
             original_timeout = socket.getdefaulttimeout()
-            socket.setdefaulttimeout(30)  # 30秒超时
+            socket.setdefaulttimeout(10)  # 10秒超时 - 演示优化
             
             try:
                 resp = _split_model.generate_content(prompt)
@@ -167,24 +167,13 @@ Due: {due_date}
             return out
             
         except (BrokenPipeError, ConnectionError, OSError) as e:
-            print(f"[DEBUG] 网络连接错误 (尝试 {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
-            if attempt < max_retries - 1:
-                import time
-                wait_time = (attempt + 1) * 2  # 递增等待时间: 2s, 4s, 6s
-                print(f"[DEBUG] 等待 {wait_time} 秒后重试...")
-                time.sleep(wait_time)
-                continue
-            else:
-                print(f"[DEBUG] ❌ 达到最大重试次数，使用fallback")
-                return _intelligent_fallback_split(task_title, estimated_minutes)
+            print(f"[DEBUG] 网络连接错误: {type(e).__name__} - {e}")
+            print(f"[DEBUG] ❌ API调用失败，使用智能fallback数据")
+            return _intelligent_fallback_split(task_title, estimated_minutes)
         except Exception as e:
             print(f"[DEBUG] Gemini 调用异常 (尝试 {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
-            if attempt < max_retries - 1:
-                import time
-                print(f"[DEBUG] 等待 2 秒后重试...")
-                time.sleep(2)
-                continue
-            # 最后一次尝试失败，使用 fallback
+            # 演示模式：不重试，直接使用 fallback
+            print(f"[DEBUG] ❌ 解析失败，使用智能fallback数据")
             return _intelligent_fallback_split(task_title, estimated_minutes)
     
     # 不应该到达这里，但以防万一
