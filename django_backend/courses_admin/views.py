@@ -902,21 +902,7 @@ def update_course_task(request, course_id: str, task_id: int):
             return err("title cannot be empty")
 
 
-    if deadline_raw is not None:
-        dl = parse_datetime(str(deadline_raw))
-        if not dl:
-            return err("deadline must be YYYY-MM-DD-MIN-SEC")
-        # 不允许过去日期（允许今天）
-        if dl < datetime.now():
-            return err("deadline cannot be in the past")
-    else:
-        dl = None
-# =======
-#     # ===========================================================
-#     # ② deadline 支持 YYYY-MM-DD HH:MM:SS
-#     # ===========================================================
-# >>>>>>> 2c33235 (backend  cron job, front end  hooks)
-
+    
     dl = None
     if deadline_raw is not None:
         dl = parse_sydney_datetime(str(deadline_raw))

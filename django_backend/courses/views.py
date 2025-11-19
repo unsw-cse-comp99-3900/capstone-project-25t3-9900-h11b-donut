@@ -205,15 +205,46 @@ def remove_course(request, course_code):
             status=500
         )
 
+# def course_tasks(request, course_code):
+#     sid = _require_student(request)
+#     if sid is None:
+#         return JsonResponse({"error": "Auth required"}, status=401)
+#     code = (course_code or "").upper()
+#     qs = CourseTask.objects.filter(course_code=code).values(
+#         "id", "course_code", "title", "deadline", "brief", "percent_contribution","url"
+#     )
+#     data = list(qs)
+#     return JsonResponse({"success": True, "data": data})
+
+
+from django.utils import timezone
+
 def course_tasks(request, course_code):
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
+
     code = (course_code or "").upper()
-    qs = CourseTask.objects.filter(course_code=code).values(
-        "id", "course_code", "title", "deadline", "brief", "percent_contribution","url"
-    )
-    data = list(qs)
+
+    tasks = CourseTask.objects.filter(course_code=code)
+
+    data = []
+    for t in tasks:
+        # deadline 转换成本地时区（Australia/Sydney）
+        local_deadline = None
+        if t.deadline:
+            local_deadline = timezone.localtime(t.deadline).strftime("%Y-%m-%d %H:%M:%S")
+
+        data.append({
+            "id": t.id,
+            "course_code": t.course_code,
+            "title": t.title,
+            "deadline": local_deadline,   # ← 返回本地时间
+            "brief": t.brief,
+            "percent_contribution": t.percent_contribution,
+            "url": t.url,
+        })
+
     return JsonResponse({"success": True, "data": data})
 
 def course_materials(request, course_code):
