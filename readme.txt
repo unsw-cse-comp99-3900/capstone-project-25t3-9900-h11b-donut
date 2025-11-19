@@ -153,3 +153,5 @@ if (uid) {
 
 11.18 todo:
 1.教师端删除课程后学生要收到提示，重新生成计划
+update:
+1.如果reschedule,bonus清零

@@ -280,6 +280,13 @@ if (result.success && result.data?.token) {
 throw new Error(result.message || 'wrong password/id');
 }
 
+async resetStudentBonus() {
+    return this.request<null>('/student/bonus/reset', {
+      method: 'POST',
+    });
+  }
+
+
 async login_adm(adminId: string, password: string): Promise<{ token: string; user: any }> {
   const result = await this.request<{ token: string; user: any }>('/admin/login', {
     method: 'POST',

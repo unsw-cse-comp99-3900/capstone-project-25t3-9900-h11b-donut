@@ -197,7 +197,6 @@ def logout_api(request: HttpRequest):
 def add_bonus_api(request):
     print(">>> ADD BONUS API CALLED !!!", flush=True)
 
-
     try:
         body = json.loads(request.body.decode('utf-8') or '{}')
     except Exception:
@@ -262,6 +261,45 @@ def add_bonus_api(request):
     })
 
 
+@csrf_exempt
+@require_POST
+def reset_bonus_api(request):
+    
+    auth = request.META.get("HTTP_AUTHORIZATION", "")
+    if not auth.startswith("Bearer "):
+        return JsonResponse(
+            {"success": False, "message": "Unauthorized", "data": None},
+            status=401,
+        )
+
+    token = auth.split(" ", 1)[1].strip()
+    if not token:
+        return JsonResponse(
+            {"success": False, "message": "Unauthorized", "data": None},
+            status=401,
+        )
+
+    try:
+        stu = StudentAccount.objects.get(current_token=token)
+    except StudentAccount.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "message": "Unauthorized", "data": None},
+            status=401,
+        )
+
+    stu.bonus = Decimal("0.00")
+    stu.save(update_fields=["bonus"])
+
+    return JsonResponse(
+        {
+            "success": True,
+            "message": "Bonus reset",
+            "data": {
+                "student_id": stu.student_id,
+                "bonus": "0.00",
+            },
+        }
+    )
 
 
 

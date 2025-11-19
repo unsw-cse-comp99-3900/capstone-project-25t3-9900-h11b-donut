@@ -185,6 +185,20 @@ useEffect(() => {
   await preferencesStore.setPreferences(toSave)
 
   try {
+    if (showPlan) {
+        try {
+          await apiService.resetStudentBonus();
+          console.log(' Reschedule: reset bonus');
+          const uid = localStorage.getItem('current_user_id');
+          if (uid) {
+            const bonusKey = `u:${uid}:bonus`;
+            localStorage.setItem(bonusKey, "0");    
+          }
+        } catch (e) {
+          console.error('❌ failed to reset bonus :', e);
+          alert('wrong!');
+        }
+      }
     // 清除旧的AI计划缓存，确保获取最新的Gemini生成数据
     const uid = localStorage.getItem('current_user_id');
     if (uid) {
@@ -301,7 +315,10 @@ useEffect(() => {
         </div>
 
         <div className="sp-generate-bar">
-          <button className="btn-generate" onClick={() => setShowPrefs(true)}>{showPlan ? 'Reschedule Plan' : 'Generate Plan'}</button>
+          <button className="btn-generate" onClick=
+          {() => setShowPrefs(true)}>{
+            showPlan ? 'Reschedule Plan' : 'Generate Plan'
+            }</button>
         </div>
 
         <section className={`sp-board ${showPlan ? 'has-plan' : ''}`}>
