@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
 import { MessageModal } from '../../components/MessageModal'
+import { HelpModal } from '../../components/HelpModal'
 import AvatarIcon from '../../assets/icons/role-icon-64.svg'
 import ArrowRight from '../../assets/icons/arrow-right-16.svg'
 import Star from '../../assets/icons/star-32.svg'
@@ -77,6 +78,7 @@ export function StudentHome() {
   const [courses, setCourses] = useState(coursesStore.myCourses)
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [messageModalOpen, setMessageModalOpen] = useState(false)
+  const [helpModalOpen, setHelpModalOpen] = useState(false)
   const [lessons, setLessons] = useState<Deadline[]>(coursesStore.getDeadlines())
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const uid = localStorage.getItem('current_user_id') || '';
@@ -274,7 +276,7 @@ useUnreadMessagePolling(setUnreadMessageCount);
             <h1 className="title">{user?.name ?? ''} <span className="wave" aria-hidden>👋</span></h1>
           </div>
           <div className="right global-actions">
-            <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
+            <button className="icon-btn" aria-label="Help" onClick={() => setHelpModalOpen(true)}><img src={IconHelp} width={20} height={20} alt="" /></button>
             <button className="icon-btn message-btn" aria-label="Notifications" onClick={() => setMessageModalOpen(true)}>
               <img src={IconBell} width={20} height={20} alt="" />
               {unreadMessageCount > 0 && <span className="message-badge">{unreadMessageCount}</span>}
@@ -357,6 +359,11 @@ useUnreadMessagePolling(setUnreadMessageCount);
         isOpen={messageModalOpen}
         onClose={() => setMessageModalOpen(false)}
         onUnreadCountChange={setUnreadMessageCount}
+      />
+
+      <HelpModal
+        isOpen={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
       />
     </div>
 
