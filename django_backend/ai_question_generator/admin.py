@@ -1,13 +1,5 @@
 from django.contrib import admin
-from .models import SampleQuestion, GeneratedQuestion, StudentAnswer
-
-
-@admin.register(SampleQuestion)
-class SampleQuestionAdmin(admin.ModelAdmin):
-    list_display = ['id', 'course_code', 'topic', 'question_type', 'difficulty', 'is_active', 'created_at']
-    list_filter = ['question_type', 'difficulty', 'is_active', 'course_code']
-    search_fields = ['topic', 'question_text', 'course_code']
-    readonly_fields = ['created_at', 'updated_at']
+from .models import GeneratedQuestion, StudentAnswer
 
 
 @admin.register(GeneratedQuestion)

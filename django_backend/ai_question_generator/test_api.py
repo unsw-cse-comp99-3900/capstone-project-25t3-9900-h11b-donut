@@ -4,8 +4,9 @@ AI Question Generator & Grader - API测试脚本
 
 使用方法:
 1. 确保Django服务器正在运行: python manage.py runserver
-2. 确保已加载测试数据: python manage.py load_sample_questions
-3. 运行测试: python ai_question_generator/test_api.py
+2. 确保已通过AdminManageCourse页面上传课程题目（用作AI生成示例）
+3. 确保.env中配置了GEMINI_API_KEY
+4. 运行测试: python ai_question_generator/test_api.py
 """
 import requests
 import json
@@ -29,7 +30,8 @@ class Colors:
 
 def print_section(title):
     separator = "=" * 60
-    print(f'\n{Colors.BOLD}{Colors.CYAN}{separator}{Colors.END}')
+    print(f'
+{Colors.BOLD}{Colors.CYAN}{separator}{Colors.END}')
     print(f'{Colors.BOLD}{Colors.CYAN}  {title}{Colors.END}')
     print(f'{Colors.BOLD}{Colors.CYAN}{separator}{Colors.END}')
 
@@ -44,48 +46,6 @@ def print_info(text):
 
 def print_warning(text):
     print(f'{Colors.YELLOW}WARNING: {text}{Colors.END}')
-
-
-def test_get_sample_questions():
-    """测试获取示例题目"""
-    print_section('1. 测试获取示例题目')
-    
-    url = f'{BASE_URL}/sample-questions?course_code={COURSE_CODE}'
-    
-    print_info(f'GET {url}')
-    
-    try:
-        response = requests.get(url, timeout=10)
-        print_info(f'Status: {response.status_code}')
-        
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('success'):
-                questions = result.get('questions', [])
-                print_success(f'成功获取 {len(questions)} 个示例题目')
-                
-                # 按主题统计
-                topics = {}
-                for q in questions:
-                    topic = q.get('topic')
-                    topics[topic] = topics.get(topic, 0) + 1
-                
-                for topic, count in topics.items():
-                    print(f'  - {topic}: {count} 题')
-                
-                return True, result
-            else:
-                print_error(f'请求失败: {result.get("error")}')
-                return False, result
-        else:
-            print_error(f'HTTP错误: {response.status_code}')
-            return False, {}
-    except requests.exceptions.ConnectionError:
-        print_error('无法连接到服务器！请确保Django服务器正在运行: python manage.py runserver')
-        return False, {}
-    except Exception as e:
-        print_error(f'请求失败: {e}')
-        return False, {}
 
 
 def test_generate_questions():
@@ -119,7 +79,8 @@ def test_generate_questions():
                 
                 # 显示题目预览
                 for idx, q in enumerate(result['questions'], 1):
-                    print(f'\n  题目 {idx}:')
+                    print(f'
+  题目 {idx}:')
                     print(f'  类型: {q["type"]}')
                     print(f'  问题: {q["question"][:80]}...')
                     if q['type'] == 'mcq':
@@ -131,7 +92,8 @@ def test_generate_questions():
             else:
                 print_error(f'生成失败: {result.get("error")}')
                 if 'traceback' in result:
-                    print(f'\n{result["traceback"]}')
+                    print(f'
+{result["traceback"]}')
                 return False, result
         else:
             print_error(f'HTTP错误: {response.status_code}')
@@ -147,7 +109,7 @@ def test_generate_questions():
 
 def test_submit_answers(session_id, questions):
     """测试提交答案并评分"""
-    print_section('3. 测试提交答案并AI评分')
+    print_section('2. 测试提交答案并AI评分')
     
     url = f'{BASE_URL}/answers/submit'
     
@@ -192,7 +154,8 @@ def test_submit_answers(session_id, questions):
                 
                 # 显示详细评分
                 for idx, r in enumerate(result['grading_results'], 1):
-                    print(f'\n  题目 {idx} 评分:')
+                    print(f'
+  题目 {idx} 评分:')
                     print(f'  类型: {r["type"]}')
                     print(f'  学生答案: {r["student_answer"][:60]}...')
                     print(f'  得分: {r["score"]:.1f}/{r["max_score"]}')
@@ -217,7 +180,8 @@ def test_submit_answers(session_id, questions):
             else:
                 print_error(f'评分失败: {result.get("error")}')
                 if 'traceback' in result:
-                    print(f'\n{result["traceback"]}')
+                    print(f'
+{result["traceback"]}')
                 return False, result
         else:
             print_error(f'HTTP错误: {response.status_code}')
@@ -233,7 +197,7 @@ def test_submit_answers(session_id, questions):
 
 def test_get_student_results():
     """测试获取学生历史成绩"""
-    print_section('4. 测试获取学生历史成绩')
+    print_section('3. 测试获取学生历史成绩')
     
     url = f'{BASE_URL}/results?student_id={STUDENT_ID}'
     
@@ -251,7 +215,8 @@ def test_get_student_results():
                 
                 # 显示最近3条记录
                 for idx, record in enumerate(results[:3], 1):
-                    print(f'\n  记录 {idx}:')
+                    print(f'
+  记录 {idx}:')
                     print(f'  Session ID: {record.get("session_id")}')
                     print(f'  题目ID: {record.get("question_id")}')
                     grading = record.get('grading_result', {})
@@ -279,23 +244,17 @@ def main():
     
     print_info('\n测试前准备:')
     print_info('1. 确保Django服务器正在运行')
-    print_info('2. 确保已运行: python manage.py load_sample_questions')
+    print_info('2. 确保已通过AdminManageCourse页面上传课程题目')
     print_info('3. 确保.env中配置了GEMINI_API_KEY')
     print_info('\n开始测试...\n')
     
     try:
-        # 测试1: 获取示例题目
-        success, sample_result = test_get_sample_questions()
-        if not success or not sample_result.get('questions'):
-            print_error('\n测试1失败！请先运行: python manage.py load_sample_questions')
-            return
-        
-        time.sleep(1)
-        
-        # 测试2: AI生成题目
+        # 测试1: AI生成题目
         success, gen_result = test_generate_questions()
         if not success or not gen_result.get('success'):
-            print_error('\n测试2失败！无法继续')
+            print_error('\n测试1失败！请确保:')
+            print_error('  1. 已通过AdminManageCourse页面上传 COMP9900 课程的题目')
+            print_error('  2. .env中已配置 GEMINI_API_KEY')
             return
         
         session_id = gen_result['session_id']
@@ -303,14 +262,14 @@ def main():
         
         time.sleep(2)
         
-        # 测试3: 提交答案并AI评分
+        # 测试2: 提交答案并AI评分
         success, grade_result = test_submit_answers(session_id, questions)
         if not success:
-            print_warning('\n测试3失败，但继续执行')
+            print_warning('\n测试2失败，但继续执行')
         
         time.sleep(1)
         
-        # 测试4: 获取历史成绩
+        # 测试3: 获取历史成绩
         test_get_student_results()
         
         # 总结
