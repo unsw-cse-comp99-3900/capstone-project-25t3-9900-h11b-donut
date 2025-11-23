@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: django_backend/Dockerfile.backend
+    container_name: donut-backend
+    working_dir: /app
+
+    # ⭐ 核心：让容器与宿主机共享网络（才能访问 127.0.0.1:8888）
+    network_mode: "host"
+
+    # ⭐ 把 gemini_key 和数据库配置从 .env 注入
+    env_file:
+      - ./django_backend/.env
+
+    # ⭐ 配置 tinyproxy 的代理环境变量
+    environment:
+      HTTP_PROXY: "http://127.0.0.1:8888"
+      HTTPS_PROXY: "http://127.0.0.1:8888"
+      http_proxy: "http://127.0.0.1:8888"
+      https_proxy: "http://127.0.0.1:8888"
+      NO_PROXY: "localhost,127.0.0.1"
+
+    restart: unless-stopped
+
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: donut-frontend
+    working_dir: /app
+
+    # ⭐ 前端必须暴露 5173 给外部访问
+    ports:
+      - "5173:5173"
+
+    restart: unless-stopped
