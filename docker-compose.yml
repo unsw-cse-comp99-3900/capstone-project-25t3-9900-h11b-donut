@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .                           # 构建上下文是整个项目根目录
+      dockerfile: django_backend/Dockerfile.backend
+    container_name: donut-backend
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./django_backend/.env             # 这里会把你 .env 里的 GEMINI_KEY、DB_* 注入容器
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./front_end
+      dockerfile: Dockerfile.frontend
+    container_name: donut-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_PROXY_TARGET=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
