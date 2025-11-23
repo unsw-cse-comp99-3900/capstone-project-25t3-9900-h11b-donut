@@ -3,15 +3,33 @@ version: "3.9"
 services:
   backend:
     build:
-      context: .                           # 构建上下文是整个项目根目录
+      context: .                         # 整个项目作为 build 上下文
       dockerfile: django_backend/Dockerfile.backend
     container_name: donut-backend
     working_dir: /app
     ports:
       - "8000:8000"
     env_file:
-      - ./django_backend/.env             # 这里会把你 .env 里的 GEMINI_KEY、DB_* 注入容器
+      - ./django_backend/.env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      HTTP_PROXY: "http://host.docker.internal:8888"
+      HTTPS_PROXY: "http://host.docker.internal:8888"
+      http_proxy: "http://host.docker.internal:8888"
+      https_proxy: "http://host.docker.internal:8888"
     restart: unless-stopped
+  # backend:
+  #   build:
+  #     context: .                           # 构建上下文是整个项目根目录
+  #     dockerfile: django_backend/Dockerfile.backend
+  #   container_name: donut-backend
+  #   working_dir: /app
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - ./django_backend/.env             # 这里会把你 .env 里的 GEMINI_KEY、DB_* 注入容器
+  #   restart: unless-stopped
 
   frontend:
     build:
