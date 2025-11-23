@@ -16,7 +16,7 @@ _model: Any = None  # 初始化模型变量
 if use_gemini:
     try:
         genai = importlib.import_module("google.generativeai")  # type: ignore[reportMissingImports]
-        genai.configure(api_key=GEMINI_KEY)
+        genai.configure(api_key=GEMINI_KEY,transport="rest", )
         _model = genai.GenerativeModel(
             "gemini-2.5-flash",
             generation_config={"temperature": 0.2, "max_output_tokens": 2048}
