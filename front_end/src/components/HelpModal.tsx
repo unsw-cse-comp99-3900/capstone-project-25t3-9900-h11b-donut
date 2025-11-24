@@ -47,7 +47,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <h3>🤖 AI Coach</h3>
               <ul>
                 <li><strong>Start Chat:</strong> Click "Start Chat" to talk with your AI learning coach</li>
-                <li><strong>Ask Questions:</strong> Get help with assignments, study strategies, and course concepts</li>
+                <li><strong>Ask Questions:</strong> Seek encouragement, support, and discuss any learning challenges you're facing</li>
                 <li><strong>Plan Explanation:</strong> Ask "explain my plan" to understand your study schedule</li>
                 <li><strong>Practice Help:</strong> Request practice questions for topics you find difficult</li>
               </ul>
@@ -57,9 +57,11 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <h3>📝 Practice Questions</h3>
               <ul>
                 <li><strong>Generate Questions:</strong> Create practice problems based on your course materials</li>
-                <li><strong>Question Types:</strong> AI automatically generates 5 questions (3 multiple choice + 2 short answer)</li>
-                <li><strong>Difficulty Level:</strong> Default set to medium difficulty</li>
+                <li><strong>Question Types:</strong> AI generates questions with 60% multiple choice and 40% short answer</li>
+                <li><strong>Question Number:</strong> You can choose how many questions to generate</li>
+                <li><strong>Difficulty Level:</strong> Customizable difficulty (easy, medium, hard)</li>
                 <li><strong>Instant Feedback:</strong> Get AI-powered grading and explanations</li>
+                <li><strong>Ask Coach:</strong> Request additional clarification about practice questions from your AI coach</li>
               </ul>
             </section>
 
