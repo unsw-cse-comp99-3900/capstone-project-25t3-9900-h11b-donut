@@ -137,7 +137,7 @@ export function AdminRiskReport() {
       const studentId = r.student_id || '';
       const name = r.student_name || studentId || 'Unknown';
       const overdueParts = r.overdue_parts || 0;
-      const consecutiveNotOnTimeDays = 0;//r.consecutive_not_on_time_days || 0;
+      const consecutiveNotOnTimeDays = r.consecutive_not_on_time_days || 0;//r.consecutive_not_on_time_days || 0;
       const riskTier = calculateRiskTier(overdueParts, consecutiveNotOnTimeDays);
       const suggestedAction = getSuggestedAction(riskTier);
       return {

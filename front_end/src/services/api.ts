@@ -641,8 +641,7 @@ async saveWeeklyPlansToServer(weeklyPlans:WeeklyPlan,
 }
 async adminGetStudentRisk(
   courseId: string,
-  taskId: string,
-  asOfDate?: string   
+  taskId: string,  
 ): Promise<Array<{
   student_id: string;
   student_name: string;
@@ -650,7 +649,6 @@ async adminGetStudentRisk(
   consecutive_not_on_time_days: number;
 }>> {
   const body: any = { course_id: courseId, task_id: taskId };
-  if (asOfDate) body.as_of_date = asOfDate;
 
   const resp = await this.request<any>('/admin/student_risk_summary', {
     method: 'POST',
