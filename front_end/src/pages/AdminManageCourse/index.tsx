@@ -11,10 +11,6 @@ import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
 import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
 import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import { apiService, type ApiQuestion } from '../../services/api'
-import * as pdfjsLib from 'pdfjs-dist'
-
-// 设置 PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
 
 
 
@@ -828,10 +824,10 @@ export function AdminManageCourse() {
     if (!file) return;
 
     // 检查文件类型
-    const validTypes = ['.txt', '.json', '.csv', '.pdf'];
+    const validTypes = ['.txt', '.json'];
     const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!validTypes.includes(fileExtension)) {
-      setQuestionFileError('Only .txt, .json, .csv, or .pdf files are supported');
+      setQuestionFileError('Only .txt and .json files are supported');
       return;
     }
 
@@ -839,21 +835,16 @@ export function AdminManageCourse() {
     setQuestionFileError('');
 
     try {
-      if (fileExtension === '.pdf') {
-        // PDF格式解析
-        await parsePdfFile(file);
-      } else {
-        const text = await file.text();
-        
-        // 尝试解析文件内容
-        if (fileExtension === '.json') {
-          // JSON格式解析
-          const data = JSON.parse(text);
-          parseQuestionData(data);
-        } else if (fileExtension === '.csv' || fileExtension === '.txt') {
-          // CSV或TXT格式解析
-          parseTextQuestionData(text);
-        }
+      const text = await file.text();
+      
+      // 尝试解析文件内容
+      if (fileExtension === '.json') {
+        // JSON格式解析
+        const data = JSON.parse(text);
+        parseQuestionData(data);
+      } else if (fileExtension === '.txt') {
+        // TXT格式解析
+        parseTextQuestionData(text);
       }
       
       setQuestionFileUploading(false);
@@ -865,58 +856,6 @@ export function AdminManageCourse() {
 
     // 清除文件输入
     event.target.value = '';
-  };
-
-  // 解析PDF文件
-  const parsePdfFile = async (file: File) => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      
-      let fullText = '';
-      
-      // 读取所有页面的文本
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        
-        // 保留文本的行结构
-        const pageLines: string[] = [];
-        let currentLine = '';
-        let lastY = -1;
-        
-        textContent.items.forEach((item: any) => {
-          const itemY = item.transform[5]; // Y坐标
-          
-          // 如果Y坐标变化,说明换行了
-          if (lastY !== -1 && Math.abs(itemY - lastY) > 5) {
-            if (currentLine.trim()) {
-              pageLines.push(currentLine.trim());
-            }
-            currentLine = item.str;
-          } else {
-            // 同一行,添加空格分隔
-            currentLine += (currentLine && item.str ? ' ' : '') + item.str;
-          }
-          lastY = itemY;
-        });
-        
-        // 添加最后一行
-        if (currentLine.trim()) {
-          pageLines.push(currentLine.trim());
-        }
-        
-        fullText += pageLines.join('\n') + '\n';
-      }
-      
-      console.log('Extracted PDF text:', fullText); // 调试用
-      
-      // 使用文本解析逻辑处理提取的文本
-      parseTextQuestionData(fullText);
-    } catch (error) {
-      console.error('PDF parsing error:', error);
-      throw new Error('Failed to parse PDF file');
-    }
   };
 
   // 解析单个题目对象
@@ -2512,14 +2451,14 @@ if (adminId) {
                   <span className="upload-title">Quick Fill from File (Supports Batch Upload)</span>
                 </div>
                 <div className="upload-description">
-                  Upload a .txt, .json, .csv, or .pdf file to auto-fill the form. 
-                  <strong> Use "---" to separate multiple questions in TXT/PDF files, or upload JSON array for batch creation.</strong>
+                  Upload a .txt or .json file to auto-fill the form. 
+                  <strong> Use "---" to separate multiple questions in TXT files, or upload JSON array for batch creation.</strong>
                 </div>
                 <div className="upload-input-wrapper">
                   <input
                     type="file"
                     id="question-file-upload"
-                    accept=".txt,.json,.csv,.pdf"
+                    accept=".txt,.json"
                     onChange={handleQuestionFileUpload}
                     style={{ display: 'none' }}
                   />
@@ -2535,7 +2474,7 @@ if (adminId) {
                   <div className="format-content">
                     <p><strong>✨ Batch Upload Support:</strong></p>
                     <div className="format-note batch-note">
-                      Upload multiple questions at once! Use <strong>"---"</strong> to separate questions in TXT/PDF files, or upload a JSON array.
+                      Upload multiple questions at once! Use <strong>"---"</strong> to separate questions in TXT files, or upload a JSON array.
                     </div>
                     
                     <p><strong>Single Question - TXT Format:</strong></p>

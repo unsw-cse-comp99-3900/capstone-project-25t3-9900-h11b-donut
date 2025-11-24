@@ -1,64 +1,8 @@
 """
 AI Question Generator Models
-用于存储示例题目和生成的题目
+用于存储AI生成的题目和学生答案
 """
 from django.db import models
-
-
-class SampleQuestion(models.Model):
-    """
-    示例题目模板 - Admin上传，用于AI生成参考
-    """
-    TYPE_CHOICES = (
-        ('mcq', 'Multiple Choice'),
-        ('short_answer', 'Short Answer'),
-    )
-    
-    DIFFICULTY_CHOICES = (
-        ('easy', 'Easy'),
-        ('medium', 'Medium'),
-        ('hard', 'Hard'),
-    )
-    
-    id = models.AutoField(primary_key=True)
-    course_code = models.CharField(max_length=16, db_index=True)
-    topic = models.CharField(max_length=255, db_index=True)
-    difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, default='medium')
-    
-    # 题目类型
-    question_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
-    
-    # 题目内容
-    question_text = models.TextField()
-    
-    # 选择题字段
-    options = models.JSONField(null=True, blank=True)  # ["A. ...", "B. ...", "C. ...", "D. ..."]
-    correct_answer = models.CharField(max_length=10, null=True, blank=True)  # "A", "B", etc.
-    explanation = models.TextField(null=True, blank=True)
-    
-    # 简答题字段
-    sample_answer = models.TextField(null=True, blank=True)
-    grading_points = models.JSONField(null=True, blank=True)  # ["要点1", "要点2", ...]
-    
-    # 分值
-    score = models.IntegerField(default=10)
-    
-    # 元数据
-    created_by = models.CharField(max_length=64, null=True, blank=True)  # admin_id
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
-    
-    class Meta:
-        db_table = 'ai_sample_question'
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['course_code', 'topic']),
-            models.Index(fields=['topic', 'difficulty']),
-        ]
-    
-    def __str__(self):
-        return f"[{self.topic}] [{self.question_type}] {self.question_text[:50]}..."
 
 
 class GeneratedQuestion(models.Model):

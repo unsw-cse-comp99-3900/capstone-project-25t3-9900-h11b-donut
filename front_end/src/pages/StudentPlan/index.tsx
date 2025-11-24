@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
+import { HelpModal } from '../../components/HelpModal'
 import useUnreadMessagePolling from '../../hooks/useUnreadMessagePolling';
 
 // 定义用户类型接口
@@ -22,12 +23,13 @@ import { preferencesStore, type Preferences, type PlanItem } from '../../store/p
 import { coursesStore } from '../../store/coursesStore'
 import { apiService } from '../../services/api';
 import { fetchAndMapAiPlan } from '../../services/aiPlanService';
-import { reportOverdueForYesterday } from '../../utils/overdueReport';
+
 
 export function StudentPlan() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showPrefs, setShowPrefs] = useState(false)
   const [messageModalOpen, setMessageModalOpen] = useState(false)
+  const [helpModalOpen, setHelpModalOpen] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
   useUnreadMessagePolling(setUnreadMessageCount);
@@ -82,26 +84,9 @@ useEffect(() => {
   if (!uid) return;
 
   const raw = localStorage.getItem(`u:${uid}:ai-web-weekly-plans`);
-  if (raw) {
-    // plan 已经生成并存在 localStorage，可以安全上报 overdue
-    reportOverdueForYesterday().catch((e) => console.warn('[overdue] failed:', e));
-  }
+  
 }, []);
-  // 页面加载时获取未读消息数量
-  //有轮询删掉首次访问
-  // useEffect(() => {
-  //   const loadUnreadMessageCount = async () => {
-  //     try {
-  //       const messages = await apiService.getMessages();
-  //       const unreadCount = messages.filter(msg => !msg.isRead).length;
-  //       setUnreadMessageCount(unreadCount);
-  //     } catch (error) {
-  //       console.error('加载未读消息数量失败:', error);
-  //     }
-  //   };
 
-  //   loadUnreadMessageCount();
-  // }, []);
 useEffect(() => {
   coursesStore.ensureLoaded();
 }, []);
@@ -307,7 +292,7 @@ useEffect(() => {
       {/* Middle content */}
       <main className="sp-main">
         <div className="sp-actions global-actions">
-          <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
+          <button className="icon-btn" aria-label="Help" onClick={() => setHelpModalOpen(true)}><img src={IconHelp} width={20} height={20} alt="" /></button>
           <button className="icon-btn message-btn" aria-label="Notifications" onClick={() => setMessageModalOpen(true)}>
             <img src={IconBell} width={20} height={20} alt="" />
             {unreadMessageCount > 0 && <span className="message-badge">{unreadMessageCount}</span>}
@@ -587,6 +572,11 @@ useEffect(() => {
         onClose={() => setMessageModalOpen(false)}
         onUnreadCountChange={setUnreadMessageCount}
       />
+
+      <HelpModal
+        isOpen={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
+      />
     </div>
   )
 }
@@ -630,7 +620,8 @@ const css = `
 .btn-outline{padding:14px;border-radius:14px;background:#fff;border:1px solid var(--sh-border);font-weight:600;margin-top:auto}
 
 /* Global actions (same as StudentHome) */
-.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative}
+.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative;cursor:pointer;transition:all 0.2s ease}
+.icon-btn:hover{background:#F6B48E;border-color:#F6B48E;transform:translateY(-2px);box-shadow:0 4px 12px rgba(246,180,142,0.3)}
 .global-actions{position:fixed;top:32px;right:32px;z-index:10;display:flex;gap:12px;will-change:transform}
 
 /* 消息按钮小红点样式 */

@@ -1,5 +1,5 @@
 // API服务层 - 后端集成接口
-
+import type { WeeklyPlan } from '../store/preferencesStore';
 import {
   validateEmail, validateId, validateName, validatePassword
 } from '../components/validators';
@@ -591,7 +591,11 @@ async adminCreateCourse(payload: {
     body: form,
   });
 }
-async saveWeeklyPlansToServer(weeklyPlans: Record<string, any[]>) {
+async saveWeeklyPlansToServer(weeklyPlans:WeeklyPlan,
+  aiDetails?: any,
+  generationReason?: string,
+  generationTime?: string
+) {
   try {
     const token = localStorage.getItem('auth_token');
     const studentId = localStorage.getItem('current_user_id');
@@ -604,7 +608,12 @@ async saveWeeklyPlansToServer(weeklyPlans: Record<string, any[]>) {
       student_id: studentId,
       weeklyPlans,
       tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      source: 'ai'
+      source: 'ai',
+      meta: {
+        aiDetails,
+        generationReason,
+        generationTime,
+      },
     };
 
     const res = await fetch('/api/save', {
@@ -632,8 +641,7 @@ async saveWeeklyPlansToServer(weeklyPlans: Record<string, any[]>) {
 }
 async adminGetStudentRisk(
   courseId: string,
-  taskId: string,
-  asOfDate?: string   
+  taskId: string,  
 ): Promise<Array<{
   student_id: string;
   student_name: string;
@@ -641,7 +649,6 @@ async adminGetStudentRisk(
   consecutive_not_on_time_days: number;
 }>> {
   const body: any = { course_id: courseId, task_id: taskId };
-  if (asOfDate) body.as_of_date = asOfDate;
 
   const resp = await this.request<any>('/admin/student_risk_summary', {
     method: 'POST',

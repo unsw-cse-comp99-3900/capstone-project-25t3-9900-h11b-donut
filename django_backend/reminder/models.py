@@ -1,5 +1,5 @@
 from django.db import models
-
+from courses.models import CourseTask
 class Notification(models.Model):
     """
     系统提醒表
@@ -38,3 +38,54 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.student_id} | {self.message_type} | {self.title[:30]}"
+
+
+class DueReport(models.Model):
+
+
+    # 学生 ID
+    student_id = models.CharField(
+        max_length=50,
+        db_index=True,
+        verbose_name="student ID",
+    )
+
+    # 对应的任务：Taskid
+    task = models.ForeignKey(
+        CourseTask,
+        on_delete=models.CASCADE,
+        related_name="due_reports",
+        db_index=True,
+        verbose_name="course task",
+        null=True,    
+        blank=True,    
+    )
+
+    # 累计“有未完成”的天数
+    total_due_days = models.PositiveIntegerField(
+        default=0,
+        verbose_name="total due days",
+    )
+
+    # 连续“有未完成”的天数
+    consecutive_due_days = models.PositiveIntegerField(
+        default=0,
+        verbose_name="consecutive due days",
+    )
+
+    # 最近一次 overdue 的日期
+    last_overdue_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="last due date",
+    )
+
+    class Meta:
+        db_table = "reminder_duereport"   
+        unique_together = ("student_id", "task")
+
+    def __str__(self):
+        return (
+            f"{self.student_id} / task={self.task_id} "
+            f"(total={self.total_due_days}, consec={self.consecutive_due_days})"
+        )

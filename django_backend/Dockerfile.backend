@@ -1,0 +1,42 @@
+# Dockerfile.backend
+FROM python:3.12-slim
+
+# 基本 Python 环境配置
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# 你的数据库是 TiDB（MySQL 协议），requirements 里大概率有 mysqlclient/pymysql 之类
+# 这里装一些常见依赖：编译工具 + MySQL 开发库
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    default-libmysqlclient-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- 依赖安装阶段 ----
+# 先只拷贝 requirements，这样改代码时不用每次重装依赖
+COPY django_backend/requirements.txt /app/requirements.txt
+
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# ---- 应用代码 ----
+# 再拷贝整个后端代码
+COPY django_backend /app
+
+# 这里不在镜像里写死数据库信息 / GEMINI_KEY / 代理，
+# 统一通过运行容器时的环境变量传入，例如（后面 docker run 会用到）：
+#   -e DB_DATABASE=...
+#   -e DB_USERNAME=...
+#   -e DB_PASSWORD=...
+#   -e DB_HOST=...
+#   -e DB_PORT=4000
+#   -e GEMINI_KEY=...
+#   -e HTTP_PROXY=http://127.0.0.1:8888
+#   -e HTTPS_PROXY=http://127.0.0.1:8888
+
+# Django 对外监听端口
+EXPOSE 8000
+
+# 开发部署：先用 runserver 跑在 0.0.0.0:8000
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

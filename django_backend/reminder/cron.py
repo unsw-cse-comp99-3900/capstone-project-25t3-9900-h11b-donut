@@ -6,7 +6,7 @@ from django.utils import timezone
 timezone.activate("Australia/Sydney")  
 from django.utils import timezone
 from plans.models import StudyPlanItem
-from reminder.models import Notification
+from reminder.models import Notification, DueReport
 
 def check_daily_overdue():
     """
@@ -32,15 +32,19 @@ def check_daily_overdue():
     )
     print("Found overdue_items:", overdue_items.count())
 
+
+    overdue_pairs = set()
     for item in overdue_items:
         print(f"  Processing item {item.id} for student {item.plan.student_id}")
 
         student_id = item.plan.student_id
         task_id = item.task_id
+        overdue_pairs.add((student_id, task_id))
 
         Notification.objects.get_or_create(
             student_id=student_id,
             task_id=task_id,
+            
             message_type="nightly_notice",
             defaults={
                 "title": "今日学习任务未完成提醒",
@@ -51,6 +55,48 @@ def check_daily_overdue():
                 "due_time": item.scheduled_date,
             }
         )
+    for (sid, tid) in overdue_pairs:   # [CHANGED]
+        report, created = DueReport.objects.get_or_create(
+            student_id=sid,
+            task_id=tid,  
+            defaults={
+                "total_due_days": 0,
+                "consecutive_due_days": 0,
+                "last_overdue_date": None,
+            }
+        )
+        if report.last_overdue_date != today:
+            report.total_due_days += 1
+            report.consecutive_due_days += 1
+            report.last_overdue_date = today
+            report.save()
+            print(
+                f"[DueReport] student={sid}, task={tid} total={report.total_due_days}, "
+                f"consecutive={report.consecutive_due_days}, "
+                f"last_overdue_date={report.last_overdue_date}"
+            )
+        else:
+            print(
+                f"[DueReport] (student={sid}, task={tid}) of {today} already been counted"
+            )
+
+    if overdue_pairs:
+        qs = DueReport.objects.filter(consecutive_due_days__gt=0) 
+        reset_count = 0  
+        for r in qs:
+            if (r.student_id, r.task_id) not in overdue_pairs:
+                r.consecutive_due_days = 0
+                r.save(update_fields=["consecutive_due_days"])
+                reset_count += 1
+        print(f"[DueReport] reset consecutive_due_days for {reset_count} (student, task) pairs")  
+    else:
+        updated = DueReport.objects.filter(
+            consecutive_due_days__gt=0
+        ).update(consecutive_due_days=0)
+        print(f"[DueReport] no overdue today, reset {updated} (student, task) pairs")
+     
+
+
 
 def check_due_tasks():
     now = timezone.localtime()

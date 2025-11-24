@@ -163,7 +163,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
       return `${leftText} for ${taskName} – ${course}`.trim();
     }
     if (m.type === 'nightly_notice') {
-      return `Yesterday's plan incomplete. Auto-rescheduled at 00:00.`;
+      return `Yesterday's plan was not completed. Rescheduling is recommended.`;
     }
     if (m.type === 'weekly_bonus') {
       return `Nice work! All done on time this week – 0.1 bonus added.`;

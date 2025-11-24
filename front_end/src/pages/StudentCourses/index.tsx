@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { ConfirmationModal } from '../../components/ConfirmationModal'
 import { MessageModal } from '../../components/MessageModal'
+import { HelpModal } from '../../components/HelpModal'
 import IconHome from '../../assets/icons/home-24.svg'
 import IconCourses from '../../assets/icons/courses-24.svg'
 import IconSettings from '../../assets/icons/settings-24.svg'
@@ -48,6 +49,7 @@ export function StudentCourses() {
   } | null>(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [messageModalOpen, setMessageModalOpen] = useState(false)
+  const [helpModalOpen, setHelpModalOpen] = useState(false)
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   useUnreadMessagePolling(setUnreadMessageCount);
 
@@ -154,7 +156,7 @@ useEffect(() => {
             <input type="text" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div className="sc-actions global-actions">
-            <button className="icon-btn" aria-label="Help"><img src={IconHelp} width={20} height={20} alt="" /></button>
+            <button className="icon-btn" aria-label="Help" onClick={() => setHelpModalOpen(true)}><img src={IconHelp} width={20} height={20} alt="" /></button>
             <button className="icon-btn message-btn" aria-label="Notifications" onClick={() => setMessageModalOpen(true)}>
               <img src={IconBell} width={20} height={20} alt="" />
               {unreadMessageCount > 0 && <span className="message-badge">{unreadMessageCount}</span>}
@@ -296,6 +298,11 @@ useEffect(() => {
         onClose={() => setMessageModalOpen(false)}
         onUnreadCountChange={setUnreadMessageCount}
       />
+
+      <HelpModal
+        isOpen={helpModalOpen}
+        onClose={() => setHelpModalOpen(false)}
+      />
     </div>
   )
 }
@@ -353,7 +360,8 @@ const css = `
 .sc-search{display:flex;align-items:center;gap:8px;border:1.5px solid #E5E8F0;border-radius:20px;padding:10px 12px;background:#fff;min-width:360px}
 .sc-search input{border:none;outline:none;flex:1;font-size:14px}
 .sc-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
-.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative}
+.icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative;cursor:pointer;transition:all 0.2s ease}
+.icon-btn:hover{background:#F6B48E;border-color:#F6B48E;transform:translateY(-2px);box-shadow:0 4px 12px rgba(246,180,142,0.3)}
 .global-actions{position:fixed;top:32px;right:32px;z-index:10;display:flex;gap:12px}
 
 /* 消息按钮小红点样式 */
@@ -415,8 +423,8 @@ const css = `
 .courses-grid:hover::-webkit-scrollbar-thumb{background:rgba(23,34,57,0.35)}
 .course-card{background:#fff;border-radius:20px;padding:20px;cursor:pointer;transition:all 0.3s ease;box-shadow:0 2px 8px rgba(0,0,0,0.08);display:flex;flex-direction:column;gap:12px;position:relative}
 .course-card:hover{box-shadow:0 8px 24px rgba(0,0,0,0.12);transform:translateY(-4px)}
-.course-thumb{width:100%;height:130px;border-radius:10px;overflow:hidden;background:#F6B48E;display:grid;place-items:center}
-.course-thumb img{width:100%;height:100%;object-fit:cover}
+.course-thumb{width:100%;height:130px;border-radius:10px;overflow:hidden;background:#F6B48E;display:flex;align-items:flex-start;justify-content:center}
+.course-thumb img{width:100%;height:100%;object-fit:cover;object-position:top}
 .course-info{flex:1;display:flex;flex-direction:column;gap:8px}
 .course-title{font-size:18px;font-weight:700;color:#172239;font-family:'Montserrat',sans-serif;line-height:1.3}
 .course-desc{color:#666;font-size:14px;line-height:1.5;flex:1}
@@ -424,8 +432,8 @@ const css = `
 .remove-btn:hover{background:#FF5252;transform:scale(1.05)}
 .big-card{display:flex;flex-direction:column;width:100%;height:300px;border:1px solid var(--sh-border);border-radius:24px;background:#fff;box-shadow:var(--sh-shadow);padding:0;overflow:hidden;cursor:pointer;transition:all 0.3s ease}
 .big-card:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,0.12)}
-.big-card .thumb{width:100%;height:140px;background:#F6B48E;display:grid;place-items:center;overflow:hidden;position:relative}
-.big-card .thumb img{width:120%;height:auto}
+.big-card .thumb{width:100%;height:140px;background:#F6B48E;display:flex;align-items:flex-start;justify-content:center;overflow:hidden;position:relative}
+.big-card .thumb img{width:100%;height:100%;object-fit:cover;object-position:top}
 .big-card .info{padding:20px;flex:1;display:flex;flex-direction:column;gap:12px}
 .big-card .info .cr-title{font-size:19px;font-weight:800;line-height:1.2}
 .big-card .info .cr-desc{font-size:13px;color:var(--sh-muted);line-height:1.4;flex:1}

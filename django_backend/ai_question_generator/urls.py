@@ -7,10 +7,6 @@ from . import views
 app_name = 'ai_question_generator'
 
 urlpatterns = [
-    # 示例题目管理
-    path('sample-questions/upload', views.upload_sample_questions, name='upload_sample_questions'),
-    path('sample-questions', views.get_sample_questions, name='get_sample_questions'),
-    
     # AI题目生成
     path('questions/generate', views.generate_questions, name='generate_questions'),
     path('questions/session/<str:session_id>', views.get_session_questions, name='get_session_questions'),

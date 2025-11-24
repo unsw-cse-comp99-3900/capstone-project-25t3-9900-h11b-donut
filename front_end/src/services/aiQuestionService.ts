@@ -4,19 +4,6 @@
 import api from './api';
 
 // TypeScript接口定义
-export interface SampleQuestion {
-  id: number;
-  course_code: string;
-  topic: string;
-  question_text: string;
-  question_type: 'multiple-choice' | 'short_answer';
-  options?: string[];
-  correct_answer: string;
-  explanation?: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-  created_at: string;
-}
-
 export interface GenerateRequest {
   course_code: string;
   topic: string;
@@ -96,43 +83,6 @@ export interface ApiResponse<T = any> {
 // AI问题生成器服务类
 class AIQuestionService {
   private baseUrl = '/ai';  // 去掉 /api 前缀，因为 api.ts 会自动添加
-
-  // 上传示例题目 (Admin功能)
-  async uploadSampleQuestions(data: {
-    course_code: string;
-    topic: string;
-    questions: Omit<SampleQuestion, 'id' | 'created_at' | 'course_code' | 'topic'>[];
-  }): Promise<ApiResponse> {
-    try {
-      const response = await api.post(`${this.baseUrl}/sample-questions/upload`, data);
-      return response as ApiResponse<any>;
-    } catch (error: any) {
-      return {
-        success: false,
-        message: 'Failed to upload sample questions',
-        error: error.response?.data?.error || error.message
-      };
-    }
-  }
-
-  // 获取示例题目列表 (Admin功能)
-  async getSampleQuestions(params?: {
-    course_code?: string;
-    topic?: string;
-    page?: number;
-    page_size?: number;
-  }): Promise<ApiResponse<{ questions: SampleQuestion[], total: number }>> {
-    try {
-      const response = await api.get(`${this.baseUrl}/sample-questions`, params);
-      return response as ApiResponse<{ questions: SampleQuestion[], total: number }>;
-    } catch (error: any) {
-      return {
-        success: false,
-        message: 'Failed to fetch sample questions',
-        error: error.response?.data?.error || error.message
-      };
-    }
-  }
 
   // AI生成题目 (核心功能)
   async generateQuestions(data: GenerateRequest): Promise<ApiResponse<GenerateResponse>> {
@@ -215,35 +165,6 @@ class AIQuestionService {
         error: error.message
       };
     }
-  }
-
-  // 获取特定主题的示例题目
-  async getSampleQuestionsByTopic(
-    courseCode: string,
-    topic: string
-  ): Promise<ApiResponse<SampleQuestion[]>> {
-    const response = await this.getSampleQuestions({
-      course_code: courseCode,
-      topic: topic
-    });
-    
-    if (response.success && response.data) {
-      // getSampleQuestions返回的是 { questions: SampleQuestion[], total: number }
-      const responseData = response.data as { questions: SampleQuestion[], total: number };
-      
-      return {
-        success: true,
-        message: 'Sample questions retrieved successfully',
-        data: responseData.questions
-      };
-    }
-    
-    // 如果失败，返回空数组而不是原始响应
-    return {
-      success: false,
-      message: response.message || 'Failed to fetch sample questions',
-      data: []
-    };
   }
 }
 
