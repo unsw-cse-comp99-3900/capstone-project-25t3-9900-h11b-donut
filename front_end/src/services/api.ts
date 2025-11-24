@@ -1,5 +1,5 @@
 // API服务层 - 后端集成接口
-
+import type { WeeklyPlan } from '../store/preferencesStore';
 import {
   validateEmail, validateId, validateName, validatePassword
 } from '../components/validators';
@@ -591,7 +591,11 @@ async adminCreateCourse(payload: {
     body: form,
   });
 }
-async saveWeeklyPlansToServer(weeklyPlans: Record<string, any[]>) {
+async saveWeeklyPlansToServer(weeklyPlans:WeeklyPlan,
+  aiDetails?: any,
+  generationReason?: string,
+  generationTime?: string
+) {
   try {
     const token = localStorage.getItem('auth_token');
     const studentId = localStorage.getItem('current_user_id');
@@ -604,7 +608,12 @@ async saveWeeklyPlansToServer(weeklyPlans: Record<string, any[]>) {
       student_id: studentId,
       weeklyPlans,
       tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      source: 'ai'
+      source: 'ai',
+      meta: {
+        aiDetails,
+        generationReason,
+        generationTime,
+      },
     };
 
     const res = await fetch('/api/save', {

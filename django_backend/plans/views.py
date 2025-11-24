@@ -327,9 +327,9 @@ def save_weekly_plans(request: HttpRequest):
     weekly_plans = body.get("weeklyPlans")
     tz = body.get("tz") or "Australia/Sydney"
     source = body.get("source") or "ai"
-    
-    # 获取AI生成的详细内容
-    ai_details = body.get("aiDetails")  # 前端传递的AI详细内容
+
+    # 这三个字段是你前端想传的 AI 相关信息
+    ai_details = body.get("aiDetails")
     generation_reason = body.get("generationReason", "")
     generation_time = body.get("generationTime")
 
@@ -341,60 +341,71 @@ def save_weekly_plans(request: HttpRequest):
 
     result = {"ok": True, "saved": [], "skipped": []}
 
-    # 逐个 week_offset 处理
-    for offset_key, items in weekly_plans.items():
-        try:
-            offset = int(offset_key)
-        except Exception:
-            result["skipped"].append({"offset_key": offset_key, "reason": "non-int key"})
-            continue
+    # 🔴 关键修改：对当前学生，先把旧的 plan 和 plan_item 全部删掉，再重建
+    with transaction.atomic():
+        # 1) 找出该学生所有旧的 StudyPlan
+        old_plans = StudyPlan.objects.filter(student_id=student_id)
 
-        # 空周直接跳过（前端一般有 2、3 为空数组）
-        if not items:
-            result["skipped"].append({"offset": offset, "reason": "empty"})
-            continue
+        # 2) 删掉这些 plan 对应的所有 StudyPlanItem
+        StudyPlanItem.objects.filter(plan__in=old_plans).delete()
 
-        week_monday = _current_monday(offset).date()
+        # 3) 再删掉所有旧的 StudyPlan
+        old_plans.delete()
 
-        with transaction.atomic():
-            # 1) upsert 头表
-            # 准备meta数据，包含AI生成的详细内容
+        # 4) 然后开始根据 weekly_plans 重新创建新的 plan + items
+        for offset_key, items in weekly_plans.items():
+            try:
+                offset = int(offset_key)
+            except Exception:
+                result["skipped"].append(
+                    {"offset_key": offset_key, "reason": "non-int key"}
+                )
+                continue
+
+            # 空周直接跳过
+            if not items:
+                result["skipped"].append({"offset": offset, "reason": "empty"})
+                continue
+
+            # 这里仍然使用你原来的 _current_monday(offset) 逻辑
+            week_monday = _current_monday(offset).date()
+
+            # 准备 meta：把 AI 细节塞进去
             meta_data = None
             if ai_details and source == "ai":
                 meta_data = {
                     "aiDetails": ai_details,
                     "generationReason": generation_reason,
                     "generationTime": generation_time,
-                    "hasAIGeneration": True
+                    "hasAIGeneration": True,
                 }
-                print(f"🤖 [SAVE_AI_DETAILS] 保存AI详细内容到meta字段")
-            
-            plan, created = StudyPlan.objects.update_or_create(
+                print("🤖 [SAVE_AI_DETAILS] 保存AI详细内容到meta字段")
+
+            # 🔹 注意：这里用 create，而不是 update_or_create，
+            # 因为我们已经把该学生的所有旧 plan 删干净了
+            plan = StudyPlan.objects.create(
                 student_id=student_id,
                 week_start_date=week_monday,
-                defaults={
-                    "week_offset": offset,
-                    "tz": tz,
-                    "source": source,
-                    "meta": meta_data,
-                },
+                week_offset=offset,
+                tz=tz,
+                source=source,
+                meta=meta_data,
             )
 
-            # 2) 清空旧的明细（简单稳妥）
-            StudyPlanItem.objects.filter(plan=plan).delete()
-
-            # 3) 批量插入新的明细
             objs = []
             for it in items:
-                # 字段映射：严格跟你前端一致
                 external_item_id = str(it.get("id", "")).strip()
                 course_code = str(it.get("courseId", "")).strip()
                 course_title = (it.get("courseTitle") or "").strip()
-                scheduled_date_str = it.get("date")  # "YYYY-MM-DD"
+                scheduled_date_str = it.get("date")
                 try:
-                    scheduled_date = date.fromisoformat(scheduled_date_str) if scheduled_date_str else week_monday
+                    scheduled_date = (
+                        date.fromisoformat(scheduled_date_str)
+                        if scheduled_date_str
+                        else week_monday
+                    )
                 except Exception:
-                    scheduled_date = week_monday  # 兜底
+                    scheduled_date = week_monday
 
                 minutes = int(it.get("minutes") or 0)
                 part_index = int(it.get("partIndex") or 0)
@@ -404,13 +415,15 @@ def save_weekly_plans(request: HttpRequest):
                 completed = bool(it.get("completed"))
                 completed_at = timezone.now() if completed else None
 
+                # 从 id 中提 task_id（中间那段数字）
+                task_id = None
                 try:
                     parts = str(it.get("id", "")).split("-")
                     if len(parts) >= 2:
-                        task_id = parts[1]  # 提取中间的编号
+                        task_id = parts[1]
                 except Exception:
                     task_id = None
-                    
+
                 objs.append(
                     StudyPlanItem(
                         plan=plan,
@@ -437,13 +450,12 @@ def save_weekly_plans(request: HttpRequest):
                     "offset": offset,
                     "week_start_date": week_monday.isoformat(),
                     "plan_id": plan.id,
-                    "created": created,
+                    "created": True,  # 我们这里一定是新建
                     "items": len(objs),
                 }
             )
 
     return JsonResponse(result, status=200)
-
 
 @csrf_exempt
 def get_all_weekly_plans(request):
