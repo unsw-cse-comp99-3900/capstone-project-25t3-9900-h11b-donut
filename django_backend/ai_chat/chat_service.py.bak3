@@ -21,7 +21,7 @@ if use_gemini:
         genai.configure(api_key=GEMINI_KEY)
         _model = genai.GenerativeModel(
             "gemini-2.5-flash",
-            generation_config={"temperature": 0.7, "max_output_tokens": 2048}
+            generation_config={"temperature": 0.7, "max_output_tokens": 1024}
         )
     except Exception as e:
         print(f"[DEBUG] Gemini 初始化失败: {e}")
@@ -610,7 +610,7 @@ class AIChatService:
 
     # ==================== 练习状态管理方法 ====================
     
-    def set_practice_setup_mode(self, user_id: str, step: str, course: str = None, topic: str = None, num_questions: int = None, difficulty: str = None):
+    def set_practice_setup_mode(self, user_id: str, step: str, course: str = None, topic: str = None):
         """设置练习设置模式"""
         from .models import PracticeSetupState
         
@@ -619,9 +619,7 @@ class AIChatService:
             defaults={
                 'step': step,
                 'course': course,
-                'topic': topic,
-                'num_questions': num_questions,
-                'difficulty': difficulty
+                'topic': topic
             }
         )
         
@@ -629,11 +627,9 @@ class AIChatService:
             state.step = step
             state.course = course
             state.topic = topic
-            state.num_questions = num_questions
-            state.difficulty = difficulty
             state.save()
         
-        print(f"[DEBUG] 设置练习模式: user={user_id}, step={step}, course={course}, topic={topic}, num={num_questions}, diff={difficulty}")
+        print(f"[DEBUG] 设置练习模式: user={user_id}, step={step}, course={course}, topic={topic}")
     
     def get_practice_setup_state(self, user_id: str) -> Optional[dict[str, Any]]:
         """获取练习设置状态"""
@@ -644,9 +640,7 @@ class AIChatService:
             return {
                 'step': state.step,
                 'course': state.course,
-                'topic': state.topic,
-                'num_questions': state.num_questions,
-                'difficulty': state.difficulty
+                'topic': state.topic
             }
         except PracticeSetupState.DoesNotExist:
             return None
@@ -677,20 +671,6 @@ class AIChatService:
         if not state:
             return None
         
-        # 检查是否输入了stop - 退出practice模式
-        if message.strip().lower() == 'stop':
-            self.clear_practice_setup_mode(user_id)
-            return """
-            <div>
-                <div style="font-weight: 700; margin-bottom: 8px;">
-                    No problem! 👍
-                </div>
-                <div style="margin-bottom: 12px;">
-                    You've exited practice mode. Feel free to ask me anything else!
-                </div>
-            </div>
-            """
-        
         step = state['step']
         print(f"[DEBUG] 当前步骤: {step}")
         available_courses = self.get_student_courses(account)
@@ -715,11 +695,8 @@ class AIChatService:
                         <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; line-height: 1.6;">
                             {chr(10).join(f'• {topic}' for topic in topics)}
                         </div>
-                        <div style="margin-bottom: 8px;">
+                        <div>
                             Please type the topic name you want to practise.
-                        </div>
-                        <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                            Or type <strong>stop</strong> to return to normal chat.
                         </div>
                     </div>
                     """
@@ -752,11 +729,8 @@ class AIChatService:
                     <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-family: monospace;">
                         {', '.join(available_courses)}
                     </div>
-                    <div style="margin-bottom: 8px;">
+                    <div>
                         Please type the course name you want to practise.
-                    </div>
-                    <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                        Or type <strong>stop</strong> to return to normal chat.
                     </div>
                 </div>
                 """
@@ -770,24 +744,9 @@ class AIChatService:
             print(f"[DEBUG] 主题验证结果: is_valid={is_valid}, validated_topic={validated_topic}")
             
             if is_valid:
-                # 主题有效，进入题目数量选择步骤
-                self.set_practice_setup_mode(user_id, 'num_questions', course, validated_topic)
-                return """
-                <div>
-                    <div style="font-weight: 700; margin-bottom: 8px;">
-                        Great choice! 📚
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                        How many questions would you like to practice?
-                    </div>
-                    <div style="margin-bottom: 8px;">
-                        Please enter a number (e.g., 5, 10, or 15)
-                    </div>
-                    <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                        Or type <strong>stop</strong> to return to normal chat.
-                    </div>
-                </div>
-                """
+                # 主题有效，生成练习
+                self.clear_practice_setup_mode(user_id)  # 清除设置模式
+                return self.generate_practice_for_topic(course, validated_topic)
             else:
                 # 主题无效，显示错误并重新提示
                 return f"""
@@ -801,89 +760,8 @@ class AIChatService:
                     <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; line-height: 1.6;">
                         {chr(10).join(f'• {topic}' for topic in topics)}
                     </div>
-                    <div style="margin-bottom: 8px;">
+                    <div>
                         Please type the topic name you want to practise.
-                    </div>
-                    <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                        Or type <strong>stop</strong> to return to normal chat.
-                    </div>
-                </div>
-                """
-        
-        elif step == 'num_questions':
-            # 处理题目数量选择
-            try:
-                num = int(message.strip())
-                if num < 1 or num > 50:
-                    raise ValueError("Number out of range")
-                
-                # 数量有效，进入难度选择步骤
-                course = state['course']
-                topic = state['topic']
-                self.set_practice_setup_mode(user_id, 'difficulty', course, topic, num)
-                return """
-                <div>
-                    <div style="font-weight: 700; margin-bottom: 8px;">
-                        Perfect! 💪
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                        What difficulty level would you like?
-                    </div>
-                    <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; line-height: 1.6;">
-                        • <strong>Easy</strong> - Basic concepts and fundamental questions<br>
-                        • <strong>Medium</strong> - Moderate difficulty, requires good understanding<br>
-                        • <strong>Hard</strong> - Challenging questions, tests deep knowledge
-                    </div>
-                    <div style="margin-bottom: 8px;">
-                        Please type: <strong>easy</strong>, <strong>medium</strong>, or <strong>hard</strong>
-                    </div>
-                    <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                        Or type <strong>stop</strong> to return to normal chat.
-                    </div>
-                </div>
-                """
-            except (ValueError, TypeError):
-                return """
-                <div>
-                    <div style="font-weight: 700; margin-bottom: 8px;">
-                        Please enter a valid number 🤔
-                    </div>
-                    <div style="margin-bottom: 12px;">
-                        The number should be between 1 and 50.
-                    </div>
-                    <div style="margin-bottom: 8px;">
-                        How many questions would you like to practice?
-                    </div>
-                    <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                        Or type <strong>stop</strong> to return to normal chat.
-                    </div>
-                </div>
-                """
-        
-        elif step == 'difficulty':
-            # 处理难度选择
-            difficulty_input = message.strip().lower()
-            valid_difficulties = ['easy', 'medium', 'hard']
-            
-            if difficulty_input in valid_difficulties:
-                # 难度有效，生成练习
-                course = state['course']
-                topic = state['topic']
-                num_questions = state['num_questions']
-                
-                self.clear_practice_setup_mode(user_id)  # 清除设置模式
-                return self.generate_practice_for_topic(course, topic, num_questions, difficulty_input)
-            else:
-                return """
-                <div>
-                    <div style="font-weight: 700; margin-bottom: 8px;">
-                        Please choose a valid difficulty level 😅
-                    </div>
-                    <div style="margin-bottom: 8px;">
-                        Please type one of: <strong>easy</strong>, <strong>medium</strong>, or <strong>hard</strong>
-                    </div>
-                    <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                        Or type <strong>stop</strong> to return to normal chat.
                     </div>
                 </div>
                 """
@@ -1473,7 +1351,6 @@ class AIChatService:
             # 导入必要的模型
             from courses.models import StudentEnrollment, CourseCatalog, CourseTask
             from task_progress.models import TaskProgress
-            from .models import RecentPracticeSession
             
             # 获取用户选课信息
             courses_context = ""
@@ -1511,42 +1388,6 @@ class AIChatService:
             except Exception as e:
                 print(f"[DEBUG] 获取任务进度失败: {e}")
             
-            # 获取最近的练习测试结果
-            practice_context = ""
-            try:
-                recent_session = RecentPracticeSession.get_latest_session(account.student_id)  # type: ignore
-                if recent_session:
-                    practice_context = f"\n\n🎯 Most recent practice test:"
-                    practice_context += f"\n- Course: {recent_session.course_code}"
-                    practice_context += f"\n- Topic: {recent_session.topic}"
-                    practice_context += f"\n- Score: {recent_session.total_score}/{recent_session.max_score} ({recent_session.percentage:.1f}%)"
-                    practice_context += f"\n- Questions: {recent_session.questions_count}"
-                    
-                    # 添加所有题目的详细信息（不限制数量）
-                    test_data = recent_session.test_data
-                    if test_data and 'questions' in test_data:
-                        wrong_questions = [q for q in test_data['questions'] if not q.get('is_correct', True)]
-                        if wrong_questions:
-                            practice_context += f"\n- Wrong answers: {len(wrong_questions)} question(s)"
-                            practice_context += "\n\nDetailed test results (ALL questions for student reference):"
-                            # 显示所有题目，不截断内容
-                            for idx, q in enumerate(test_data['questions'], 1):
-                                status = "✓" if q.get('is_correct', False) else "✗"
-                                practice_context += f"\n  Q{idx} [{status}]: {q.get('question_text', 'N/A')}"
-                                
-                                # 如果是选择题，显示选项
-                                if q.get('question_type') == 'mcq' and q.get('options'):
-                                    practice_context += f"\n      Options: {', '.join(q.get('options', []))}"
-                                
-                                practice_context += f"\n      Student's answer: {q.get('student_answer', 'N/A')}"
-                                
-                                if not q.get('is_correct', True):
-                                    practice_context += f"\n      Correct answer: {q.get('correct_answer', 'N/A')}"
-                                    if q.get('feedback'):
-                                        practice_context += f"\n      Feedback: {q.get('feedback', '')}"
-            except Exception as e:
-                print(f"[DEBUG] 获取练习测试结果失败: {e}")
-            
             # 获取用户的学习计划信息
             plan_data = self.get_user_study_plan(account)
             plan_context = ""
@@ -1580,41 +1421,26 @@ Your role:
 - Suggest practice exercises for difficult topics
 - Answer questions about academic work
 - Use the student's course enrollment and task progress information to give personalized advice
-- **IMPORTANT**: Help students understand their practice test results
 
 Guidelines:
 - Be warm, supportive, and encouraging
 - Provide specific, actionable advice based on their actual courses and tasks
-- Keep responses concise and helpful (max 300 words)
+- Keep responses concise but helpful (max 250 words)
 - Use a friendly, conversational tone
 - Include relevant emojis to make responses more engaging
 - Respond in plain text format, no HTML or markdown
 - Address the student naturally without always using their name, or use their actual name if needed: {account.name or 'there'}
 - When discussing tasks or courses, reference their actual enrolled courses and current progress
-
-**When student asks about their practice test (e.g., "What questions did I get wrong?"):**
-- Give a brief, encouraging summary of their test (score, topic)
-- List the question numbers they got wrong in a simple format (e.g., "You got Q2, Q3, and Q5 incorrect")
-- DO NOT explain each question in detail automatically
-- Instead, invite them to ask about specific questions: "Which question would you like me to help you understand better?"
-- Keep the initial response SHORT and conversational
-
-**When student asks about a SPECIFIC question (e.g., "Can you explain Q2?" or "Help me with question 3"):**
-- NOW provide a detailed explanation for THAT specific question:
-  1. What they answered vs. the correct answer
-  2. WHY their answer was incorrect
-  3. WHY the correct answer is right (with clear conceptual explanation)
-  4. A helpful tip for similar questions
-- Be thorough but focus only on the question they asked about
-- After explaining, ask if they'd like help with another question
+- If they mention struggling with something, check if it relates to their enrolled courses or current tasks
 
 Student context:
 - Student ID: {account.student_id}
-- Name: {account.name or 'Student'}{courses_context}{tasks_context}{practice_context}{plan_context}{history_context}
+- Name: {account.name or 'Student'}{courses_context}{tasks_context}{plan_context}{history_context}
 
 Current student message: {message}
 
-Respond as their AI Learning Coach. Use the student's actual course, task, and practice test information to provide personalized, relevant advice. Keep responses concise unless student asks for detailed explanation of a specific question. Do not use "Test Student" - address them naturally or by their actual name."""
+Respond as their AI Learning Coach. Use the student's actual course and task information to provide personalized, relevant advice. Do not use "Test Student" - address them naturally or by their actual name."""
+
             # 调用Gemini AI
             response = _model.generate_content(system_prompt)
             
@@ -1783,11 +1609,8 @@ Respond as their AI Learning Coach. Use the student's actual course, task, and p
                             <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; font-family: monospace;">
                                 {', '.join(available_courses)}
                             </div>
-                            <div style="margin-bottom: 12px;">
+                            <div>
                                 Please type the course name you want to practise.
-                            </div>
-                            <div style="font-size: 13px; color: #6c757d; font-style: italic;">
-                                Or type <strong>stop</strong> to return to normal chat.
                             </div>
                         </div>
                         """
@@ -2478,19 +2301,18 @@ Respond as their AI Learning Coach. Use the student's actual course, task, and p
         # 生成练习
         return self.generate_practice_for_topic(valid_course, valid_topic)
     
-    def generate_practice_for_topic(self, course: str, topic: str, num_questions: int = 5, difficulty: str = 'medium') -> str:
+    def generate_practice_for_topic(self, course: str, topic: str) -> str:
         """为特定课程和主题生成练习 - 复用现有的API逻辑"""
-        print(f"[DEBUG] generate_practice_for_topic 被调用: course={course}, topic={topic}, num={num_questions}, difficulty={difficulty}")
+        print(f"[DEBUG] generate_practice_for_topic 被调用: course={course}, topic={topic}")
         
         # 返回"正在生成"消息，让前端处理实际的生成
-        # 前端会收到这个消息，然后调用generate-practice API，并传递num_questions和difficulty参数
         return f"""
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">
                 Great choice 💪
             </div>
             <div style="margin-bottom: 12px;">
-                I'm now generating {num_questions} {difficulty} questions for {course} – {topic}.
+                I'm now generating a practice set for {course} – {topic}.
                 Please wait a moment…
             </div>
         </div>

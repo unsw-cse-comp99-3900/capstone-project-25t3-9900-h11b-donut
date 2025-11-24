@@ -180,6 +180,11 @@ Generate {mcq_count + short_answer_count} high-quality questions specifically ab
   }}
 ]
 
+**CRITICAL SCORING REQUIREMENT**: 
+- EVERY question MUST have "score": 10 (exactly 10 points)
+- DO NOT use any other score value
+- This is MANDATORY and NON-NEGOTIABLE
+
 **IMPORTANT**: 
 - DO NOT include "hint" field in the output
 - For short_answer questions, provide comprehensive sample_answer and specific grading_points
@@ -214,10 +219,11 @@ Generate the questions now:"""
         # 解析 JSON
         questions = json.loads(cleaned)
         
-        # 确保每个题目都有必要的字段
+        # 确保每个题目都有必要的字段，并强制score为10分
         for q in questions:
             q.setdefault('topic', topic)
             q.setdefault('difficulty', difficulty)
-            q.setdefault('score', 10)
+            # 🔥 强制每题10分，防止AI生成错误的score值
+            q['score'] = 10
         
         return questions

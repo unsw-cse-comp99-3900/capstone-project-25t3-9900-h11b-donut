@@ -36,7 +36,7 @@ class AutoGrader:
     
     def grade_mcq(self, question: Dict, student_answer: str) -> Dict:
         """
-        评分选择题（直接比对）
+        评分选择题(直接比对)
         
         Args:
             question: 题目信息
@@ -48,14 +48,16 @@ class AutoGrader:
         correct_answer = question.get('correct_answer', '').strip().upper()
         student_answer_clean = student_answer.strip().upper()
         
-        # 提取选项字母（处理 "A. ..." 或 "A" 格式）
+        # 提取选项字母(处理 "A. ..." 或 "A" 格式)
         if '.' in student_answer_clean:
             student_answer_clean = student_answer_clean.split('.')[0].strip()
         if '.' in correct_answer:
             correct_answer = correct_answer.split('.')[0].strip()
         
         is_correct = student_answer_clean == correct_answer
-        score = question.get('score', 10) if is_correct else 0
+        # 🔥 强制每题10分
+        max_score = 10
+        score = max_score if is_correct else 0
         
         return {
             'question_id': question.get('id'),
@@ -64,7 +66,7 @@ class AutoGrader:
             'correct_answer': correct_answer,
             'is_correct': is_correct,
             'score': score,
-            'max_score': question.get('score', 10),
+            'max_score': max_score,
             'feedback': question.get('explanation', '') if is_correct else f"Incorrect. The correct answer is {correct_answer}. {question.get('explanation', '')}"
         }
     
@@ -75,7 +77,7 @@ class AutoGrader:
         Args:
             question: 题目信息
             student_answer: 学生答案
-            rubric: 评分细则（可选，使用默认评分标准）
+            rubric: 评分细则(可选，使用默认评分标准)
         
         Returns:
             评分结果
@@ -93,13 +95,13 @@ class AutoGrader:
             return result
             
         except Exception as e:
-            # 返回默认评分
+            # 返回默认评分，🔥 强制10分满分
             return {
                 'question_id': question.get('id'),
                 'type': 'short_answer',
                 'student_answer': student_answer,
                 'score': 0,
-                'max_score': question.get('score', 10),
+                'max_score': 10,
                 'feedback': f'Grading failed: {str(e)}',
                 'breakdown': {}
             }
@@ -107,7 +109,8 @@ class AutoGrader:
     def _build_grading_prompt(self, question: Dict, student_answer: str) -> str:
         """构建评分提示词"""
         
-        max_score = question.get('score', 10)
+        # 🔥 强制每题10分满分
+        max_score = 10
         key_points = question.get('grading_points', [])
         key_points_text = "\n".join(f"- {p}" for p in key_points)
         sample_answer = question.get('sample_answer', 'Not provided')
@@ -223,13 +226,13 @@ Begin grading:"""
         # 解析 JSON
         grading_result = json.loads(cleaned)
         
-        # 构建标准格式结果
+        # 构建标准格式结果，🔥 强制max_score为10
         return {
             'question_id': question.get('id'),
             'type': 'short_answer',
             'student_answer': student_answer,
             'score': grading_result.get('total_score', 0),
-            'max_score': question.get('score', 10),
+            'max_score': 10,  # 强制10分
             'feedback': grading_result.get('feedback', ''),
             'breakdown': grading_result.get('breakdown', {}),
             'hint': grading_result.get('hint', ''),
@@ -260,7 +263,7 @@ Begin grading:"""
                     'type': q.get('type'),
                     'student_answer': '',
                     'score': 0,
-                    'max_score': q.get('score', 10),
+                    'max_score': 10,  # 🔥 强制10分
                     'feedback': 'No answer provided'
                 })
                 continue

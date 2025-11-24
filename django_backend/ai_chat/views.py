@@ -369,12 +369,26 @@ class GeneratePracticeView(View):
             course = data.get('course', '').strip()
             topic = data.get('topic', '').strip()
             user_id = data.get('user_id', '').strip()
+            num_questions = data.get('num_questions', 5)  # 默认5题
+            difficulty = data.get('difficulty', 'medium').lower()  # 默认medium
             
             if not course or not topic or not user_id:
                 return JsonResponse({
                     'success': False,
                     'error': 'Course, topic, and user_id are required'
                 }, status=400)
+            
+            # 验证题目数量
+            try:
+                num_questions = int(num_questions)
+                if num_questions < 1 or num_questions > 50:
+                    num_questions = 5
+            except (ValueError, TypeError):
+                num_questions = 5
+            
+            # 验证难度
+            if difficulty not in ['easy', 'medium', 'hard']:
+                difficulty = 'medium'
             
             # 获取用户账户
             from stu_accounts.models import StudentAccount
@@ -391,7 +405,7 @@ class GeneratePracticeView(View):
             from courses.models import Question, QuestionChoice, QuestionKeyword, QuestionKeywordMap
             import uuid
             
-            print(f"[DEBUG] 开始生成练习题: course={course}, topic={topic}")
+            print(f"[DEBUG] 开始生成练习题: course={course}, topic={topic}, num={num_questions}, difficulty={difficulty}")
             
             # 获取示例题目
             topic_lower = topic.lower()
@@ -419,8 +433,8 @@ class GeneratePracticeView(View):
                     'type': q.qtype,
                     'question': q.text,
                     'topic': topic,
-                    'difficulty': 'medium',  # Question模型没有difficulty字段
-                    'score': 10  # Question模型没有score字段
+                    'difficulty': difficulty,  # 使用用户选择的难度
+                    'score': 10
                 }
                 
                 if q.qtype == 'mcq':
@@ -440,16 +454,20 @@ class GeneratePracticeView(View):
                 
                 sample_questions.append(q_dict)
             
+            # 根据题目数量计算选择题和简答题的比例 (60% MCQ, 40% Short Answer)
+            mcq_count = int(num_questions * 0.6)
+            short_answer_count = num_questions - mcq_count
+            
             # 调用AI生成器
             try:
                 generator = QuestionGenerator()
                 generated_questions = generator.generate_questions(
                     topic=topic,
-                    difficulty='medium',
+                    difficulty=difficulty,  # 使用用户选择的难度
                     sample_questions=sample_questions,
-                    count=5,
-                    mcq_count=3,
-                    short_answer_count=2
+                    count=num_questions,  # 使用用户选择的数量
+                    mcq_count=mcq_count,
+                    short_answer_count=short_answer_count
                 )
                 
                 print(f"[DEBUG] 生成了 {len(generated_questions)} 个题目")
@@ -488,7 +506,7 @@ class GeneratePracticeView(View):
                 
                 # 🔥 保存练习就绪消息到聊天历史
                 conversation = self.chat_service.get_or_create_conversation(account)
-                practice_message_content = f"I've generated {len(generated_questions)} practice questions for {course} – {topic}. Ready to practice?"
+                practice_message_content = f"I've generated {len(generated_questions)} {difficulty} questions for {course} – {topic}. Ready to practice?"
                 
                 from .models import ChatMessage
                 ChatMessage.objects.create(

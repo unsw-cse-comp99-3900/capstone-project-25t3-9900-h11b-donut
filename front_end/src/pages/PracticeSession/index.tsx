@@ -48,6 +48,9 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
             // 已经提交过，重建结果数据
             console.log('✅ 检测到已提交的答案，加载结果:', resultsData.results);
             
+            // 🔥 关键修复：即使已提交，也要加载题目数据，以便显示完整的题干
+            await fetchQuestions();
+            
             // 从提交记录中提取评分结果
             const gradingResults = resultsData.results.map((r: any) => r.grading_result);
             
@@ -66,8 +69,8 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
               percentage: percentage
             });
             
-            setIsLoading(false);
-            return; // 不需要再加载题目
+            // isLoading 会在 fetchQuestions 中设置为 false
+            return;
           }
         }
         
@@ -205,7 +208,8 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
   }
 
   // Loading state - 单层卡片
-  if (isLoading) {
+  // 🔥 修复：如果已经有结果数据，即使 isLoading 也不显示 Loading（避免闪烁）
+  if (isLoading && !results) {
     return (
       <div style={{
         maxWidth: '100%',
@@ -278,8 +282,39 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
 
   // Results state - 单层卡片
   if (results) {
-    // 检查是否是重新查看已提交的结果（没有 questions 数据）
-    const isReviewMode = questions.length === 0;
+    // 🔥 如果 results 有值但 questions 还没加载完，显示 Loading
+    if (questions.length === 0) {
+      return (
+        <div style={{
+          maxWidth: '100%',
+          margin: '0',
+          background: 'transparent',
+          borderRadius: '0',
+          padding: '60px 40px',
+          boxShadow: 'none',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid rgba(255,168,122,0.3)',
+            borderTop: '4px solid #FFA87A',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }}></div>
+          <p style={{ fontSize: '16px', opacity: 0.8, color: '#172239' }}>Loading your results...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      );
+    }
+    
+    // 🔥 修复：不再区分 isReviewMode，因为现在总是会加载 questions 数据
     
     // 🔍 计算总分和百分比
     const totalScore = results.total_score || 0;
@@ -288,13 +323,13 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
     
     // 🔍 调试：查看 results 数据结构
     console.log('🔍 [Results Page] 结果数据:', {
-      isReviewMode,
       results,
       grading_results: results.grading_results,
       total_score: totalScore,
       total_max_score: totalMaxScore,
       calculated_percentage: percentage,
-      original_percentage: results.percentage
+      original_percentage: results.percentage,
+      questions_length: questions.length
     });
     
     return (
@@ -307,21 +342,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
         padding: '40px',
         boxShadow: 'none'
       }}>
-          {isReviewMode && (
-            <div style={{
-              background: 'linear-gradient(135deg, #FFF5E6 0%, #FFE8CC 100%)',
-              border: '1px solid #FFD699',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              marginBottom: '24px',
-              textAlign: 'center',
-              fontSize: '14px',
-              color: '#8B5A00',
-              fontWeight: 500
-            }}>
-              📋 Viewing previous submission results
-            </div>
-          )}
+
           
           <h1 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '32px', textAlign: 'center', color: '#172239' }}>
             Practice Results
@@ -346,35 +367,49 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
           <div style={{ marginBottom: '32px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: '#172239' }}>Detailed Results</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {isReviewMode ? (
-                // 🔥 Review Mode: 直接遍历 grading_results（因为 questions 数组为空）
-                // 按 question_id 升序排序，确保题目顺序正确
-                results.grading_results
-                  ?.slice()
-                  .sort((a: any, b: any) => a.question_id - b.question_id)
-                  .map((result: any, index: number) => {
-                    // 🎯 根据分数段判断等级
-                    const score = result.score || 0;
-                    const maxScore = result.max_score || 10;
-                    let label = 'Incorrect';
-                    let bgColor = '#FEE2E2';
-                    let textColor = '#991B1B';
-                    
-                    if (score >= maxScore) {
-                      // 满分：Correct
-                      label = 'Correct';
-                      bgColor = '#D1FAE5';
-                      textColor = '#065F46';
-                    } else if (score >= 4) {
-                      // 4-9分：Partly Correct
-                      label = 'Partly Correct';
-                      bgColor = '#FEF3C7';
-                      textColor = '#92400E';
-                    }
-                    // 0-3分：Incorrect（默认值）
-                    
-                    return (
-                  <div key={result.question_id} style={{
+              {/* 🔥 统一显示逻辑：总是使用 questions 数组（现在已确保加载） */}
+              {questions.map((question, index) => {
+                // 根据 question.id 找到对应的评分结果
+                const result = results.grading_results?.find((r: any) => r.question_id === question.id)
+                
+                if (!result) {
+                  console.warn(`⚠️ 找不到题目 ${question.id} 的评分结果`)
+                  return null
+                }
+                
+                const isShortAnswer = question.question_type === 'short_answer'
+                const isMCQ = question.question_type === 'mcq'
+                const questionData = question.question_data
+                const questionText = questionData?.question
+                const options = questionData?.options
+                const sampleAnswer = questionData?.sample_answer
+                const correctAnswer = questionData?.correct_answer
+                
+                // 🔥 选择题的解析在 questionData.explanation，简答题的在 result.solution
+                const explanation = isMCQ ? questionData?.explanation : result.solution
+                
+                // 🎯 根据分数段判断等级
+                const score = result.score || 0;
+                const maxScore = result.max_score || 10;
+                let label = 'Incorrect';
+                let bgColor = '#FEE2E2';
+                let textColor = '#991B1B';
+                
+                if (score >= maxScore) {
+                  // 满分：Correct
+                  label = 'Correct';
+                  bgColor = '#D1FAE5';
+                  textColor = '#065F46';
+                } else if (score >= 4) {
+                  // 4-9分：Partly Correct
+                  label = 'Partly Correct';
+                  bgColor = '#FEF3C7';
+                  textColor = '#92400E';
+                }
+                // 0-3分：Incorrect（默认值）
+                
+                return (
+                  <div key={question.id} style={{
                     border: '1px solid #e7e9ef',
                     borderRadius: '14px',
                     padding: '16px',
@@ -395,41 +430,106 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                       </span>
                     </div>
                     
-                    {/* AI反馈 */}
+                    {/* 🔥 题目文本 - 始终显示 */}
                     <div style={{
-                      padding: '12px',
-                      background: '#FFFBEB',
-                      border: '1px solid #FDE68A',
-                      borderRadius: '10px'
+                      fontSize: '15px',
+                      fontWeight: 600,
+                      color: '#172239',
+                      marginBottom: '12px',
+                      lineHeight: 1.5
                     }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#92400E', marginBottom: '6px' }}>
-                        💡 Feedback:
-                      </div>
-                      <p style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5, margin: 0 }}>
-                        {result.feedback}
-                      </p>
+                      {questionText}
                     </div>
                     
-                    {/* 如果有学生答案，显示出来 */}
-                    {result.student_answer && (
+                    {/* 🔥 选择题：显示选项 */}
+                    {isMCQ && options && options.length > 0 && (
                       <div style={{
-                        marginTop: '12px',
+                        marginBottom: '12px',
                         padding: '12px',
                         background: '#F9FAFB',
                         border: '1px solid #E5E7EB',
                         borderRadius: '10px'
                       }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#6B7280', marginBottom: '6px' }}>
-                          📝 Your Answer:
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#6B7280', marginBottom: '8px' }}>
+                          📋 Options:
                         </div>
-                        <div style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5 }}>
-                          {result.student_answer}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {options.map((option, i) => {
+                            const hasLetterPrefix = /^[A-D]\.\s*/.test(option)
+                            const displayText = hasLetterPrefix ? option : `${String.fromCharCode(65 + i)}. ${option}`
+                            const isStudentAnswer = result.student_answer === option
+                            
+                            // 🔥 修复：正确答案是字母(如"B")，需要转换成索引来比较
+                            const correctAnswerLetter = String.fromCharCode(65 + i) // 'A', 'B', 'C', 'D'
+                            const isCorrect = correctAnswer === correctAnswerLetter || correctAnswer === option
+                            
+                            return (
+                              <div
+                                key={i}
+                                style={{
+                                  fontSize: '14px',
+                                  color: '#172239',
+                                  padding: '6px 10px',
+                                  borderRadius: '6px',
+                                  background: isStudentAnswer 
+                                    ? (isCorrect ? '#D1FAE5' : '#FEE2E2')
+                                    : (isCorrect ? '#E0F2FE' : 'transparent'),
+                                  fontWeight: (isStudentAnswer || isCorrect) ? 600 : 400
+                                }}
+                              >
+                                {displayText}
+                                {isStudentAnswer && <span style={{ marginLeft: '8px', fontSize: '12px' }}>👤 Your answer</span>}
+                                {isCorrect && <span style={{ marginLeft: '8px', fontSize: '12px' }}>✅ Correct answer</span>}
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )}
                     
-                    {/* 如果有参考答案（solution），显示出来 */}
-                    {result.solution && (
+                    {/* 🔥 简答题：显示学生答案和参考答案 */}
+                    {isShortAnswer && (
+                      <div>
+                        {/* 学生的答案 */}
+                        {result.student_answer && (
+                          <div style={{
+                            marginBottom: '12px',
+                            padding: '12px',
+                            background: '#F9FAFB',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '10px'
+                          }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#6B7280', marginBottom: '6px' }}>
+                              📝 Your Answer:
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5 }}>
+                              {result.student_answer}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* 参考答案 */}
+                        {sampleAnswer && (
+                          <div style={{
+                            marginBottom: '12px',
+                            padding: '12px',
+                            background: '#E0F2FE',
+                            border: '1px solid #BAE6FD',
+                            borderRadius: '10px'
+                          }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#0369A1', marginBottom: '6px' }}>
+                              ✅ Sample Answer:
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5 }}>
+                              {sampleAnswer}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* 🔥 显示解析 (对所有题型) */}
+                    {explanation && (
                       <div style={{
                         marginTop: '12px',
                         padding: '12px',
@@ -438,142 +538,15 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                         borderRadius: '10px'
                       }}>
                         <div style={{ fontSize: '12px', fontWeight: 700, color: '#0369A1', marginBottom: '6px' }}>
-                          ✅ Solution:
+                          💡 Explanation:
                         </div>
                         <div style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5 }}>
-                          {result.solution}
+                          {explanation}
                         </div>
                       </div>
                     )}
                   </div>
-                )})
-              ) : (
-                // 🔥 Normal Mode: 遍历 questions 数组（做完题刚提交的情况）
-                questions.map((question, index) => {
-                  // 根据 question.id 找到对应的评分结果
-                  const result = results.grading_results?.find((r: any) => r.question_id === question.id)
-                  
-                  if (!result) {
-                    console.warn(`⚠️ 找不到题目 ${question.id} 的评分结果`)
-                    return null
-                  }
-                  
-                  const isShortAnswer = question.question_type === 'short_answer'
-                  const sampleAnswer = question.question_data?.sample_answer
-                  const questionText = question.question_data?.question
-                  
-                  // 🎯 根据分数段判断等级
-                  const score = result.score || 0;
-                  const maxScore = result.max_score || 10;
-                  let label = 'Incorrect';
-                  let bgColor = '#FEE2E2';
-                  let textColor = '#991B1B';
-                  
-                  if (score >= maxScore) {
-                    // 满分：Correct
-                    label = 'Correct';
-                    bgColor = '#D1FAE5';
-                    textColor = '#065F46';
-                  } else if (score >= 4) {
-                    // 4-9分：Partly Correct
-                    label = 'Partly Correct';
-                    bgColor = '#FEF3C7';
-                    textColor = '#92400E';
-                  }
-                  // 0-3分：Incorrect（默认值）
-                  
-                  return (
-                    <div key={question.id} style={{
-                      border: '1px solid #e7e9ef',
-                      borderRadius: '14px',
-                      padding: '16px',
-                      background: '#fff'
-                    }}>
-                      {/* 题目标题 */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <span style={{ fontWeight: 700, color: '#172239' }}>Question {index + 1}</span>
-                        <span style={{
-                          padding: '4px 12px',
-                          borderRadius: '12px',
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          background: bgColor,
-                          color: textColor
-                        }}>
-                          {label} • {score}/{maxScore}
-                        </span>
-                      </div>
-                      
-                      {/* 题目文本 */}
-                      <div style={{
-                        fontSize: '15px',
-                        fontWeight: 600,
-                        color: '#172239',
-                        marginBottom: '12px',
-                        lineHeight: 1.5
-                      }}>
-                        {questionText}
-                      </div>
-                      
-                      {/* AI反馈 */}
-                      <div style={{
-                        padding: '12px',
-                        background: '#FFFBEB',
-                        border: '1px solid #FDE68A',
-                        borderRadius: '10px',
-                        marginBottom: isShortAnswer ? '12px' : '0'
-                      }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#92400E', marginBottom: '6px' }}>
-                          💡 Feedback:
-                        </div>
-                        <p style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5, margin: 0 }}>
-                          {result.feedback}
-                        </p>
-                      </div>
-                      
-                      {/* 简答题：显示学生答案和参考答案 */}
-                      {isShortAnswer && (
-                        <div>
-                          {/* 学生的答案 */}
-                          {result.student_answer && (
-                            <div style={{
-                              marginBottom: '12px',
-                              padding: '12px',
-                              background: '#F9FAFB',
-                              border: '1px solid #E5E7EB',
-                              borderRadius: '10px'
-                            }}>
-                              <div style={{ fontSize: '12px', fontWeight: 700, color: '#6B7280', marginBottom: '6px' }}>
-                                📝 Your Answer:
-                              </div>
-                              <div style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5 }}>
-                                {result.student_answer}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* 参考答案 */}
-                          {sampleAnswer && (
-                            <div style={{
-                              padding: '12px',
-                              background: '#F0F9FF',
-                              border: '1px solid #BAE6FD',
-                              borderRadius: '10px'
-                            }}>
-                              <div style={{ fontSize: '12px', fontWeight: 700, color: '#0369A1', marginBottom: '6px' }}>
-                                ✅ Sample Answer:
-                              </div>
-                              <div style={{ fontSize: '14px', color: '#172239', lineHeight: 1.5 }}>
-                                {sampleAnswer}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })
-              )}
+                )})}
             </div>
           </div>
 
@@ -602,7 +575,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
             </button>
           </div>
         </div>
-      )
+      );
   }
 
   const question = questions[currentQuestion]

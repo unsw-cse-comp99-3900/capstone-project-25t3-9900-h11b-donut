@@ -102,8 +102,8 @@ export function ChatWindow() {
   })
 
   // 新增：调用练习生成API
-  const generatePracticeQuestions = async (course: string, topic: string) => {
-    console.log('🎯 开始生成练习题目:', { course, topic })
+  const generatePracticeQuestions = async (course: string, topic: string, numQuestions?: number, difficulty?: string) => {
+    console.log('🎯 开始生成练习题目:', { course, topic, numQuestions, difficulty })
     
     try {
       const response = await fetch('/api/ai/generate-practice/', {
@@ -115,7 +115,9 @@ export function ChatWindow() {
         body: JSON.stringify({
           course,
           topic,
-          user_id: uid
+          user_id: uid,
+          num_questions: numQuestions || 5,
+          difficulty: difficulty || 'medium'
         })
       })
 
@@ -631,25 +633,33 @@ export function ChatWindow() {
         });
 
         // 检测是否是"正在生成"消息，如果是则触发练习生成
-        if (aiReply.content.includes('I\'m now generating a practice set')) {
+        if (aiReply.content.includes('I\'m now generating')) {
           console.log('🎯 检测到"正在生成"消息，开始练习生成流程')
           
-          // 从AI回复中提取课程和主题（更准确的方式）
-          const courseTopicMatch = aiReply.content.match(/for\s+([A-Z]{4}\d{4})\s*–\s*([^\.]+)/);
-          if (courseTopicMatch) {
-            const mentionedCourse = courseTopicMatch[1].trim();
-            const mentionedTopic = courseTopicMatch[2].trim();
+          // 从AI回复中提取课程、主题、数量和难度
+          // 格式: "I'm now generating {num} {difficulty} questions for {course} – {topic}."
+          const practiceMatch = aiReply.content.match(/I'm now generating\s+(\d+)\s+(easy|medium|hard)\s+questions for\s+([A-Z]{4}\d{4})\s*–\s*([^\.]+)/i);
+          if (practiceMatch) {
+            const numQuestions = parseInt(practiceMatch[1]);
+            const difficulty = practiceMatch[2].toLowerCase();
+            const mentionedCourse = practiceMatch[3].trim();
+            const mentionedTopic = practiceMatch[4].trim();
             
-            console.log('📋 从AI回复中提取到课程和主题:', { course: mentionedCourse, topic: mentionedTopic })
+            console.log('📋 从AI回复中提取到练习参数:', { 
+              course: mentionedCourse, 
+              topic: mentionedTopic,
+              numQuestions,
+              difficulty
+            })
             
             // 设置生成状态
             setIsGeneratingPractice(true)
             setPendingPractice({ course: mentionedCourse, topic: mentionedTopic })
             
-            // 调用练习生成API
-            generatePracticeQuestions(mentionedCourse, mentionedTopic)
+            // 调用练习生成API，传递所有参数
+            generatePracticeQuestions(mentionedCourse, mentionedTopic, numQuestions, difficulty)
           } else {
-            console.error('❌ 无法从AI回复中提取课程和主题:', aiReply.content)
+            console.error('❌ 无法从AI回复中提取练习参数:', aiReply.content)
           }
         }
       } else {

@@ -62,11 +62,15 @@ class PracticeSetupState(models.Model):
     student_id = models.CharField(max_length=20, unique=True)  # 学生ID
     step = models.CharField(max_length=20, choices=[
         ('course', 'Course Selection'),
-        ('topic', 'Topic Selection'), 
+        ('topic', 'Topic Selection'),
+        ('num_questions', 'Number of Questions'),
+        ('difficulty', 'Difficulty Selection'),
         ('generating', 'Generating Practice'),
     ])
     course = models.CharField(max_length=10, blank=True, null=True)  # 选择的课程
     topic = models.CharField(max_length=100, blank=True, null=True)  # 选择的主题
+    num_questions = models.IntegerField(blank=True, null=True)  # 题目数量
+    difficulty = models.CharField(max_length=20, blank=True, null=True)  # 难度等级: easy, medium, hard
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
