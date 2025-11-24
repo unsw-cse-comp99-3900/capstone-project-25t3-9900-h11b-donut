@@ -450,7 +450,8 @@ const css = `
 .sh-header .hello{color:var(--sh-muted);font-size:16px}
 .sh-header .title{font-size:32px;line-height:1.2;margin:4px 0 0;font-weight:700}
 .sh-header .right{display:flex;align-items:center;gap:12px} /* 使右上角按钮水平并排 */
-.sh-header .icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative}
+.sh-header .icon-btn{width:40px;height:40px;border-radius:999px;border:1px solid var(--sh-border);background:#fff;display:grid;place-items:center;position:relative;cursor:pointer;transition:all 0.2s ease}
+.sh-header .icon-btn:hover{background:#F6B48E;border-color:#F6B48E;transform:translateY(-2px);box-shadow:0 4px 12px rgba(246,180,142,0.3)}
 
 /* 消息按钮小红点样式 */
 .message-btn {

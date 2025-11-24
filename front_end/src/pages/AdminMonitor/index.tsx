@@ -192,7 +192,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
         <header className="am-header">
           <div className="left">
             <div className="hello">Analytics</div>
-            <h1 className="title">Select a course and task to view Student Progress (Completion% / Overdue + 7-day trend) or open the Risk Report (Overdue & risk levels).<span className="wave" aria-hidden>😉</span></h1>
+            <h1 className="title">Select a course and task to view Student Progress (Completion% / Overdue/ Bonus) or open the Risk Report (Overdue parts/ Risk levels).<span className="wave" aria-hidden>😉</span></h1>
           </div>
         </header>
 

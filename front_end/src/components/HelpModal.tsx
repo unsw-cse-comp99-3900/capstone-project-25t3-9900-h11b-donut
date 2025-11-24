@@ -11,16 +11,18 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="help-modal" onClick={(e) => e.stopPropagation()}>
-        <button className="close-btn" onClick={onClose}>
-          ✕
+        <button className="close-btn" onClick={onClose} aria-label="Back">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M11 14L5 8L11 2" stroke="#161616" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
         
+        <h2 className="help-title">
+          <span className="help-icon">📚</span>
+          How to Use AI Study Planner
+        </h2>
+        
         <div className="help-content">
-          <h2 className="help-title">
-            <span className="help-icon">📚</span>
-            How to Use AI Study Planner
-          </h2>
-          
           <div className="help-sections">
             <section className="help-section">
               <h3>🎯 Getting Started</h3>
@@ -36,7 +38,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <ul>
                 <li><strong>Generate Plan:</strong> Click "Generate AI Plan" to create personalized study schedules</li>
                 <li><strong>View Plans:</strong> Browse weekly plans with detailed task breakdowns</li>
-                <li><strong>Mark Progress:</strong> Check off completed tasks to track your progress</li>
+                <li><strong>Mark Progress:</strong> Check off completed tasks to track your progress and earn bonus rewards</li>
                 <li><strong>Adjust Settings:</strong> Customize study hours and preferred days</li>
               </ul>
             </section>
@@ -55,8 +57,8 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <h3>📝 Practice Questions</h3>
               <ul>
                 <li><strong>Generate Questions:</strong> Create practice problems based on your course materials</li>
-                <li><strong>Question Types:</strong> Choose from multiple choice, short answer, or coding problems</li>
-                <li><strong>Difficulty Levels:</strong> Select easy, medium, or hard questions</li>
+                <li><strong>Question Types:</strong> AI automatically generates 5 questions (3 multiple choice + 2 short answer)</li>
+                <li><strong>Difficulty Level:</strong> Default set to medium difficulty</li>
                 <li><strong>Instant Feedback:</strong> Get AI-powered grading and explanations</li>
               </ul>
             </section>
@@ -64,10 +66,9 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
             <section className="help-section">
               <h3>⚙️ Settings & Preferences</h3>
               <ul>
-                <li><strong>Study Hours:</strong> Set how many hours you want to study per day</li>
-                <li><strong>Study Days:</strong> Choose which days of the week you prefer to study</li>
-                <li><strong>Break Days:</strong> Mark weekends or specific days as rest days</li>
-                <li><strong>Time Zone:</strong> Ensure deadlines and plans are in your local time</li>
+                <li><strong>Daily Hours:</strong> Set how many hours you want to study per day</li>
+                <li><strong>Weekly Study Days:</strong> Choose which days of the week you prefer to study</li>
+                <li><strong>Avoid Days:</strong> Mark weekends or specific days as rest days</li>
               </ul>
             </section>
 
@@ -75,7 +76,7 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               <h3>💡 Pro Tips</h3>
               <ul>
                 <li><strong>Be Realistic:</strong> Set achievable daily study goals</li>
-                <li><strong>Regular Updates:</strong> Generate new plans weekly as deadlines change</li>
+                <li><strong>Regular Updates:</strong> Remember to "Generate new plans" if deadlines change</li>
                 <li><strong>Track Progress:</strong> Mark completed tasks to stay motivated</li>
                 <li><strong>Ask for Help:</strong> Use AI Coach whenever you're stuck</li>
                 <li><strong>Practice Regularly:</strong> Generate questions to test your understanding</li>
@@ -92,15 +93,6 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
               </ul>
             </section>
           </div>
-
-          <div className="help-footer">
-            <p className="help-note">
-              Need more help? Contact your system administrator or check the FAQ section.
-            </p>
-            <button className="btn-primary" onClick={onClose}>
-              Got it, thanks!
-            </button>
-          </div>
         </div>
       </div>
 
@@ -111,7 +103,8 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.6);
+          background: rgba(0, 0, 0, 0.2);
+          backdrop-filter: saturate(180%) blur(2px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -121,55 +114,63 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
 
         .help-modal {
           background: white;
-          border-radius: 12px;
+          border-radius: 20px;
+          border: 2px solid #F6B48E;
           max-width: 700px;
           max-height: 80vh;
           width: 100%;
-          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+          box-shadow: 0 24px 48px rgba(0, 0, 0, 0.12);
           position: relative;
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
         }
 
         .close-btn {
           position: absolute;
-          top: 16px;
-          right: 16px;
-          background: #f3f4f6;
-          border: none;
-          border-radius: 6px;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          top: 12px;
+          left: 12px;
+          background: #fff;
+          border: 1px solid #EAEAEA;
+          border-radius: 999px;
+          width: 36px;
+          height: 36px;
+          display: grid;
+          place-items: center;
           cursor: pointer;
           color: #6b7280;
           transition: all 0.2s ease;
+          font-size: 18px;
         }
 
         .close-btn:hover {
-          background: #e5e7eb;
-          color: #374151;
-        }
-
-        .help-content {
-          padding: 32px;
-          max-height: calc(80vh - 64px);
-          overflow-y: auto;
+          background: #f8f9fb;
+          border-color: #DCE3EE;
         }
 
         .help-title {
-          font-size: 24px;
-          font-weight: 700;
-          margin-bottom: 24px;
+          text-align: center;
+          font-weight: 800;
+          font-size: 22px;
+          margin: 0;
+          padding: 28px 28px 20px 28px;
+          color: #172239;
           display: flex;
           align-items: center;
+          justify-content: center;
           gap: 8px;
-          color: #1f2937;
+          flex-shrink: 0;
+          border-bottom: 1px solid #f0f2f7;
         }
 
         .help-icon {
-          font-size: 28px;
+          font-size: 22px;
+        }
+
+        .help-content {
+          padding: 20px 28px 28px 28px;
+          overflow-y: auto;
+          flex: 1;
         }
 
         .help-sections {
@@ -209,19 +210,6 @@ export function HelpModal({ isOpen, onClose }: HelpModalProps) {
         .help-section strong {
           color: #1f2937;
           font-weight: 600;
-        }
-
-        .help-footer {
-          margin-top: 24px;
-          padding-top: 20px;
-          border-top: 1px solid #e5e7eb;
-          text-align: center;
-        }
-
-        .help-note {
-          color: #6b7280;
-          margin-bottom: 16px;
-          font-size: 14px;
         }
 
         @media (max-width: 768px) {
