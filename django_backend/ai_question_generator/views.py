@@ -454,6 +454,57 @@ def submit_answers(request):
                 graded_at=graded_at
             )
         
+        # 保存到RecentPracticeSession供AI聊天使用
+        try:
+            from ai_chat.models import RecentPracticeSession
+            
+            # 获取session信息(课程和主题) - 从模型字段获取,不是question_data
+            first_question = questions.first()
+            course_code = first_question.course_code if first_question else 'Unknown'
+            topic = first_question.topic if first_question else 'General'
+            
+            # 构建详细测试数据
+            test_data_for_ai = {
+                "questions": []
+            }
+            
+            for result in grading_result['grading_results']:
+                q_db_id = result['question_id']
+                question_obj = question_map.get(q_db_id)
+                if question_obj:
+                    q_detail = {
+                        "question_text": question_obj.question_data.get('question', 'N/A'),
+                        "question_type": result.get('type', 'unknown'),
+                        "student_answer": result.get('student_answer', ''),
+                        "correct_answer": question_obj.question_data.get('correct_answer', 'N/A'),
+                        "score": result.get('score', 0),
+                        "max_score": result.get('max_score', 10),
+                        "is_correct": result.get('is_correct', False),
+                        "feedback": result.get('feedback', '')
+                    }
+                    if result.get('type') == 'mcq' and 'options' in question_obj.question_data:
+                        q_detail['options'] = question_obj.question_data.get('options', [])
+                    test_data_for_ai["questions"].append(q_detail)
+            
+            # 创建或更新RecentPracticeSession
+            RecentPracticeSession.objects.update_or_create(
+                student_id=student_id,
+                session_id=session_id,
+                defaults={
+                    'course_code': course_code,
+                    'topic': topic,
+                    'total_score': grading_result['total_score'],
+                    'max_score': grading_result['total_max_score'],
+                    'percentage': grading_result['percentage'],
+                    'questions_count': len(grading_result['grading_results']),
+                    'test_data': test_data_for_ai,
+                }
+            )
+            print(f"[DEBUG] 已保存测试结果到RecentPracticeSession: {student_id} - {session_id}")
+        except Exception as e:
+            print(f"[WARNING] 保存到RecentPracticeSession失败: {e}")
+            # 不影响主流程,继续返回评分结果
+        
         # 为每个结果添加question_db_id
         for result in grading_result['grading_results']:
             result['question_db_id'] = result['question_id']

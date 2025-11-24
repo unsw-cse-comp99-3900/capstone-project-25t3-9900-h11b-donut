@@ -101,3 +101,59 @@ class ChatManager:
         """清理7天前的对话记录"""
         cutoff_date = timezone.now() - timedelta(days=7)
         ChatConversation.objects.filter(created_at__lt=cutoff_date).delete()
+
+class RecentPracticeSession(models.Model):
+    """最近的练习测试会话 - 用于AI聊天中引用学生的测试结果"""
+    student_id = models.CharField(max_length=20, db_index=True)
+    session_id = models.CharField(max_length=100)
+    course_code = models.CharField(max_length=16)
+    topic = models.CharField(max_length=255)
+    
+    # 测试结果摘要
+    total_score = models.FloatField(default=0)
+    max_score = models.FloatField(default=0)
+    percentage = models.FloatField(default=0)
+    questions_count = models.IntegerField(default=0)
+    
+    # 详细结果 (JSON格式存储题目、答案、得分等)
+    test_data = models.JSONField(default=dict)
+    # 格式: {
+    #   "questions": [
+    #     {
+    #       "question_text": "...",
+    #       "student_answer": "...",
+    #       "correct_answer": "...",
+    #       "score": 5,
+    #       "max_score": 5,
+    #       "feedback": "...",
+    #       "is_correct": true
+    #     },
+    #     ...
+    #   ]
+    # }
+    
+    completed_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = "recent_practice_session"
+        ordering = ['-completed_at']
+        indexes = [
+            models.Index(fields=['student_id', '-completed_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.student_id} - {self.course_code}/{self.topic} ({self.percentage:.1f}%)"
+    
+    @classmethod
+    def get_latest_session(cls, student_id: str):
+        """获取学生最近的一次测试会话"""
+        try:
+            return cls.objects.filter(student_id=student_id).first()
+        except cls.DoesNotExist:
+            return None
+    
+    @classmethod
+    def cleanup_old_sessions(cls, days=30):
+        """清理30天前的旧测试记录"""
+        cutoff_date = timezone.now() - timedelta(days=days)
+        cls.objects.filter(completed_at__lt=cutoff_date).delete()

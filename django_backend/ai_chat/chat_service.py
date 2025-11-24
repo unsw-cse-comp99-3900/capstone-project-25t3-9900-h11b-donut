@@ -21,7 +21,7 @@ if use_gemini:
         genai.configure(api_key=GEMINI_KEY)
         _model = genai.GenerativeModel(
             "gemini-2.5-flash",
-            generation_config={"temperature": 0.7, "max_output_tokens": 1024}
+            generation_config={"temperature": 0.7, "max_output_tokens": 2048}
         )
     except Exception as e:
         print(f"[DEBUG] Gemini 初始化失败: {e}")
@@ -1348,6 +1348,83 @@ class AIChatService:
                 return self.generate_general_response()
         
         try:
+            # 导入必要的模型
+            from courses.models import StudentEnrollment, CourseCatalog, CourseTask
+            from task_progress.models import TaskProgress
+            from .models import RecentPracticeSession
+            
+            # 获取用户选课信息
+            courses_context = ""
+            try:
+                enrollments = StudentEnrollment.objects.filter(student_id=account.student_id)  # type: ignore
+                if enrollments.exists():
+                    courses_list = []
+                    for enrollment in enrollments[:5]:  # 最多5门课程
+                        try:
+                            course = CourseCatalog.objects.get(code=enrollment.course_code)  # type: ignore
+                            courses_list.append(f"{course.code}: {course.title}")
+                        except CourseCatalog.DoesNotExist:  # type: ignore
+                            courses_list.append(enrollment.course_code)
+                    if courses_list:
+                        courses_context = f"\n\nEnrolled courses ({len(courses_list)}):\n- " + "\n- ".join(courses_list)
+            except Exception as e:
+                print(f"[DEBUG] 获取选课信息失败: {e}")
+            
+            # 获取用户任务进度信息
+            tasks_context = ""
+            try:
+                # 获取所有任务进度
+                task_progresses = TaskProgress.objects.filter(student_id=account.student_id).order_by('-updated_at')[:10]  # type: ignore
+                if task_progresses.exists():
+                    tasks_info = []
+                    for tp in task_progresses[:5]:  # 最多显示5个最近更新的任务
+                        try:
+                            task = CourseTask.objects.get(id=tp.task_id)  # type: ignore
+                            status = "✓ Complete" if tp.progress >= 100 else f"⏳ {tp.progress}% done"
+                            tasks_info.append(f"{task.course_code} - {task.title}: {status}")
+                        except CourseTask.DoesNotExist:  # type: ignore
+                            pass
+                    if tasks_info:
+                        tasks_context = f"\n\nRecent task progress:\n- " + "\n- ".join(tasks_info)
+            except Exception as e:
+                print(f"[DEBUG] 获取任务进度失败: {e}")
+            
+            # 获取最近的练习测试结果
+            practice_context = ""
+            try:
+                recent_session = RecentPracticeSession.get_latest_session(account.student_id)  # type: ignore
+                if recent_session:
+                    practice_context = f"\n\n🎯 Most recent practice test:"
+                    practice_context += f"\n- Course: {recent_session.course_code}"
+                    practice_context += f"\n- Topic: {recent_session.topic}"
+                    practice_context += f"\n- Score: {recent_session.total_score}/{recent_session.max_score} ({recent_session.percentage:.1f}%)"
+                    practice_context += f"\n- Questions: {recent_session.questions_count}"
+                    
+                    # 添加所有题目的详细信息（不限制数量）
+                    test_data = recent_session.test_data
+                    if test_data and 'questions' in test_data:
+                        wrong_questions = [q for q in test_data['questions'] if not q.get('is_correct', True)]
+                        if wrong_questions:
+                            practice_context += f"\n- Wrong answers: {len(wrong_questions)} question(s)"
+                            practice_context += "\n\nDetailed test results (ALL questions for student reference):"
+                            # 显示所有题目，不截断内容
+                            for idx, q in enumerate(test_data['questions'], 1):
+                                status = "✓" if q.get('is_correct', False) else "✗"
+                                practice_context += f"\n  Q{idx} [{status}]: {q.get('question_text', 'N/A')}"
+                                
+                                # 如果是选择题，显示选项
+                                if q.get('question_type') == 'mcq' and q.get('options'):
+                                    practice_context += f"\n      Options: {', '.join(q.get('options', []))}"
+                                
+                                practice_context += f"\n      Student's answer: {q.get('student_answer', 'N/A')}"
+                                
+                                if not q.get('is_correct', True):
+                                    practice_context += f"\n      Correct answer: {q.get('correct_answer', 'N/A')}"
+                                    if q.get('feedback'):
+                                        practice_context += f"\n      Feedback: {q.get('feedback', '')}"
+            except Exception as e:
+                print(f"[DEBUG] 获取练习测试结果失败: {e}")
+            
             # 获取用户的学习计划信息
             plan_data = self.get_user_study_plan(account)
             plan_context = ""
@@ -1355,16 +1432,16 @@ class AIChatService:
                 ai_summary = plan_data.get('aiSummary', {})
                 tasks = ai_summary.get('tasks', [])
                 if tasks:
-                    plan_context = f"\n\nUser's current study plan includes {len(tasks)} tasks: "
+                    plan_context = f"\n\nAI-generated study plan includes {len(tasks)} tasks: "
                     for task in tasks[:3]:  # 只包含前3个任务
                         task_title = task.get('taskTitle', 'Unknown Task')
                         parts_count = len(task.get('parts', []))
                         plan_context += f"\n- {task_title} ({parts_count} parts)"
             
-            # 构建对话历史上下文
+            # 构建对话历史上下文 - 增加到20条
             history_context = ""
             if conversation_history:
-                recent_messages = conversation_history[-6:]  # 最近6条消息
+                recent_messages = conversation_history[-20:]  # 最近20条消息 (从6条增加)
                 history_context = "\n\nRecent conversation:\n"
                 for msg in recent_messages:
                     role = "Student" if msg['type'] == 'user' else "Coach"
@@ -1380,24 +1457,42 @@ Your role:
 - Offer encouragement when students feel overwhelmed
 - Suggest practice exercises for difficult topics
 - Answer questions about academic work
+- Use the student's course enrollment and task progress information to give personalized advice
+- **IMPORTANT**: Help students understand their practice test results
 
 Guidelines:
 - Be warm, supportive, and encouraging
-- Provide specific, actionable advice
-- Keep responses concise but helpful (max 200 words)
+- Provide specific, actionable advice based on their actual courses and tasks
+- Keep responses concise and helpful (max 300 words)
 - Use a friendly, conversational tone
 - Include relevant emojis to make responses more engaging
 - Respond in plain text format, no HTML or markdown
 - Address the student naturally without always using their name, or use their actual name if needed: {account.name or 'there'}
+- When discussing tasks or courses, reference their actual enrolled courses and current progress
+
+**When student asks about their practice test (e.g., "What questions did I get wrong?"):**
+- Give a brief, encouraging summary of their test (score, topic)
+- List the question numbers they got wrong in a simple format (e.g., "You got Q2, Q3, and Q5 incorrect")
+- DO NOT explain each question in detail automatically
+- Instead, invite them to ask about specific questions: "Which question would you like me to help you understand better?"
+- Keep the initial response SHORT and conversational
+
+**When student asks about a SPECIFIC question (e.g., "Can you explain Q2?" or "Help me with question 3"):**
+- NOW provide a detailed explanation for THAT specific question:
+  1. What they answered vs. the correct answer
+  2. WHY their answer was incorrect
+  3. WHY the correct answer is right (with clear conceptual explanation)
+  4. A helpful tip for similar questions
+- Be thorough but focus only on the question they asked about
+- After explaining, ask if they'd like help with another question
 
 Student context:
 - Student ID: {account.student_id}
-- Name: {account.name or 'Student'}{plan_context}{history_context}
+- Name: {account.name or 'Student'}{courses_context}{tasks_context}{practice_context}{plan_context}{history_context}
 
 Current student message: {message}
 
-Respond as their AI Learning Coach. Do not use "Test Student" - address them naturally or by their actual name."""
-
+Respond as their AI Learning Coach. Use the student's actual course, task, and practice test information to provide personalized, relevant advice. Keep responses concise unless student asks for detailed explanation of a specific question. Do not use "Test Student" - address them naturally or by their actual name."""
             # 调用Gemini AI
             response = _model.generate_content(system_prompt)
             
@@ -1428,8 +1523,8 @@ Respond as their AI Learning Coach. Do not use "Test Student" - address them nat
             # 获取或创建对话会话
             conversation = self.get_or_create_conversation(account)
             
-            # 获取对话历史用于上下文
-            conversation_history = self.get_conversation_history(account, limit=10)
+            # 获取对话历史用于上下文 - 增加到30条以提供更多上下文
+            conversation_history = self.get_conversation_history(account, limit=30)
             
             # 检查是否是欢迎消息（自动发送的初始化消息）
             if message.lower().strip() == 'welcome':
