@@ -3,7 +3,7 @@ import { ConfirmationModal } from '../../components/ConfirmationModal'
 import { HelpModal } from '../../components/HelpModal'
 import useUnreadMessagePolling from '../../hooks/useUnreadMessagePolling';
 
-// 定义用户类型接口
+// api
 interface User {
   name?: string;
   studentId?: string;
@@ -44,7 +44,6 @@ export function StudentPlan() {
       user = {};
     }
   } else {
-    // 没有 current_user_id，说明未登录
     user = {};
   }
   // Initialize local form state from global preferences
@@ -56,28 +55,28 @@ export function StudentPlan() {
   const [description, setDescription] = useState(init.description ?? '')
   const [showDays, setShowDays] = useState(false)
 
-  // 每周计划视图
+  //Weekly Plan View
   const [showPlan, setShowPlan] = useState(false)
   const [weekOffset, setWeekOffset] = useState(0)
   const [weeklyPlan, setWeeklyPlan] = useState<Record<number, PlanItem[]>>({})
 
-  // 计算最大可显示的周偏移量（基于最新截止日期）
+  // Calculate the maximum allowable weekly offset (based on the latest deadline)
   const getMaxWeekOffset = () => {
     const latestDeadline = coursesStore.getLatestDeadline();
-    if (!latestDeadline) return 0; // 如果没有截止日期，只显示当前周
+    if (!latestDeadline) return 0; // If there is no deadline, only display the current week
     
     const now = new Date();
     const currentMonday = new Date(now);
-    currentMonday.setDate(now.getDate() - (now.getDay() || 7) + 1); // 当前周的周一
+    currentMonday.setDate(now.getDate() - (now.getDay() || 7) + 1); //current monday
     
     const deadlineMonday = new Date(latestDeadline);
-    deadlineMonday.setDate(latestDeadline.getDate() - (latestDeadline.getDay() || 7) + 1); // 截止日期所在周的周一
+    deadlineMonday.setDate(latestDeadline.getDate() - (latestDeadline.getDay() || 7) + 1); // ddl week's monday
     
-    // 计算周偏移量（从当前周到截止日期所在周）
+    // calculate weekoffset
     const diffTime = deadlineMonday.getTime() - currentMonday.getTime();
     const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
     
-    return Math.max(0, diffWeeks); // 确保非负数
+    return Math.max(0, diffWeeks); // positive
   }
 useEffect(() => {
   const uid = localStorage.getItem('current_user_id');
@@ -90,15 +89,15 @@ useEffect(() => {
 useEffect(() => {
   coursesStore.ensureLoaded();
 }, []);
-  // 组件加载时从preferencesStore加载已保存的计划
+  // When loading components, load saved plans from the advantesStore
   useEffect(() => {
   const savedPlan = preferencesStore.getWeeklyPlan(weekOffset);
   if (savedPlan.length > 0) {
-    // 将 PlanItem[] 转换为按天分组的 Record<number, PlanItem[]>
+    // Convert PlanItem [] to Record<number grouped by day, PlanItem []>
     const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
 
     savedPlan.forEach(item => {
-      const itemDate = new Date(item.date);  // 不处理时区
+      const itemDate = new Date(item.date);  // handle  timezone
       const dayIdx = (itemDate.getDay() + 6) % 7; // Mon=0, Tue=1, ..., Sun=6
       planByDay[dayIdx] = [...planByDay[dayIdx], item];
     });
@@ -107,14 +106,13 @@ useEffect(() => {
   }
 }, [weekOffset]);
 
-  // 颜色统一由 coursesStore 提供，避免本地硬编码，便于后端对接
 
   const getWeekRange = (offset = weekOffset) => {
     const now = new Date()
-    const day = now.getDay() || 7 // 周一=1
+    const day = now.getDay() || 7 // mon=1
     const monday = new Date(now)
     monday.setDate(now.getDate() - (day - 1))
-    // 应用周偏移（上一周/下一周）
+
     monday.setDate(monday.getDate() + offset * 7)
     const sunday = new Date(monday)
     sunday.setDate(monday.getDate() + 6)
@@ -125,24 +123,6 @@ useEffect(() => {
     }
   }
 
-  // const generateWeeklyPlan = (offset = weekOffset): Record<number, PlanItem[]> => {
-  //   // 使用 preferencesStore 生成计划数据
-  //   const planItems =  preferencesStore.generateWeeklyPlan();
-    
-  //   // 按天分组
-  //   const result: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
-  //   planItems.forEach(item => {
-  //     const { monday, sunday } = getWeekRange(offset);
-  //     const itemDate = new Date(item.date);
-  //     // 过滤掉不在当前周范围内的项
-  //     if (itemDate < monday || itemDate > sunday) return;
-  //     const dayDiff = Math.floor((itemDate.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24));
-  //     const dayIdx = Math.max(0, Math.min(6, dayDiff));
-  //     result[dayIdx] = [...result[dayIdx], item];
-  //   });
-
-  //   return result;
-  // }
 
   const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
@@ -151,8 +131,8 @@ useEffect(() => {
   }
 
   const applyPreferences = async () => {
-    if (isGeneratingPlan) return; // 防止重复点击
-    setIsGeneratingPlan(true); // 开始加载
+    if (isGeneratingPlan) return; // avoid double click
+    setIsGeneratingPlan(true); // start loading
     
     const toSave: Partial<Preferences> = {
     dailyHours: Math.max(1, Math.min(12, Number(dailyHours) || 1)),
@@ -184,54 +164,51 @@ useEffect(() => {
           alert('wrong!');
         }
       }
-    // 清除旧的AI计划缓存，确保获取最新的Gemini生成数据
+    // Clear old AI plan cache to ensure access to the latest Gemini generated data
     const uid = localStorage.getItem('current_user_id');
     if (uid) {
       const cacheKey = `u:${uid}:ai-web-weekly-plans`;
       localStorage.removeItem(cacheKey);
-      console.log('🗑️ 已清除AI计划缓存，将重新生成');
+      console.log('🗑️ AI plan cache cleared, will be regenerated');
     }
     
-    console.log('🚀 开始生成AI计划，期望看到Gemini生成的特定标题...');
+    console.log('🚀 Start generating AI plans and expect to see specific titles generated by Gemini ..');
     
-    // 1) 后端生成 + 映射
+    // 1) Backend generation+mapping
     const weeklyPlan = await fetchAndMapAiPlan();
-    console.log('✅ 转换后的 WeeklyPlan:', weeklyPlan);
+    console.log('✅ after transformation. WeeklyPlan:', weeklyPlan);
 
-    // 检查是否成功获取到计划数据
     if (!weeklyPlan || Object.keys(weeklyPlan).length === 0) {
-      console.warn('⚠️ AI计划为空，使用本地fallback');
-      alert('AI计划生成暂时不可用，请稍后重试或联系管理员。');
+      console.warn('⚠️ AI plan is empty, use local fallback');
+      alert('The AI plan generation is temporarily unavailable. Please try again later or contact the administrator.');
       return;
     }
 
-    // 2) 写入 store
+    // 2) write into store
     preferencesStore.setWeeklyPlan(0, weeklyPlan[0] || []);
     for (const [offsetStr, items] of Object.entries(weeklyPlan)) {
       preferencesStore.setWeeklyPlan(Number(offsetStr), items);
     }
 
-    //  3) 立刻把"本周"的 PlanItem[] 分桶并喂给组件状态（不等 useEffect）
     const cur = preferencesStore.getWeeklyPlan(0) || [];
     const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
     for (const it of cur) {
-      const d = new Date(it.date);                  // 按你要求：不考虑时区
-      const dayIdx = (d.getDay() + 6) % 7;          // Mon=0..Sun=6
+      const d = new Date(it.date);                  
+      const dayIdx = (d.getDay() + 6) % 7;          
       planByDay[dayIdx] = [...planByDay[dayIdx], it];
     }
     setWeekOffset(0);
     setWeeklyPlan(planByDay);
 
-    // 4) 再切界面（此时 state 已就绪，页面立即有内容）
     setShowPlan(true);
     setShowPrefs(false);
 
   } catch (err) {
-    console.error('❌ AI 计划失败:', err);
-    alert(`AI计划生成失败: ${err instanceof Error ? err.message : '未知错误'}。请检查网络连接或稍后重试。`);
+    console.error('❌ AI plan fail!:', err);
+    alert(`AI plan fail: ${err instanceof Error ? err.message : 'unknown err'} Please check your network connection or try again later.`);
     return;
   } finally {
-    setIsGeneratingPlan(false); // 结束加载
+    setIsGeneratingPlan(false); 
   }
 };
   
@@ -320,8 +297,8 @@ useEffect(() => {
 
                     const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
                     for (const item of items) {
-                      const d = new Date(item.date);               // 不处理时区
-                      const dayIdx = (d.getDay() + 6) % 7;         // Mon=0 ... Sun=6
+                      const d = new Date(item.date);               
+                      const dayIdx = (d.getDay() + 6) % 7;        
                       planByDay[dayIdx] = [...planByDay[dayIdx], item];
                     }
                     setWeeklyPlan(planByDay);
@@ -336,8 +313,8 @@ useEffect(() => {
 
                     const planByDay: Record<number, PlanItem[]> = {0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
                     for (const item of items) {
-                      const d = new Date(item.date);               // 不处理时区
-                      const dayIdx = (d.getDay() + 6) % 7;         // Mon=0 ... Sun=6
+                      const d = new Date(item.date);         
+                      const dayIdx = (d.getDay() + 6) % 7;        
                       planByDay[dayIdx] = [...planByDay[dayIdx], item];
                     }
                     setWeeklyPlan(planByDay);
@@ -376,13 +353,13 @@ useEffect(() => {
                                 const clone: Record<number, PlanItem[]> = { ...prev };
                                 clone[dIdx] = (clone[dIdx] || []).map(ci => ci === it ? { ...ci, completed: checked } : ci);
 
-                                // 基于"任务"维度计算进度（跨所有周累计分钟数）
+                                // Calculate progress based on the "task" dimension (cumulative minutes across all weeks)
                                 const prefix = `${it.courseId}-`;
                                 let extracted = it.id.startsWith(prefix) ? it.id.slice(prefix.length) : it.id;
                                 extracted = extracted.replace(/-\d+$/, '');
                                 const baseKey = `${it.courseId}-${extracted}`; // deadline key
 
-                                // 1) 计算该任务 totalMinutes（遍历 0..maxOffset 的所有周）
+                                // 1) Calculate the total minutes of the task (traversing all weeks of 0.. MaxOffset)
                                 const maxOffset = getMaxWeekOffset();
                                 let totalMinutes = 0;
                                 for (let o = 0; o <= maxOffset; o++) {
@@ -391,7 +368,7 @@ useEffect(() => {
                                     if (p.id.startsWith(baseKey)) totalMinutes += p.minutes;
                                   }
                                 }
-                                // 把当前周的 clone 覆盖回当前 offset，保证本次勾选立即生效
+                                // Overwrite the current week's clone back to the current offset to ensure that this check takes effect immediately
                                 const mergedItemsNow = Object.values(clone).flat();
                                 const otherWeeks: PlanItem[] = [];
                                 for (let o = 0; o <= maxOffset; o++) {
@@ -400,7 +377,7 @@ useEffect(() => {
                                 }
                                 const allItems = [...otherWeeks, ...mergedItemsNow];
 
-                                // 2) 计算 completedMinutes（使用最新勾选状态）
+                                // 2) Calculate completed minutes (using the latest checked status)
                                 let completedMinutes = 0;
                                 for (const p of allItems) {
                                   if (p.id.startsWith(baseKey) && p.completed) {
@@ -409,17 +386,17 @@ useEffect(() => {
                                 }
                                 const progress = totalMinutes > 0 ? Math.min(100, Math.round((completedMinutes / totalMinutes) * 100)) : 0;
 
-                                // 同步 Deadlines 进度（按比例更新）
+                                // Synchronize Deadlines Progress (Proportionally Updated)
                                 coursesStore.setProgress(baseKey, progress);
 
-                                // 保存更新后的"当前周"计划到 localStorage
+                 
                                 const planItemsCurrentWeek = mergedItemsNow;
                                 preferencesStore.setWeeklyPlan(weekOffset, planItemsCurrentWeek);
 
                                 return clone;
                               });
 
-                              // 调试输出课程整体进度
+                      
                               const courseProgress = coursesStore.getCourseProgress(it.courseId);
                               console.log(`Course ${it.courseId} progress: ${courseProgress}%`);
                               if (!wasCompleted && checked) {
@@ -429,7 +406,7 @@ useEffect(() => {
                                       if (uid) {
                                         localStorage.setItem(`u:${uid}:bonus`, newBonus.toString());
                                       }
-                                      // 这里如果你想顺便刷新 StudentProfile 的显示，可以加一个全局 store 或事件
+                      
                                       console.log('Bonus updated to', newBonus);
                                     })
                                     .catch((err: unknown) => {
@@ -449,7 +426,7 @@ useEffect(() => {
                                 <div className="pct">{it.completed ? '100%' : '0%'}</div>
                               </div>
                               <div className="wp-part-percent">Part: {(() => {
-                                // 从 id 中稳健解析 taskId：去掉课程前缀，再去掉末尾的 -partIndex
+             
                                 const prefix = `${it.courseId}-`;
                                 let taskId = it.id.startsWith(prefix) ? it.id.slice(prefix.length) : it.id;
                                 taskId = taskId.replace(/-\d+$/, '');

@@ -7,18 +7,6 @@ import IconCourses from '../../assets/icons/courses-24.svg'
 import IconMonitor from '../../assets/icons/bell-24.svg'
 import apiService from '../../services/api'
 import adminHomepageImage from '../../assets/images/admin-homepage.png'
-// import illustrationAdmin from '../../assets/images/illustration-admin.png'
-// import illustrationAdmin2 from '../../assets/images/illustration-admin2.png'
-// import illustrationAdmin3 from '../../assets/images/illustration-admin3.png'
-// import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
-
-// 图片映射 - 循环使用4张图片
-// const adminIllustrations = [
-//   illustrationAdmin,
-//   illustrationAdmin2, 
-//   illustrationAdmin3,
-//   illustrationAdmin4
-// ];
 
 export function AdminProfile() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
@@ -29,7 +17,7 @@ export function AdminProfile() {
     catch { return null; }
   });
 
-  // 修改密码状态
+  // Change password status
   const [passwordModalOpen, setPasswordModalOpen] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -78,8 +66,6 @@ export function AdminProfile() {
     }
 
     try {
-      // 这里调用修改密码的API
-      // await apiService.changePassword(newPassword);
       alert('Password changed successfully!');
       setPasswordModalOpen(false);
       setNewPassword('');
@@ -96,7 +82,7 @@ export function AdminProfile() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const newAvatarUrl = e.target?.result as string;
-        // 更新用户头像
+        // Update user profile picture
         if (uid) {
           const userData = JSON.parse(localStorage.getItem(`u:${uid}:user`) || '{}');
           userData.avatarUrl = newAvatarUrl;
@@ -158,7 +144,7 @@ export function AdminProfile() {
           </div>
         </header>
 
-        {/* 个人信息区域 */}
+        {/* Personal Information Area*/}
         <section className="profile-section">
           <div className="profile-header">
             <div className="avatar-section">
@@ -195,7 +181,7 @@ export function AdminProfile() {
           </div>
         </section>
 
-        {/* 设置区域 */}
+        {/* Set region */}
         <section className="settings-section">
           <h3 className="settings-title">Setting⚙️</h3>
           
@@ -220,7 +206,7 @@ export function AdminProfile() {
 
       </main>
 
-      {/* 登出确认模态框 */}
+      {/* Log out confirmation mode box */}
       <ConfirmationModal
         isOpen={logoutModalOpen}
         onClose={() => setLogoutModalOpen(false)}
@@ -231,7 +217,7 @@ export function AdminProfile() {
         cancelText="Cancel"
       />
 
-      {/* 修改密码模态框 */}
+      {/* Change password mode box */}
       <ConfirmationModal
         isOpen={passwordModalOpen}
         onClose={() => setPasswordModalOpen(false)}

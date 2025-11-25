@@ -35,18 +35,13 @@ const safeJSON = <T,>(key: string, fallback: T): T => {
     return fallback;
   }
 };
-// ============================================
-// 🚨 MOCK DATA SECTION - 管理员创建的课程和任务数据 🚨
-// ============================================
-// TODO: 这里需要替换为真实的后端API调用
-// 从localStorage读取管理员创建的课程和任务数据
-// ============================================
+
 
 const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
   if (!uid) return [];
-  // 读取课程数组
+
   const rawCourses = safeJSON<any[]>(`admin:${uid}:courses`, []);
-  // 读取任务映射表
+
   const tasksMap = safeJSON<Record<string, any[]>>(`admin:${uid}:tasks`, {});
   return rawCourses.map((c) => {
     const courseId = String(c.id ?? c.code); 
@@ -76,7 +71,6 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
   });
 
   useEffect(() => {
-    // 切换账号后重读 user
     if (uid) {
       try {
         setUser(JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'));
@@ -87,8 +81,6 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
       setUser(null);
     }
     
-    //从这里开始要对接了
-    // 监听localStorage变化来更新课程数据
     const handleStorageChange = () => {
       try {
         const saved = localStorage.getItem('admin_created_courses');
@@ -100,7 +92,6 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
       }
     };
 
-    // 添加storage事件监听器
     window.addEventListener('storage', handleStorageChange);
 
     return () => {
@@ -122,15 +113,13 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
 
   const handleCourseSelect = (courseId: string) => {
     setSelectedCourse(courseId);
-    setSelectedTask(''); // 重置task选择
-    // 这里可以跳转到具体的监控仪表板页面
+    setSelectedTask(''); 
     // window.location.hash = `#/admin-monitor-dashboard?courseId=${courseId}`;
   };
 
   const handleTaskSelect = (taskId: string) => {
     setSelectedTask(taskId);
-    setSelectedView(''); // 重置视图选择
-    // 这里可以跳转到具体的监控仪表板页面，显示该task的监控数据
+    setSelectedView(''); 
     // window.location.hash = `#/admin-monitor-dashboard?courseId=${selectedCourse}&taskId=${taskId}`;
   };
 
@@ -146,7 +135,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
 
   return (
     <div key={uid} className="admin-monitor-layout">
-      {/* 左侧导航栏 - 与AdminHome和AdminCourses完全一致 */}
+      {/* Left navigation bar - completely consistent with AdminHome and AdminCourses */}
       <aside className="ah-sidebar">
         <div className="ah-profile-card">
           <div className="avatar">
@@ -187,7 +176,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
         <button className="btn-outline" onClick={handleLogout}>Log Out</button>
       </aside>
 
-      {/* 右侧主内容区域 - 基于Figma设计 */}
+      {/* Right main content area - designed based on Figma */}
       <main className="am-main">
         <header className="am-header">
           <div className="left">
@@ -196,7 +185,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
           </div>
         </header>
 
-        {/* 课程选择区域 */}
+        {/* Course selection section */}
         <section className="am-courses-section">
           {createdCourses.length === 0 ? (
             <div className="courses-empty">
@@ -216,7 +205,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
                     <h3 className="course-id">{course.id}</h3>
                     <p className="course-title">{course.title}</p>
                     
-                    {/* 只在选中课程时渲染tasks */}
+                    {/* Only render tasks when selecting courses */}
                     {selectedCourse === course.id ? (
                       course.tasks && course.tasks.length > 0 ? (
                         <div className="tasks-section">
@@ -227,9 +216,9 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
                                 key={task.id}
                                 className={`task-btn ${selectedCourse === course.id && selectedTask === task.id ? 'selected' : ''}`}
                                 onClick={(e) => {
-                                  e.stopPropagation(); // 阻止事件冒泡到课程卡片
-                                  handleCourseSelect(course.id); // 先选择课程
-                                  handleTaskSelect(task.id); // 再选择task
+                                  e.stopPropagation(); // Prevent events from bubbling up to course cards
+                                  handleCourseSelect(course.id); // select course first
+                                  handleTaskSelect(task.id); // then select task
                                 }}
                               >
                                 {task.title}
@@ -249,7 +238,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
           )}
         </section>
 
-        {/* 添加新课程按钮 —— 仅在没有课程时显示 */}
+        {/* Add new course button - only displayed when there are no courses available */}
         {createdCourses.length === 0 && (
           <div className="add-course-section">
             <button
@@ -261,7 +250,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
           </div>
         )}
 
-        {/* 视图选择按钮 - 一直显示 */}
+        {/* View Selection Button - Always Display */}
         <div className="view-selection-section">
           <div className="view-buttons">
             <button 
@@ -295,7 +284,7 @@ const [createdCourses, setCreatedCourses] = useState<CreatedCourse[]>(() => {
   )
 }
 
-/* 管理员监控页面样式 - 与AdminHome和AdminCourses完全一致 */
+/* Administrator Monitoring Page Style - Fully Consistent with AdminHome and AdminCourses */
 const css = `
 :root{
   --ah-border: #EAEAEA;

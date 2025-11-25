@@ -10,8 +10,8 @@ export function SignupStudent() {
   const [email, setEmail] = useState('')
   const [studentId, setStudentId] = useState('') 
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string>('')       // 错误消息
-  const [loading, setLoading] = useState<boolean>(false) // 加载状态
+  const [error, setError] = useState<string>('')       
+  const [loading, setLoading] = useState<boolean>(false) 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [studentName,setStudentName] = useState('');
   const handleRegister = async (): Promise<void> => {
@@ -102,7 +102,7 @@ export function SignupStudent() {
               />
             </div>
 
-            {/* 错误信息显示 */}
+            {/* err msg display */}
             {error && (
               <div className="form-row">
                 <p style={{ color: 'red', margin: 0 }}>{error}</p>
@@ -111,8 +111,8 @@ export function SignupStudent() {
 
             <div className="form-row" style={{ marginTop: 32 }}>
               <PrimaryButton
-                text={loading ? 'Creating…' : 'Create Account'}  //  使用 loading
-                onClick={handleRegister}                          // 使用 handleRegister
+                text={loading ? 'Creating…' : 'Create Account'}  //  use loading
+                onClick={handleRegister}                          // use handleRegister
         
               />
             </div>

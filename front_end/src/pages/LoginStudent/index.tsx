@@ -10,10 +10,10 @@ import { preferencesStore } from '../../store/preferencesStore';
 export function LoginStudent() {
   const [password, setPassword] = useState('')
   const [studentId, setID] = useState('')
-  const [error, setError] = useState('')     //  补上错误状态
-  const [loading, setLoading] = useState(false) // 可选：加载中状态
+  const [error, setError] = useState('')    
+  const [loading, setLoading] = useState(false) 
 
-  const handleLogin = async () => {           //  绑定到按钮
+  const handleLogin = async () => {        
     setError('')
     if (!studentId || !password) {
       setError('PLEASE ENTER YOUR ID OR PASSWORD!')
@@ -96,7 +96,7 @@ export function LoginStudent() {
                 <img className="arrow" src={ArrowRight} width={16} height={16} alt="" aria-hidden />
               </button>
 
-              {/*  登录按钮调用 handleLogin，而不是直接跳转 */}
+              {/*  The login button calls handleLogin instead of jumping directly */}
               <button
                 className="ghost-btn"
                 style={{ marginTop: 16, opacity: loading ? 0.7 : 1 }}

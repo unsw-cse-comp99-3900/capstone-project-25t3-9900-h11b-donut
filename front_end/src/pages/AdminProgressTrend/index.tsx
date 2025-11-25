@@ -18,8 +18,8 @@ type StudentProgress = {
   studentId: string;
   completionPercent: number;
   overdueCount: number;
-  // ⚠️ MOCK DATA - bonus字段当前使用mock数据,等待后端API返回真实数据
-  bonus: string; // 格式如 "1.50" (0.00-2.00)
+
+  bonus: string; 
 };
 
 type CreatedCourse = {
@@ -34,9 +34,6 @@ type CreatedCourse = {
   }>;
 };
 
-// ============================================
-// 🚨 DATA STRUCTURES - 用于计算Completion%和Overdue 🚨
-// ============================================
 
 type RosterStudent = {
   name: string;
@@ -45,17 +42,17 @@ type RosterStudent = {
 
 type Part = {
   studentId: string;
-  scheduled_date: string;   // ISO 'YYYY-MM-DD' 或 'YYYY-MM-DDTHH:mm:ss'
+  scheduled_date: string;   // ISO 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:mm:ss'
   done_date?: string | null;
-  weight?: number;          // 可选权重，如果存在则按权重计算
+  weight?: number;         //optional
 };
 
 type TrendPoint = {
   dateISO: string;   // 'YYYY-MM-DD'
-  label: string;     // 'MM/DD' 用于 X 轴
-  scheduled: number; // 分母
-  onTime: number;    // 分子
-  ratePct: number | null; // 百分比，分母=0时为 null
+  label: string;     // 'MM/DD' 
+  scheduled: number; // denominator
+  onTime: number;    // numerator
+  ratePct: number | null; // Percentage, null when denominator=0
 };
 
 export function AdminProgressTrend() {
@@ -125,7 +122,7 @@ export function AdminProgressTrend() {
   }, []);
 
   useEffect(() => {
-    // 监听localStorage变化来更新课程数据
+    //Monitor changes in localStorage to update course data
     const handleStorageChange = () => {
       try {
         const saved = localStorage.getItem('admin_created_courses');
@@ -144,26 +141,15 @@ export function AdminProgressTrend() {
   }, [uid]);
 
   const loadStudentProgress = (courseId: string, taskId: string) => {
-    // ============================================
-    // 🚨 DATA LOADING - 简化数据加载逻辑 🚨
-    // ============================================
-    // 现在数据加载由useEffect监听studentProgressData处理
-    // 这里只需要触发数据重新计算即可
-    // ============================================
-    
-    // 触发数据重新计算（studentProgressData变化会触发useEffect）
+
     console.log('Loading student progress for course:', courseId, 'task:', taskId);
-    
-    // ============================================
-    // 🚨 DATA LOADING END 🚨
-    // ============================================
+
   };
 
   useEffect(() => {
-    // 先复制students数组，避免修改原数组（避免副作用）
+
     let result = [...students];
-    
-    // 应用进度过滤器
+
     if (progressFilter !== 'all') {
       result = result.filter(student => {
         switch (progressFilter) {
@@ -176,14 +162,14 @@ export function AdminProgressTrend() {
       });
     }
     
-    // 应用搜索过滤器
+
     if (searchTerm) {
       result = result.filter(student => 
         student.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
     
-    // 按姓名A→Z排序（对复制后的数组排序，避免副作用）
+    // Sort by Name A → Z
     result = result.sort((a, b) => a.name.localeCompare(b.name));
     
     setFilteredStudents(result);
@@ -210,9 +196,9 @@ export function AdminProgressTrend() {
     return course?.tasks.find(task => task.id === selectedTask);
   };
 
-  // 构建7天准时率趋势数据（基于所选Course+Task的parts聚合）
+//Build 7-day on-time performance trend data (based on parts aggregation of selected Course+Task)
   function buildTrendSeries(parts: Part[], today = new Date()): TrendPoint[] {
-    // 最近7天 [today-6 ... today]
+    // recent 7 days
     const dayKeys: string[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
@@ -221,26 +207,22 @@ export function AdminProgressTrend() {
       dayKeys.push(d.toISOString().slice(0, 10));
     }
     
-    // 初始化桶：存储每天的计划数和准时完成数
+  
     const bucket: Record<string, { scheduled: number; onTime: number }> = {};
     for (const k of dayKeys) bucket[k] = { scheduled: 0, onTime: 0 };
 
-    // 聚合计算：使用当前Task的全部parts
     for (const p of parts) {
       const scheduledDate = (p.scheduled_date || '').slice(0,10);
-      if (!bucket[scheduledDate]) continue; // 不在7天窗口内
+      if (!bucket[scheduledDate]) continue; 
       
-      // 分母：scheduled_date == d 的 parts 数
       bucket[scheduledDate].scheduled++;
-      
-      // 分子：scheduled_date == d 且 done_date == d 的 parts 数
+
       const doneSameDay = p.done_date && p.done_date.slice(0,10) === scheduledDate;
       if (doneSameDay) {
         bucket[scheduledDate].onTime++;
       }
     }
 
-    // 日期格式化函数
     const fmt = (dISO: string) => {
       const d = new Date(dISO);
       const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -248,11 +230,9 @@ export function AdminProgressTrend() {
       return `${mm}/${dd}`;
     };
 
-    // 构建趋势数据点
     return dayKeys.map(k => {
       const { scheduled, onTime } = bucket[k] || { scheduled: 0, onTime: 0 };
       
-      // 分母=0 → 点为 null（tooltip 显示 —）
       const ratePct = scheduled > 0 ? Math.round(onTime * 100 / scheduled) : null;
       
       return { 
@@ -264,15 +244,7 @@ export function AdminProgressTrend() {
       };
     });
   }
-
-  // ============================================
-  // 🚨 MOCK DATA SECTION - 生成roster和parts数据 🚨
-  // ============================================
-  // TODO: 这里需要替换为真实的后端API调用
-  // 生成mock的roster和parts数据，并存储到localStorage
-  // ============================================
-  
-  // 🚨 MOCK DATA FUNCTION - 生成mock学生名单数据
+// mock part, just skip, has been updated now but not removing
   const generateMockRoster = (): RosterStudent[] => {
     return [
       { name: 'Alice Johnson', studentId: 'z1234567' },
@@ -287,41 +259,37 @@ export function AdminProgressTrend() {
     ];
   };
 
-  // 🚨 MOCK DATA FUNCTION - 生成基于所选Course+Task的mock parts数据
   const generateMockParts = (_courseId?: string, _taskId?: string): Part[] => {
     const parts: Part[] = [];
     const today = new Date();
     const roster = generateMockRoster();
     
-    // 为每个学生生成与所选Task相关的parts
+
     roster.forEach((student, _index) => {
       const studentId = student.studentId;
-      
-      // 基于学生ID生成固定数量的parts（确保数据一致性）
+
       const studentHash = studentId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-      const partCount = (studentHash % 5) + 2; // 2-6个parts，基于学生ID固定
+      const partCount = (studentHash % 5) + 2; 
       
       for (let i = 0; i < partCount; i++) {
-        // 生成过去7天内的日期（与趋势图时间范围一致）
-        const daysAgo = (studentHash + i) % 7; // 基于学生ID和part序号固定日期
+
+        const daysAgo = (studentHash + i) % 7;
         const scheduledDate = new Date(today);
         scheduledDate.setDate(today.getDate() - daysAgo);
         const scheduledDateStr = scheduledDate.toISOString().split('T')[0];
-        
-        // 基于学生ID和part序号决定完成状态（确保一致性）
+
         const completionHash = (studentHash + i * 13) % 100;
-        const isDone = completionHash < 70; // 70%的概率完成
+        const isDone = completionHash < 70;
         let doneDateStr: string | null = null;
         
         if (isDone) {
-          const doneDelay = (studentHash + i * 7) % 3; // 0-2天的延迟
+          const doneDelay = (studentHash + i * 7) % 3;
           const doneDate = new Date(scheduledDate);
           doneDate.setDate(scheduledDate.getDate() + doneDelay);
           doneDateStr = doneDate.toISOString().split('T')[0];
         }
-        
-        // 基于学生ID固定权重
-        const weight = (studentHash % 3) + 1; // 1-3的权重
+
+        const weight = (studentHash % 3) + 1;
         
         parts.push({
           studentId: studentId,
@@ -335,37 +303,32 @@ export function AdminProgressTrend() {
     return parts;
   };
 
-  // ============================================
-  // 🚨 CALCULATION LOGIC - 基于Parts计算Completion%和Overdue 🚨
-  // ============================================
-  
-  // 计算单个学生的Completion%和Overdue
   const calculateStudentProgress = (studentId: string, parts: Part[]): { completionPercent: number, overdueCount: number } => {
     const studentParts = parts.filter(part => part.studentId === studentId);
     const today = new Date().toISOString().split('T')[0];
     
-    // 如果没有parts或全是未来计划 → Completion%=0、Overdue=0
+    //If there are no parts or all future plans → Completion%=0, Overdue=0
     if (studentParts.length === 0) {
       return { completionPercent: 0, overdueCount: 0 };
     }
     
-    // 检查是否全是未来计划
+    // Check if all are future plans
     const allFutureParts = studentParts.every(part => part.scheduled_date > today);
     if (allFutureParts) {
       return { completionPercent: 0, overdueCount: 0 };
     }
     
-    // 计算Completion%（二元+权重/等权）
+    // Calculate Completion% (binary+weight/equal weight)
     let totalWeight = 0;
     let completedWeight = 0;
     
     studentParts.forEach(part => {
-      // 只计算过去和今天的parts
+      // Only calculate past and current parts
       if (part.scheduled_date <= today) {
-        const weight = part.weight || 1; // 如果没有权重，默认为1
+        const weight = part.weight || 1; 
         totalWeight += weight;
         
-        // done_date存在视为Done
+        // done_date->Done
         if (part.done_date) {
           completedWeight += weight;
         }
@@ -375,19 +338,19 @@ export function AdminProgressTrend() {
     let completionPercent = 0;
     if (totalWeight > 0) {
       completionPercent = Math.round((completedWeight / totalWeight) * 100);
-      // 夹在 [0,100] 范围内
+
       completionPercent = Math.max(0, Math.min(100, completionPercent));
     }
     
-    // 计算Overdue
+    // calculate Overdue
     let overdueCount = 0;
     studentParts.forEach(part => {
-      // 只计算过去和今天的parts
+   
       if (part.scheduled_date <= today) {
         const isOverdue = 
-          // 条件①：done_date > scheduled_date
+          // rule1：done_date > scheduled_date
           (part.done_date && part.done_date > part.scheduled_date) ||
-          // 条件②：done_date为空且scheduled_date < today
+          // rule2：done_date is null and scheduled_date < today
           (!part.done_date && part.scheduled_date < today);
         
         if (isOverdue) {
@@ -399,7 +362,7 @@ export function AdminProgressTrend() {
     return { completionPercent, overdueCount };
   };
   
-  // 生成所有学生的进度数据
+  // Generate progress data for all students
   const generateStudentProgressData = (roster: RosterStudent[], parts: Part[]): StudentProgress[] => {
     return roster.map((student, index) => {
       const { completionPercent, overdueCount } = calculateStudentProgress(student.studentId, parts);
@@ -409,41 +372,32 @@ export function AdminProgressTrend() {
         studentId: student.studentId,
         completionPercent,
         overdueCount,
-        // ============================================
-        // ⚠️ MOCK DATA - Mock模式下的bonus数据
-        // ============================================
-        bonus: (Math.random() * 2).toFixed(2), // Mock: 随机生成 0.00-2.00
+
+        bonus: (Math.random() * 2).toFixed(2), 
       };
     });
   };
   
-  // ============================================
-  // 🚨 DATA MANAGEMENT - 前端Mock数据管理 🚨
-  // ============================================
-  // 开发阶段：使用前端Mock数据，存储到localStorage便于调试
-  // 后端就绪后：修改useMock为false，切换到API调用
-  // ============================================
+
   
-  const useMock = false; // 后端接入：姓名/学号/Completion% 从后端，逾期与趋势仍用前端模拟
-  
+  const useMock = false; 
   const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
   
-  // 数据加载逻辑
+
   useEffect(() => {
     const loadData = () => {
       if (useMock) {
-        // 使用前端Mock数据（基于所选Course+Task）
         const mockRoster = generateMockRoster();
         const mockParts = generateMockParts(selectedCourse, selectedTask);
         
-        // 存储到localStorage便于调试查看
+
         localStorage.setItem('mock_roster_data', JSON.stringify(mockRoster));
         localStorage.setItem('mock_parts_data', JSON.stringify(mockParts));
         
         setRoster(mockRoster);
         setParts(mockParts);
-        console.log('使用前端Mock数据，基于所选Course+Task，已存储到localStorage');
+        console.log('Using frontend mock data, based on the selected Course+Task, it has been stored in local storage');
       } else {
         (async () => {
           try {
@@ -453,12 +407,12 @@ export function AdminProgressTrend() {
             setParts(mockPartsNow);
             const mapped = list.map((it, idx) => ({
               id: String(idx + 1),
-              name: it.name,                    // 真实数据 - 来自后端API
-              studentId: it.student_id,         // 真实数据 - 来自后端API
-              completionPercent: it.progress,   // 真实数据 - 来自后端API
-              overdueCount: it.overdue_count ?? 0,  // 真实数据 - 来自后端API
+              name: it.name,                   
+              studentId: it.student_id,        
+              completionPercent: it.progress,   
+              overdueCount: it.overdue_count ?? 0, 
 
-              bonus: it.bonus != null ? Number(it.bonus).toFixed(2) : "0.00", // Mock: 随机生成 0.00-2.00
+              bonus: it.bonus != null ? Number(it.bonus).toFixed(2) : "0.00", 
             } as StudentProgress));
             const sorted = [...mapped].sort((a, b) => a.name.localeCompare(b.name));
             setStudents(sorted);
@@ -478,7 +432,7 @@ export function AdminProgressTrend() {
   const mockRoster = roster;
   const mockParts = parts;
   
-  // 生成学生进度数据
+
   const studentProgressData = useMemo(() => 
     generateStudentProgressData(mockRoster, mockParts), 
     [mockRoster, mockParts]
@@ -486,29 +440,19 @@ export function AdminProgressTrend() {
   
   const trendSeries = useMemo(() => buildTrendSeries(mockParts), [mockParts]);
 
-  // ============================================
-  // 🚨 TASK A: 数据流修复 - 监听studentProgressData变化 🚨
-  // ============================================
-  // 每次studentProgressData变化时，先按姓名A→Z排序，然后同时更新students与filteredStudents
-  // ============================================
+
   
   useEffect(() => {
-    // 当使用前端Mock数据时才根据 studentProgressData 更新展示；后端模式由加载逻辑直接设置
+
     if (!useMock) return;
     const sorted = [...studentProgressData].sort((a, b) => a.name.localeCompare(b.name));
     setStudents(sorted);
     setFilteredStudents(sorted);
   }, [studentProgressData, useMock]);
   
-  // ============================================
-  // 🚨 TASK B: 排序语义修复 - 过滤/搜索时先复制再排序 🚨
-  // ============================================
-  // 过滤/搜索时不要原地.sort()；先复制再排序（避免副作用）
-  // ============================================
 
-  // 趋势图表组件
   const TrendChart = ({ series }: { series: TrendPoint[] }) => {
-    // 7天全为0 → 显示空趋势占位
+   
     const hasAnyScheduled = series.some(d => d.scheduled > 0);
     if (!hasAnyScheduled) return <div className="chart-empty">No parts scheduled in the last 7 days.</div>;
 
@@ -517,9 +461,9 @@ export function AdminProgressTrend() {
         <ComposedChart data={series} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="label" />
-          {/* 左轴：数量 */}
+          {/* left：quantity */}
           <YAxis yAxisId="left" allowDecimals={false} width={36} />
-          {/* 右轴：百分比 0–100 */}
+          {/* right：percentage 0–100 */}
           <YAxis yAxisId="right" orientation="right" domain={[0, 100]}
                  tickFormatter={(v) => `${v}%`} width={44} />
           <Tooltip
@@ -539,22 +483,22 @@ export function AdminProgressTrend() {
               fontSize: '14px'
             }}
             itemStyle={{
-              color: '#333', // 设置Tooltip中文字的深色
+              color: '#333', 
               fontWeight: 'normal'
             }}
             labelStyle={{
-              color: '#333', // 设置Tooltip标题的深色
+              color: '#333', 
               fontWeight: '600'
             }}
           />
-          {/* 分母：浅灰柱 */}
+
           <Bar yAxisId="left" dataKey="scheduled" barSize={14}
                radius={[6,6,6,6]} fill="#E9E9EE" />
-          {/* 比例：只用折线；分母为 0 的点= null，不连线 */}
+
           <Line yAxisId="right" dataKey="ratePct" type="linear"
                 connectNulls={false} dot={{ r: 3 }}
                 stroke="var(--ah-primary)" strokeWidth={2} />
-          {/* 可选：目标参考线 */}
+
           <ReferenceLine yAxisId="right" y={80} stroke="#9aa0a6" strokeDasharray="4 4" />
         </ComposedChart>
       </ResponsiveContainer>
@@ -563,7 +507,7 @@ export function AdminProgressTrend() {
 
   return (
     <div key={uid} className="admin-progress-trend-layout">
-      {/* 左侧导航栏 - 与AdminMonitor完全一致 */}
+      {/* Left navigation bar - completely consistent with AdminMonitor*/}
       <aside className="ah-sidebar">
         <div className="ah-profile-card">
           <div className="avatar">
@@ -604,7 +548,7 @@ export function AdminProgressTrend() {
         <button className="btn-outline" onClick={handleLogout}>Log Out</button>
       </aside>
 
-      {/* 右侧主内容区域 - 最外侧包裹框 */}
+      {/* Right main content area - outermost wrapping box */}
       <div className="apt-outer-container">
         <main className="apt-main">
           <header className="apt-header">
@@ -627,9 +571,9 @@ export function AdminProgressTrend() {
             </div>
           </header>
 
-          {/* 可滚动内容区域 */}
+          {/* Scrollable content area */}
           <div className="apt-scrollable-content">
-          {/* 过滤器区域 */}
+          {/* Filter area */}
           <section className="apt-filters">
             <div className="progress-filters">
               <span className="filter-label">Progress Filter:</span>
@@ -676,7 +620,7 @@ export function AdminProgressTrend() {
             </div>
           </section>
 
-          {/* 学生进度表格 */}
+          {/* Student Progress Table */}
           <section className="apt-table-section">
             {filteredStudents.length === 0 ? (
               <div className="empty-state">

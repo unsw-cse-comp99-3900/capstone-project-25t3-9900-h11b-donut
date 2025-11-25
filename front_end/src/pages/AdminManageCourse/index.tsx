@@ -18,13 +18,13 @@ function updateTaskStatsLocal(courseId: string, newTasks: any[]) {
   const adminId = localStorage.getItem('current_user_id');
   if (!adminId) return;
 
-  // 更新每门课程的任务数统计
+  // Update the task count statistics for each course
   const countsKey = `admin:${adminId}:tasks_counts_by_course`;
   const countsByCourse = JSON.parse(localStorage.getItem(countsKey) || '{}');
   countsByCourse[courseId] = newTasks.length;
   localStorage.setItem(countsKey, JSON.stringify(countsByCourse));
   
-  // 更新总任务数
+  // Update the total number of tasks
   const total = Object.values(countsByCourse).reduce<number>(
   (sum, n) => sum + Number(n || 0),
   0
@@ -33,7 +33,7 @@ function updateTaskStatsLocal(courseId: string, newTasks: any[]) {
 
   window.dispatchEvent(new Event('tasksUpdated'));
 }
-// 图片映射 - 循环使用4张图片
+
 const adminIllustrations = [
   illustrationAdmin,
   illustrationAdmin2, 
@@ -82,52 +82,52 @@ export function AdminManageCourse() {
   const [newMaterial, setNewMaterial] = useState<{
   name: string;
   description: string;
-  file: File | null;   // ← 只能是文件
+  file: File | null;   // only file
 }>({
   name: '',
   description: '',
   file: null,
 });
   
-  // Question相关状态
+  // Question status
   const [questionModalOpen, setQuestionModalOpen] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<any>(null)
   
-  // 批量删除状态
+  // Batch deletion status
   const [batchDeleteMode, setBatchDeleteMode] = useState(false)
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([])
   
   const [questions, setQuestions] = useState<any[]>([])
   
-  // 批量题目支持：存储多个待创建的题目
+  // Batch question support: Store multiple questions to be created
   const [batchQuestions, setBatchQuestions] = useState<any[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   
   const [newQuestion, setNewQuestion] = useState({
-    type: 'multiple-choice', // multiple-choice 或 short-answer
-    topic: '', // 主题
+    type: 'multiple-choice', // mcq or short answer
+    topic: '', 
     title: '',
     description: '',
     keywords: '',
-    questionText: '', // 题目
-    options: ['', '', '', ''], // 选择题选项
-    correctAnswer: '', // 选择题正确答案
-    answer: '', // 简答题答案(保留用于后端兼容)
-    sampleAnswer: '', // 简答题示例答案
-    keyPoints: '', // 简答题关键要点
-    score: 10, // 分数
-    difficulty: 'Medium', // 难度: Easy, Medium, Hard
-    gradingCriteria: '', // 评分标准
-    hint: '' // 提示
+    questionText: '', 
+    options: ['', '', '', ''], // ABCD
+    correctAnswer: '', 
+    answer: '', // Short answer questions
+    sampleAnswer: '', // Short answer question example answer
+    keyPoints: '', // Key points of short answer questions
+    score: 10, // mark
+    difficulty: 'Medium', // difficulty level: Easy, Medium, Hard
+    gradingCriteria: '', 
+    hint: '' 
   })
 
-  // 文件上传状态
+  // File upload status
   const [questionFileUploading, setQuestionFileUploading] = useState(false)
   const [questionFileError, setQuestionFileError] = useState('')
   
   const [user, setUser] = useState<{ name?: string; email?: string; avatarUrl?: string } | null>(null);
 
-  // 从URL参数获取课程ID
+  // Retrieve course ID from URL parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
     const courseId = urlParams.get('courseId');
@@ -142,18 +142,18 @@ export function AdminManageCourse() {
           const course = courses.find((c: any) => c.id === courseId);
           if (course) {
             setSelectedCourse(course);          
-            // 加载该课程的Task数据
+            // Load the Task data for this course
             const savedTasks = localStorage.getItem(`admin:${adminId}:course_tasks_${courseId}`);
             if (savedTasks) {
               setTasks(JSON.parse(savedTasks));
             }           
-            // 加载该课程的Material数据
+            //Load the Material data for this course
             const savedMaterials = localStorage.getItem(`admin:${adminId}:course_materials_${courseId}`);
             if (savedMaterials) {
               setMaterials(JSON.parse(savedMaterials));
             }
             
-            // 加载该课程的Question数据
+            // Load the question bank data for this course
             const savedQuestions = localStorage.getItem(`admin:${adminId}:course_questions_${courseId}`);
             if (savedQuestions) {
               setQuestions(JSON.parse(savedQuestions));
@@ -197,12 +197,11 @@ export function AdminManageCourse() {
     window.location.hash = path;
   };
 
-  // 打开创建任务弹窗
+
   const handleAddTask = () => {
     setTaskModalOpen(true);
   };
 
-  // 关闭创建任务弹窗
   const handleCloseTaskModal = () => {
     setTaskModalOpen(false);
     setEditingTask(null);
@@ -217,7 +216,7 @@ export function AdminManageCourse() {
     resetUpload(); 
   };
 
-  // 处理任务表单输入
+
   const handleTaskInputChange = <K extends keyof NewTask>(
   field: K,
   value: NewTask[K]
@@ -228,13 +227,12 @@ export function AdminManageCourse() {
   }));
 };
 
-  // 创建新任务
+  // create new task
   const handleCreateTask = async () => {
-  // 基本校验
   if (!newTask.title?.trim()) { alert('Title is required'); return; }
   if (!selectedCourse) { alert('No course selected'); return; }
   
-  // 验证deadline格式: 支持 YYYY-MM-DD 或 YYYY-MM-DDTHH:MM 或 YYYY-MM-DDTHH:MM:SS
+  // Verify deadline format: Supports YYYY-MM-DD or YYYY-MM-DDTH: MM or YYYY-MM-DDTH: MM: SS
   if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/.test(newTask.deadline)) {
     alert('Please select a valid deadline');
     return;
@@ -251,18 +249,18 @@ export function AdminManageCourse() {
     return;
   }
   
-  // 检查deadline是否早于今天
+  // Check if the deadline is earlier than today
   const today = new Date();
   const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     .toISOString()
     .slice(0, 10);
-  const deadlineDate = newTask.deadline.slice(0, 10); // 提取日期部分
+  const deadlineDate = newTask.deadline.slice(0, 10); 
   if (deadlineDate < todayStr) {
     alert('Deadline ahead of today!');
     return;
   }
 
-  // 1) 先上传附件（如果有）
+  // 1) upload attached files
   let fileUrl: string | null = null;
   const file = newTask.attachment as File | null;
 
@@ -270,7 +268,7 @@ export function AdminManageCourse() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      fd.append('course', selectedCourse.id); // 用课程号分目录（/task/<course>/...）
+      fd.append('course', selectedCourse.id); 
       const token = localStorage.getItem('auth_token') || '';
       const uploadRes = await fetch('/api/courses_admin/upload/task-file', {
         method: 'POST',
@@ -290,24 +288,24 @@ export function AdminManageCourse() {
     }
   }
 
-  // 2) 构造创建 Task 的 payload（百分比固定 100）
+  // 2) Construct the payload for creating a task (x% of final mark)
   const payload = {
     title: newTask.title.trim(),
-    deadline: newTask.deadline,        // 必须 YYYY-MM-DD
+    deadline: newTask.deadline,        
     brief: (newTask.brief ?? '').trim(),
     percent_contribution: newTask.percentContribution ?? 100,
-    url: fileUrl,                      // 没有附件则为 null
+    url: fileUrl,                      
   };
 
   try {
-    // 3) 调后端创建
-    // 期望返回 { success: true, data: { id: number } }
+    // 3) call backend creation
+    // expect:{ success: true, data: { id: number } }
     const res = await apiService.adminCreateTask(selectedCourse.id, payload);
     if (!res?.success) throw new Error(res?.message || 'Create task failed');
 
     const newId = String(res.data.id);
 
-    // 4) 更新本地状态
+    // 4) update local status
     const taskForUI = {
       id: newId,
       course_code: selectedCourse.id,
@@ -322,7 +320,7 @@ export function AdminManageCourse() {
     const updated = [...tasks, taskForUI];
     setTasks(updated);
     updateTaskStatsLocal(selectedCourse.id, updated);
-    // 5) 双写 localStorage
+    // 5) write to localStorage
     const adminId = localStorage.getItem('current_user_id') || '';
     localStorage.setItem(
       `admin:${adminId}:course_tasks_${selectedCourse.id}`,
@@ -334,7 +332,7 @@ export function AdminManageCourse() {
     allObj[selectedCourse.id] = updated;
     localStorage.setItem(allKey, JSON.stringify(allObj));
 
-    // 6) 关闭并重置
+    // 6) close and reset
     handleCloseTaskModal();
   } catch (e: any) {
     console.error('Create task error:', e);
@@ -342,7 +340,7 @@ export function AdminManageCourse() {
   }
 };
 
-  // 编辑任务
+  // edit tasks
   const handleEditTask = (task: any) => {
   setEditingTask(task);
 
@@ -365,37 +363,36 @@ export function AdminManageCourse() {
 };
 
 
-  // 更新任务
+  // update
   const handleUpdateTask = async () => {
   if (!editingTask || !selectedCourse) return;
 
-  // 1) 基本校验
+ 
   if (!newTask.title?.trim()) { alert('Title is required'); return; }
   
-  // 验证deadline格式: 支持 YYYY-MM-DD 或 YYYY-MM-DDTHH:MM 或 YYYY-MM-DDTHH:MM:SS
+
   if (!newTask.deadline || !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?)?$/.test(newTask.deadline)) {
     alert('Please select a valid deadline');
     return;
   }
   
-  // 不允许选择过去日期（允许今天）
+  // Not allowed to select past dates (allowed today)
   const today = new Date();
   const todayStr = new Date(today.getFullYear(), today.getMonth(), today.getDate())
     .toISOString().slice(0, 10);
-  const deadlineDate = newTask.deadline.slice(0, 10); // 提取日期部分
+  const deadlineDate = newTask.deadline.slice(0, 10);
   if (deadlineDate < todayStr) {
     alert('Deadline 不能早于今天');
     return;
   }
 
-  // 如果用户选择了新文件但还没上传完/上传失败，拦截
+  // If the user selects a new file but has not uploaded it yet/upload fails, intercept
   if (newTask.attachment && uploadStatus !== 'done') {
-    alert(uploadStatus === 'uploading' ? '附件仍在上传，请稍候…' : '附件上传失败，请重试');
+    alert(uploadStatus === 'uploading' ? 'The attachment is still being uploaded, please wait' : 'fail! retry!');
     return;
   }
 
   try {
-    // 2) 组装 payload（如果没换附件，就不传 url 字段，后端保持不变）
     const payload: any = {
       title: newTask.title.trim(),
       deadline: newTask.deadline,
@@ -403,10 +400,9 @@ export function AdminManageCourse() {
       percent_contribution: newTask.percentContribution ?? 100,
     };
     if (uploadedUrl) {
-      payload.url = uploadedUrl;   // 仅当用户换了附件才覆盖
+      payload.url = uploadedUrl;   
     }
 
-    // 3) 调后端更新（下一步我们再在 apiService 里实现 adminEditTask）
     const hasNewFile = Boolean(uploadedUrl && uploadedUrl !== editingTask.url);
     const res = await apiService.adminEditTask(
       selectedCourse.id,
@@ -416,7 +412,6 @@ export function AdminManageCourse() {
     );
     if (!res?.success) throw new Error(res?.message || 'Update failed');
 
-    // 4) 更新前端内存状态（UI字段名：percentContribution）
     const updatedTask = {
       ...editingTask,
       title: payload.title,
@@ -431,16 +426,13 @@ export function AdminManageCourse() {
     );
     setTasks(updatedList);
 
-    // 5) 双写 localStorage（两处）
     const adminId = localStorage.getItem('current_user_id') || '';
 
-    // 5.1 课程维度列表
     localStorage.setItem(
       `admin:${adminId}:course_tasks_${selectedCourse.id}`,
       JSON.stringify(updatedList)
     );
 
-    // 5.2 汇总对象
     const allKey = `admin:${adminId}:tasks`;
     const allRaw = localStorage.getItem(allKey);
     const allObj = allRaw ? JSON.parse(allRaw) : {};
@@ -450,50 +442,44 @@ export function AdminManageCourse() {
     );
     localStorage.setItem(allKey, JSON.stringify(allObj));
 
-    // 6) 收尾
     setEditingTask(null);
-    resetUpload?.();             // 如果你有这个工具函数就调用；否则可忽略
+    resetUpload?.();             
     handleCloseTaskModal();
   } catch (e: any) {
     console.error('Update task error:', e);
     alert(e?.message || 'Update task error');
   }
 };
-  // 删除任务确认
   const handleDeleteTask = (taskId: string) => {
     setDeleteTaskId(taskId);
   };
-
-  // 确认删除任务
   const handleConfirmDeleteTask = async () => {
   if (!deleteTaskId || !selectedCourse) return;
 
   try {
-    // 1) 先调后端：删除数据库记录 + 删除 TaskProgress +（可选）删除附件文件
+    // 1) Delete database records+delete TaskProgress
     const res = await apiService.adminDeleteTask(
       selectedCourse.id,
       deleteTaskId,
-      { delete_file: true }     // 同时删除附件
+      { delete_file: true }     
     );
 
     if (!res?.success) {
       throw new Error(res?.message || 'Delete failed');
     }
 
-    // 2) 成功后再更新本地状态
+    // 2) Update local status after success
     const updatedTasks = tasks.filter((t: any) => String(t.id) !== String(deleteTaskId));
     setTasks(updatedTasks);
     updateTaskStatsLocal(selectedCourse.id, updatedTasks);
-    // 3) 双写 localStorage
+    // 3) write to localStorage
     const adminId = localStorage.getItem('current_user_id') || '';
 
-    // 3.1 课程维度列表
     localStorage.setItem(
       `admin:${adminId}:course_tasks_${selectedCourse.id}`,
       JSON.stringify(updatedTasks)
     );
 
-    // 3.2 汇总对象（按课程归档）
     const allKey = `admin:${adminId}:tasks`;
     const allRaw = localStorage.getItem(allKey);
     const allObj = allRaw ? JSON.parse(allRaw) : {};
@@ -501,24 +487,19 @@ export function AdminManageCourse() {
     allObj[selectedCourse.id] = curList.filter((t: any) => String(t.id) !== String(deleteTaskId));
     localStorage.setItem(allKey, JSON.stringify(allObj));
 
-    // 4) 收尾
     setDeleteTaskId(null);
-    // 可选：toast.success('Task deleted');
   } catch (e: any) {
     console.error('Delete task error:', e);
     alert(e?.message || 'Delete task error');
   }
 };
 
-  // 处理弹窗提交
   const handleTaskSubmit = editingTask ? handleUpdateTask : handleCreateTask;
 
-  // 打开上传材料弹窗
   const handleUploadMaterial = () => {
     setMaterialModalOpen(true);
   };
 
-  // 关闭上传材料弹窗
   const handleCloseMaterialModal = () => {
     setMaterialModalOpen(false);
     setNewMaterial({
@@ -529,14 +510,13 @@ export function AdminManageCourse() {
     resetUpload();
   };
 
-  // 处理材料表单输入
   const handleMaterialInputChange = (field: string, value: string | File | null) => {
   setNewMaterial(prev => ({ ...prev, [field]: value }));
 };
 
-  // 创建新材料
+  // create material
   const handleCreateMaterial = async () => {
-  //console.log('file =', newMaterial.file, newMaterial.file instanceof File);
+
   const name = (newMaterial.name || '').trim();
   const description = (newMaterial.description || '').trim();
   const fileObj = newMaterial.file;
@@ -572,7 +552,7 @@ export function AdminManageCourse() {
     const newId = String(createRes.data?.id ?? `M_${Date.now()}`);
     const adminId = localStorage.getItem('current_user_id') || '';
 
-    // 更新本地状态
+    // update local status
     const newItem = {
       id: newId,
       title: name,
@@ -582,11 +562,10 @@ export function AdminManageCourse() {
     const updatedMaterials = [...materials, newItem];
     setMaterials(updatedMaterials);
 
-    //  同步 localStorage —— 单课
+    //  Synchronize local storage
     const perCourseKey = `admin:${adminId}:course_materials_${courseId}`;
     localStorage.setItem(perCourseKey, JSON.stringify(updatedMaterials));
 
-    // 同步 localStorage —— 汇总（Record<courseId, Material[]>）
     const allKey = `admin:${adminId}:materials`;
     let allMap: Record<string, any[]> = {};
     try {
@@ -597,7 +576,6 @@ export function AdminManageCourse() {
     allMap[courseId] = updatedMaterials;
     localStorage.setItem(allKey, JSON.stringify(allMap));
 
-    //  复位 & 关闭
     setNewMaterial({ name: '', description: '', file: null });
     setMaterialModalOpen(false);
     alert('Succeed!');
@@ -607,7 +585,7 @@ export function AdminManageCourse() {
   }
 };
 
-  // 编辑材料
+  // edit material
   const handleEditMaterial = (material: any) => {
   setEditingMaterial(material);
   setNewMaterial({
@@ -618,7 +596,7 @@ export function AdminManageCourse() {
   setMaterialModalOpen(true);
 };
 
-  // 更新材料
+  // update material
   const handleUpdateMaterial = async () => {
   const name = (newMaterial.name || '').trim();
   const description = (newMaterial.description || '').trim();
@@ -633,21 +611,20 @@ export function AdminManageCourse() {
   const adminId = localStorage.getItem('current_user_id') || '';
 
   try {
-    // 1) 如果用户上传了新文件：先上传拿到新 URL；若没上传则保留旧 URL
+    // 1) If the user uploads a new file: upload it first to get the new URL; If not uploaded, keep the old URL
     let finalUrl: string = editingMaterial.url || '';
     if (fileObj instanceof File) {
-      // 上传文件时把课程 id 一起传，后端会存到 material/<courseId>/ 下
+      // When uploading files, include the course ID and the backend will save it to the material/<courseId>/folder
       finalUrl = await apiService.uploadMaterialFile(fileObj, courseId);
     }
 
-    // 2) 调用后端更新数据库（title/description，若换文件则同时更新 url）
+    // 2) Call the backend to update the database (title/description, if changing files, update the URL at the same time)
     await apiService.adminUpdateMaterial(courseId, editingMaterial.id, {
       title: name,
       description,
-      url: finalUrl, // 即使未更换文件也传原来的 url（后端幂等更新）
+      url: finalUrl, 
     });
 
-    // 3) 刷新内存状态
     const updatedMaterials = materials.map((m) =>
       m.id === editingMaterial.id
         ? { ...m, title: name, description, url: finalUrl }
@@ -655,11 +632,9 @@ export function AdminManageCourse() {
     );
     setMaterials(updatedMaterials);
 
-    // 4) 同步 localStorage —— 单课
     const perCourseKey = `admin:${adminId}:course_materials_${courseId}`;
     localStorage.setItem(perCourseKey, JSON.stringify(updatedMaterials));
 
-    // 5) 同步 localStorage —— 汇总（Record<courseId, Material[]>）
     const allKey = `admin:${adminId}:materials`;
     let allMap: Record<string, any[]> = {};
     try {
@@ -670,7 +645,6 @@ export function AdminManageCourse() {
     allMap[courseId] = updatedMaterials;
     localStorage.setItem(allKey, JSON.stringify(allMap));
 
-    // 6) 关闭并复位
     handleCloseMaterialModal();
     setEditingMaterial(null);
   } catch (err: any) {
@@ -679,12 +653,12 @@ export function AdminManageCourse() {
   }
 };
 
-  // 删除材料
+
   const handleDeleteMaterial = (materialId: string) => {
     setDeleteMaterialId(materialId);
   };
 
-  // 确认删除材料
+
   const handleConfirmDeleteMaterial = async () => {
   if (!deleteMaterialId || !selectedCourse?.id) return;
 
@@ -692,18 +666,15 @@ export function AdminManageCourse() {
   const adminId = localStorage.getItem('current_user_id') || '';
 
   try {
-    // 1) 先请求后端删除
     await apiService.adminDeleteMaterial(courseId, deleteMaterialId);
 
-    // 2) 本地内存状态移除
     const updatedMaterials = materials.filter(m => m.id !== deleteMaterialId);
     setMaterials(updatedMaterials);
 
-    // 3) 同步 localStorage —— 单课
     const perCourseKeyNew = `admin:${adminId}:course_materials_${courseId}`;
     localStorage.setItem(perCourseKeyNew, JSON.stringify(updatedMaterials));
 
-    // 4) 同步 localStorage —— 汇总（Record<courseId, Material[]>）
+
     const allKey = `admin:${adminId}:materials`;
     let allMap: Record<string, any[]> = {};
     try {
@@ -714,7 +685,7 @@ export function AdminManageCourse() {
     allMap[courseId] = updatedMaterials;
     localStorage.setItem(allKey, JSON.stringify(allMap));
 
-    // 5) 关闭确认
+
     setDeleteMaterialId(null);
   } catch (err: any) {
     console.error('[handleConfirmDeleteMaterial] failed:', err);
@@ -722,10 +693,8 @@ export function AdminManageCourse() {
   }
 };
 
-  // 根据是否在编辑模式决定提交函数
   const handleMaterialSubmit = editingMaterial ? handleUpdateMaterial : handleCreateMaterial;
 
-  // Question相关处理函数
   const handleAddQuestion = () => {
     setEditingQuestion(null);
     setNewQuestion({
@@ -751,9 +720,9 @@ export function AdminManageCourse() {
   const handleCloseQuestionModal = () => {
   setQuestionModalOpen(false);
   setEditingQuestion(null);
-  setBatchQuestions([]); // 清空批量题目
-  setCurrentQuestionIndex(0); // 重置索引
-  setQuestionFileError(''); // 清空文件错误
+  setBatchQuestions([]); // Clear batch questions
+  setCurrentQuestionIndex(0); // Reset index
+  setQuestionFileError(''); // Clearing file error
   setNewQuestion((prev) => ({
     ...prev,
     topic: '',
@@ -773,13 +742,13 @@ export function AdminManageCourse() {
   }));
 };
 
-  // 清除已上传的文件内容，但不关闭弹窗
+  // Clear the uploaded file content without closing the pop-up window
   const handleClearUploadedFile = () => {
-    setBatchQuestions([]); // 清空批量题目列表
-    setCurrentQuestionIndex(0); // 重置索引
-    setQuestionFileError(''); // 清空错误信息
+    setBatchQuestions([]); 
+    setCurrentQuestionIndex(0); 
+    setQuestionFileError(''); 
     setNewQuestion({
-      type: newQuestion.type, // 保留题目类型
+      type: newQuestion.type, 
       topic: '',
       title: '',
       description: '',
@@ -795,7 +764,7 @@ export function AdminManageCourse() {
       gradingCriteria: '',
       hint: ''
     });
-    // 重置文件上传输入框
+    // Reset file upload input box
     const fileInput = document.getElementById('question-file-upload') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
@@ -818,12 +787,12 @@ export function AdminManageCourse() {
     }));
   };
 
-  // 处理文件上传并解析内容
+  // Process file upload and parse content
   const handleQuestionFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // 检查文件类型
+    // Check file type
     const validTypes = ['.txt', '.json'];
     const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
     if (!validTypes.includes(fileExtension)) {
@@ -837,13 +806,13 @@ export function AdminManageCourse() {
     try {
       const text = await file.text();
       
-      // 尝试解析文件内容
+      // Attempt to parse file content
       if (fileExtension === '.json') {
-        // JSON格式解析
+        // parse json
         const data = JSON.parse(text);
         parseQuestionData(data);
       } else if (fileExtension === '.txt') {
-        // TXT格式解析
+        // parse txt
         parseTextQuestionData(text);
       }
       
@@ -854,26 +823,26 @@ export function AdminManageCourse() {
       setQuestionFileUploading(false);
     }
 
-    // 清除文件输入
+    // clear input
     event.target.value = '';
   };
 
-  // 解析单个题目对象
+  // Analyze a single question object
   const parseQuestionObject = (data: any, currentType: string) => {
-    // 智能判断题目类型：优先从数据本身判断，其次使用currentType
+    // Can determine the type of question: prioritize judging from the data itself, followed by using the current type
     let detectedType = currentType;
     
-    // 如果数据中明确指定了type/qtype，使用数据中的类型
+    // If type/qtype is explicitly specified in the data, use the type in the data
     if (data.type) {
       detectedType = data.type;
     } else if (data.qtype) {
       detectedType = data.qtype === 'mcq' ? 'multiple-choice' : 'short-answer';
     } 
-    // 如果有options或correctAnswer字段，判断为选择题
+    // If there are options or correctAnswer fields, determine as a multiple-choice question
     else if (data.options || data.correctAnswer || data.correct_answer) {
       detectedType = 'multiple-choice';
     } 
-    // 如果有keyPoints或sampleAnswer字段，判断为简答题
+    // If there are keyPoints or sampleAnswer fields, determine as a short answer question
     else if (data.keyPoints || data.key_points || data.sampleAnswer || data.sample_answer) {
       detectedType = 'short-answer';
     }
@@ -897,9 +866,9 @@ export function AdminManageCourse() {
     };
   };
 
-  // 解析JSON格式的题目数据（支持单个或批量）
+  // Parse title data in JSON format (supports single or batch)
   const parseQuestionData = (data: any) => {
-    // 检查是否为批量题目（数组格式）
+    // Check if it is a batch question (array format)
     if (Array.isArray(data)) {
       const parsedQuestions = data.map(item => parseQuestionObject(item, newQuestion.type));
       setBatchQuestions(parsedQuestions);
@@ -908,21 +877,21 @@ export function AdminManageCourse() {
         setNewQuestion(parsedQuestions[0]);
       }
     } else {
-      // 单个题目
+      // single question
       const parsed = parseQuestionObject(data, newQuestion.type);
       setNewQuestion(parsed);
       setBatchQuestions([]);
     }
   };
 
-  // 解析文本格式的题目数据（支持批量）
+  // Parse title data in text format (supports batch)
   const parseTextQuestionData = (text: string) => {
-    // 检查是否包含分隔符 "---"，如果有则为批量题目
+    // Check if the delimiter "---" is included, if so, it is a batch question
     const separator = '---';
     const hasSeparator = text.includes(separator);
     
     if (hasSeparator) {
-      // 批量模式：按 "---" 分割多个题目
+      // Batch mode: Split multiple questions by "---"
       const questionTexts = text.split(separator).map(q => q.trim()).filter(q => q);
       const parsedQuestions: any[] = [];
       
@@ -931,7 +900,7 @@ export function AdminManageCourse() {
         const data: any = {};
         
         lines.forEach(line => {
-          // 支持 "字段名: 值" 或 "字段名=值" 格式
+          // Support the format of "field name: value" or "field name=value"
           const colonMatch = line.match(/^([^:]+):\s*(.+)$/);
           const equalMatch = line.match(/^([^=]+)=\s*(.+)$/);
           
@@ -944,25 +913,25 @@ export function AdminManageCourse() {
           }
         });
         
-        // 只添加有效的题目（至少有question字段）
+        // Only add valid questions (with at least a question field)
         if (data.question) {
           parsedQuestions.push(parseQuestionObject(data, newQuestion.type));
         }
       });
       
-      // 设置批量题目
+      // Set batch questions
       if (parsedQuestions.length > 0) {
         setBatchQuestions(parsedQuestions);
         setCurrentQuestionIndex(0);
         setNewQuestion(parsedQuestions[0]);
       }
     } else {
-      // 单个题目模式
+      // Single question mode
       const lines = text.split('\n').map(line => line.trim()).filter(line => line);
       const data: any = {};
 
       lines.forEach(line => {
-        // 支持 "字段名: 值" 或 "字段名=值" 格式
+        // Support the format of "field name: value" or "field name=value"
         const colonMatch = line.match(/^([^:]+):\s*(.+)$/);
         const equalMatch = line.match(/^([^=]+)=\s*(.+)$/);
         
@@ -979,7 +948,7 @@ export function AdminManageCourse() {
     }
   };
 
-  // 根据字段名分配值
+  // Assign values based on field names
   const assignFieldValue = (data: any, key: string, value: string) => {
     if (key.includes('topic') || key.includes('主题')) {
       data.topic = value;
@@ -988,7 +957,7 @@ export function AdminManageCourse() {
     } else if (key.includes('option') || key.includes('选项')) {
       if (!data.options) data.options = ['', '', '', ''];
       
-      // 方式1: 从字段名中提取选项标签 (Option A, Option B, 选项A, 选项B)
+      // Method 1: Extract option labels from field names (Option A, Option B, Option A, Option B)
       const keyMatch = key.match(/([A-Da-d1-4])/);
       if (keyMatch) {
         const label = keyMatch[1];
@@ -999,7 +968,7 @@ export function AdminManageCourse() {
           data.options[index] = value;
         }
       } else {
-        // 方式2: 从值中提取选项标签 (A: content, A) content)
+        // Method 2: Extract option tags from values (A: content, A) content
         const valueMatch = value.match(/^([A-Da-d1-4])[\s:)]+(.+)$/);
         if (valueMatch) {
           const [, label, content] = valueMatch;
@@ -1028,21 +997,18 @@ export function AdminManageCourse() {
     }
   };
 
-//创建题目
+//Create questions
   const handleCreateQuestion = async () => {
-  // 验证必填字段
   if (!newQuestion.topic.trim() || !newQuestion.questionText.trim() || !newQuestion.gradingCriteria.trim()) {
     alert('Please fill in all required fields (Topic, Question, Grading Criteria).');
     return;
   }
   
-  // 验证选择题特定字段
   if (newQuestion.type === 'multiple-choice' && !newQuestion.correctAnswer) {
     alert('Please select the correct answer for multiple choice question.');
     return;
   }
-  
-  // 验证简答题特定字段
+
   if (newQuestion.type === 'short-answer' && (!newQuestion.sampleAnswer.trim() || !newQuestion.keyPoints.trim())) {
     alert('Please fill in Sample Answer and Key Points for short answer question.');
     return;
@@ -1056,7 +1022,6 @@ export function AdminManageCourse() {
   const adminId = localStorage.getItem('current_user_id') || '';
   const courseId = selectedCourse.id;
 
-  // 1) 先构造本地"临时题目"，立即更新 UI
   const tempId = `q_${Date.now()}`;
   const newQuestionItem = {
     id: tempId,
@@ -1086,15 +1051,13 @@ export function AdminManageCourse() {
     const courseKey = `admin:${adminId}:course_questions_${courseId}`;
     const globalKey = `admin:${adminId}:questions`;
 
-  // 更新当前课程缓存
+
   localStorage.setItem(courseKey, JSON.stringify(optimistic));
 
-  //  更新全局 questions 索引
   try {
     const allStr = localStorage.getItem(globalKey);
     const all = allStr ? JSON.parse(allStr) : {};
 
-    // 确保是对象
     if (typeof all !== 'object' || Array.isArray(all)) {
       console.warn('[fix localStorage] resetting invalid global structure');
       localStorage.setItem(globalKey, JSON.stringify({ [courseId]: optimistic }));
@@ -1108,7 +1071,6 @@ export function AdminManageCourse() {
   }
   }
 
-  // 2) 组装后端 payload
   const labels = ['A', 'B', 'C', 'D'] as const;
   const keywordsArr = newQuestion.keywords
     .split(',')
@@ -1159,7 +1121,7 @@ export function AdminManageCourse() {
         hint: newQuestion.hint,
       };
 
-  // 3) 调后端创建；成功后用真实 id 替换临时 id；失败则回滚本地
+
   try {
    
     const res = await apiService.adminCreateCourseQuestion(courseId, payload) ; // { id }
@@ -1179,8 +1141,8 @@ export function AdminManageCourse() {
     handleCloseQuestionModal();
   } catch (err) {
     console.error('[create question] failed:', err);
-    // 回滚：移除刚才插入的临时题目
-    const rolledBack = questions; // 原始列表
+
+    const rolledBack = questions;
     setQuestions(rolledBack);
     if (adminId) {
       localStorage.setItem(
@@ -1193,14 +1155,14 @@ export function AdminManageCourse() {
   }
 };
 
-// 批量创建题目
+//Batch create questions
 const handleBatchCreateQuestions = async () => {
   if (!selectedCourse || batchQuestions.length === 0) {
     alert('No questions to create.');
     return;
   }
 
-  // 保存当前编辑的题目到批量列表
+  // Save the currently edited topic to a batch list
   const updatedBatch = [...batchQuestions];
   updatedBatch[currentQuestionIndex] = newQuestion;
 
@@ -1210,12 +1172,11 @@ const handleBatchCreateQuestions = async () => {
 
   let successCount = 0;
   let failCount = 0;
-  const createdQuestions: any[] = []; // 收集成功创建的题目
+  const createdQuestions: any[] = []; // Collect successfully created questions
 
   for (let i = 0; i < updatedBatch.length; i++) {
     const question = updatedBatch[i];
-    
-    // 验证必填字段
+
     if (!question.topic.trim() || !question.questionText.trim() || !question.gradingCriteria.trim()) {
       console.warn(`Question ${i + 1} is missing required fields, skipping...`);
       failCount++;
@@ -1278,7 +1239,7 @@ const handleBatchCreateQuestions = async () => {
       const res = await apiService.adminCreateCourseQuestion(courseId, payload);
       const realId = String(res.id);
 
-      // 添加到收集列表
+      //Add to collection list
       const newQuestionItem = {
         id: realId,
         ...question,
@@ -1293,7 +1254,7 @@ const handleBatchCreateQuestions = async () => {
     }
   }
 
-  // 一次性更新所有题目到状态和localStorage
+  // Update all questions to status and local storage at once
   if (successCount > 0) {
     const updatedQuestions = [...questions, ...createdQuestions];
     setQuestions(updatedQuestions);
@@ -1319,25 +1280,24 @@ const handleBatchCreateQuestions = async () => {
   handleCloseQuestionModal();
 };
 
- // 编辑题目
+ // edit question
   const handleEditQuestion = (q: any) => {
   if (!q) return;
 
-  // 你在 handleCreateQuestion 里也用到了这套 labels，保持一致
+ 
   const labels = ['A', 'B', 'C', 'D'] as const;
 
-  // 1) 题型归一化：前端是 'multiple-choice' | 'short-answer'；后端是 'mcq' | 'short'
+
   const type: 'multiple-choice' | 'short-answer' =
     q.type
       ? q.type
       : (q.qtype === 'mcq' ? 'multiple-choice' : 'short-answer');
 
-  // 2) 文本字段兜底
   const title = q.title ?? '';
   const description = q.description ?? '';
   const questionText = q.questionText ?? q.text ?? '';
 
-  // 3) keywords 统一成「逗号分隔字符串」
+
   let keywords = '';
   if (Array.isArray(q.keywords)) {
     keywords = q.keywords.filter(Boolean).join(', ');
@@ -1347,37 +1307,36 @@ const handleBatchCreateQuestions = async () => {
     keywords = '';
   }
 
-  // 4) options / correctAnswer / answer 归一化
   let options: string[] = ['', '', '', ''];
   let correctAnswer: string = '';
   let answer: string = '';
 
   if (type === 'multiple-choice') {
-    // options 既可能是 string[]（你本地的），也可能是后端的 choices[{content,isCorrect}]
+
     if (Array.isArray(q.options)) {
       options = q.options.map((x: any) => String(x ?? '')).slice(0, 4);
     } else if (Array.isArray(q.choices)) {
       options = q.choices.map((c: any) => String(c?.content ?? '')).slice(0, 4);
-      // 从后端结构推断正确选项
+
       const idx = q.choices.findIndex((c: any) => c?.isCorrect === true);
       if (idx >= 0 && idx < labels.length) {
         correctAnswer = labels[idx];
       }
     }
 
-    // 如果源里已经有 correctAnswer（你乐观写入过），直接兜底覆盖
+
     if (typeof q.correctAnswer === 'string' && labels.includes(q.correctAnswer)) {
       correctAnswer = q.correctAnswer;
     }
 
-    // 补齐到 4 个
+
     while (options.length < 4) options.push('');
   } else {
-    // 简答题：优先用 q.answer；没有就兜底 q.correctAnswer（你本地乐观结构会把简答放在 correctAnswer）
+   
     answer = (q.answer ?? q.correctAnswer ?? '') as string;
   }
 
-  // 5) 写入编辑态 + 打开弹窗
+
   setEditingQuestion(q);
   setNewQuestion({
     type,
@@ -1387,8 +1346,8 @@ const handleBatchCreateQuestions = async () => {
     keywords,
     questionText,
     options,
-    correctAnswer, // 仅 MCQ 用；简答题为空串即可
-    answer,        // 仅简答题用；MCQ 为空串即可
+    correctAnswer, // Only for MCQ use; Short answer questions with empty strings are sufficient
+    answer,        // For short answer questions only; MCQ can be an empty string
     sampleAnswer: q.sampleAnswer || '',
     keyPoints: q.keyPoints || '',
     score: q.score || 10,
@@ -1398,24 +1357,21 @@ const handleBatchCreateQuestions = async () => {
   });
   setQuestionModalOpen(true);
 };
- // 然后更新题目
+ // then update
   const handleUpdateQuestion = async () => {
   if (!editingQuestion) return;
   
-  // 验证必填字段
   if (!newQuestion.topic.trim() || !newQuestion.questionText.trim() || !newQuestion.gradingCriteria.trim()) {
     alert('Please fill in all required fields (Topic, Question, Grading Criteria).');
     return;
   }
   
-  // 验证选择题特定字段
   if (newQuestion.type === 'multiple-choice') {
     if (!newQuestion.correctAnswer) { 
       alert('Please select a correct option.'); 
       return; 
     }
   } else {
-    // 验证简答题特定字段
     if (!newQuestion.sampleAnswer.trim() || !newQuestion.keyPoints.trim()) { 
       alert('Please fill in Sample Answer and Key Points for short answer question.'); 
       return; 
@@ -1454,14 +1410,12 @@ const handleBatchCreateQuestions = async () => {
   updatedAt: new Date().toISOString(),
 };
 
-// 2️⃣ 做乐观更新（更新前端显示和 localStorage）
-// const prevQuestions = questions; // 用于失败回滚
+
 const optimistic = questions.map(q =>
   String(q.id) === questionId ? updatedOne : q
 );
 setQuestions(optimistic);
 
-// 3️⃣ 写入当前课程缓存
 if (adminId) {
   try {
     localStorage.setItem(courseKey, JSON.stringify(optimistic));
@@ -1469,7 +1423,7 @@ if (adminId) {
     console.warn('[localStorage] failed to write courseKey', e);
   }
 
-  // 4️⃣ 更新全局 questions 索引
+
   try {
     const allStr = localStorage.getItem(globalKey);
     const all = allStr ? JSON.parse(allStr) : {};
@@ -1489,7 +1443,7 @@ if (adminId) {
   }
 }
   
-  //这里跟create一样
+// the same as createquestion
   const labels = ['A', 'B', 'C', 'D'] as const;
   const keywordsArr = (newQuestion.keywords || '')
     .split(',')
@@ -1508,7 +1462,7 @@ if (adminId) {
     newQuestion.type === 'multiple-choice'
       ? {
           qtype: 'mcq',
-          title: newQuestion.title || newQuestion.topic, // 使用topic作为title的后备
+          title: newQuestion.title || newQuestion.topic, // Use topic as a backup for title
           description: newQuestion.description || '',
           text: newQuestion.questionText,
           keywords: keywordsArr,
@@ -1543,7 +1497,6 @@ if (adminId) {
   try {
     console.log('[update payload]', payload);
 
-  // 这里接住返回值
     const res = await apiService.adminUpdateCourseQuestion(courseId, questionId, payload);
     console.log('[update response]', res);
     if (!res || res.success === false) {
@@ -1576,7 +1529,6 @@ if (adminId) {
       )
     );
 
-    // 成功后收尾
     handleCloseQuestionModal();
   } catch (err) {
     console.error('[update question] failed:', err);
@@ -1584,7 +1536,7 @@ if (adminId) {
   }
 };
 
-  // 删除题目
+
   const handleDeleteQuestion = async (questionId: number | string) => {
   if (!selectedCourse) return alert('No course selected.');
   if (!window.confirm('Are you sure you want to delete this question?')) return;
@@ -1593,18 +1545,18 @@ if (adminId) {
   const adminId = localStorage.getItem('current_user_id') || '';
 
   try {
-    //  调后端删除
+ 
     const res = await apiService.adminDeleteCourseQuestion(courseId, String(questionId));
     if (!res.success) {
       alert(res.message || 'Delete failed.');
       return;
     }
 
-    // 前端内存更新
+
     const updated = questions.filter(q => String(q.id) !== String(questionId));
     setQuestions(updated);
 
-    //  同步到 localStorage
+
     const courseKey = `admin:${adminId}:course_questions_${courseId}`;
     const globalKey = `admin:${adminId}:questions`;
 
@@ -1628,7 +1580,7 @@ if (adminId) {
   }
   };
 
-  // 批量删除题目
+
   const handleBatchDelete = async () => {
     if (!selectedCourse) return alert('No course selected.');
     if (selectedQuestions.length === 0) return alert('Please select questions to delete.');
@@ -1656,11 +1608,11 @@ if (adminId) {
       }
     }
 
-    // 更新前端状态
+
     const updated = questions.filter(q => !selectedQuestions.includes(String(q.id)));
     setQuestions(updated);
 
-    // 同步到 localStorage
+
     const courseKey = `admin:${adminId}:course_questions_${courseId}`;
     const globalKey = `admin:${adminId}:questions`;
 
@@ -1677,20 +1629,20 @@ if (adminId) {
       localStorage.setItem(globalKey, JSON.stringify({ [courseId]: updated }));
     }
 
-    // 重置批量删除状态
+
     setSelectedQuestions([]);
     setBatchDeleteMode(false);
 
     alert(`Batch delete completed!\nSuccess: ${successCount}\nFailed: ${failCount}`);
   };
 
-  // 切换批量删除模式
+
   const toggleBatchDeleteMode = () => {
     setBatchDeleteMode(!batchDeleteMode);
     setSelectedQuestions([]);
   };
 
-  // 切换题目选中状态
+
   const toggleQuestionSelection = (questionId: string) => {
     setSelectedQuestions(prev => 
       prev.includes(questionId) 
@@ -1699,7 +1651,7 @@ if (adminId) {
     );
   };
 
-  // 全选/取消全选
+
   const toggleSelectAll = () => {
     if (selectedQuestions.length === questions.length) {
       setSelectedQuestions([]);
@@ -1708,11 +1660,10 @@ if (adminId) {
     }
   };
 
-  // 获取课程图片索引 - 使用课程创建时保存的索引
   const getCourseIllustrationIndex = (courseId: string) => {
     if (!courseId) return 0;
     
-    // 从localStorage加载课程数据，获取保存的illustrationIndex
+    
     try {
       const savedCourses = localStorage.getItem('admin_created_courses');
       if (savedCourses) {
@@ -1726,7 +1677,7 @@ if (adminId) {
       console.error('Error loading course illustration index:', error);
     }
     
-    // 如果找不到保存的索引，使用默认的哈希计算作为后备
+   
     let hash = 0;
     for (let i = 0; i < courseId.length; i++) {
       hash = ((hash << 5) - hash) + courseId.charCodeAt(i);
@@ -1741,9 +1692,9 @@ if (adminId) {
 
   return (
     <div className="admin-manage-course-layout">
-      {/* 左侧导航栏 - 严格按照Figma设计 */}
+      {/* */}
       <aside className="amc-sidebar">
-        {/* 用户信息卡片 */}
+        {/*  */}
         <div className="amc-profile-card">
           <div className="avatar">
             <img
@@ -1764,7 +1715,7 @@ if (adminId) {
           </button>
         </div>
 
-        {/* 导航菜单 */}
+        {/* Navigation Menu */}
         <nav className="amc-nav">
           <a className="item" href="#/admin-home">
             <img src={IconHome} className="nav-icon" alt="" /> Home
@@ -1777,22 +1728,22 @@ if (adminId) {
           </a>
         </nav>
 
-        {/* 插画区域 */}
+        {/* Illustration area */}
         <div className="amc-illustration">
           <img src={adminHomepageImage} alt="Admin Dashboard" style={{ width: '100%', height: 'auto', borderRadius: '20px' }} />
         </div>
 
-        {/* 登出按钮 */}
+        {/* logout */}
         <button className="btn-outline" onClick={() => setLogoutModalOpen(true)}>Log Out</button>
       </aside>
 
-      {/* 右侧主内容区域 - 严格按照Figma设计 */}
+      {/*  */}
       <main className="amc-main">
-        {/* 课程详情卡片 - 严格按照Figma设计 */}
+        {/*  */}
         <div className="course-detail-card">
           {selectedCourse ? (
             <div className="course-content">
-              {/* 课程头部：只保留这一份 */}
+              {/*  */}
               <div className="cd-hero-clean">
                 <button
                   className="back-circle"
@@ -1824,7 +1775,7 @@ if (adminId) {
                 </div>
               </div>
 
-              {/* 灰卡内部只在这里滚动 */}
+              {/* The gray card only scrolls here inside */}
               <div className="amc-detail-content">
                 <div className="function-sections">
                   {/* Task List */}
@@ -2032,11 +1983,11 @@ if (adminId) {
         </div>
       </main>
 
-      {/* 创建任务弹窗 */}
+      {/* Create task pop-up window */}
       {taskModalOpen && (
         <div className="task-modal-overlay">
           <div className="task-modal">
-            {/* 弹窗头部 */}
+            {/* Create task pop-up window head */}
             <div className="task-modal-header">
               <h2 className="task-modal-title">
                 {editingTask ? 'Edit Task' : 'Create New Task'}
@@ -2052,7 +2003,7 @@ if (adminId) {
               </button>
             </div>
 
-            {/* 弹窗内容 */}
+            {/* content */}
             <div className="task-modal-content">
               {/* Task Title */}
               <div className="task-input-group">
@@ -2145,17 +2096,17 @@ if (adminId) {
                         className="file-input"
                         onChange={async (e) => {
                           const file = e.target.files?.[0] || null;
-                          handleTaskInputChange('attachment', file); // 存 File 对象
+                          handleTaskInputChange('attachment', file);
 
                           if (!file || !selectedCourse){
                             setUploadStatus('idle');
                             setUploadedUrl(null);
                             setUploadError(null);
-                            return;  // 没选文件或没选课程直接返回
+                            return;  // no file && no course -> return
                           }
 
                           try {
-                            setUploadStatus('uploading');  // 上传中
+                            setUploadStatus('uploading'); 
                             setUploadError(null);
                             const fd = new FormData();
                             fd.append('file', file);
@@ -2177,8 +2128,8 @@ if (adminId) {
                               return;
                             }
 
-                            // 上传成功
-                            setUploadedUrl(res.data.url as string);   // 存入 /task/... 路径
+                            // upload success
+                            setUploadedUrl(res.data.url as string);   
                             setUploadStatus('done');
                           } catch (err: any) {
                             setUploadStatus('error');
@@ -2194,7 +2145,7 @@ if (adminId) {
               </div>
             </div>
 
-            {/* 弹窗底部 */}
+            {/* Pop up window btm */}
             <div className="task-modal-footer">
               <button 
                 className="task-create-btn" 
@@ -2208,11 +2159,11 @@ if (adminId) {
         </div>
       )}
 
-      {/* 上传材料弹窗 */}
+      {/* Upload material pop-up window */}
       {materialModalOpen && (
         <div className="material-modal-overlay">
           <div className="material-modal">
-            {/* 弹窗头部 */}
+            {/* Pop up window head */}
             <div className="material-modal-header">
               <h2 className="material-modal-title">{editingMaterial ? 'Edit Material' : 'New Material'}</h2>
               <button 
@@ -2226,7 +2177,7 @@ if (adminId) {
               </button>
             </div>
 
-            {/* 弹窗内容 */}
+            {/* content */}
             <div className="material-modal-content">
               {/* Material Name */}
               <div className="material-input-group">
@@ -2284,8 +2235,8 @@ if (adminId) {
                           setUploadError(null);
 
                           const fd = new FormData();
-                          fd.append('file', file);                      // 字段名必须是 file
-                          fd.append('course', String(selectedCourse.id)); // 用课程ID分目录
+                          fd.append('file', file);                     
+                          fd.append('course', String(selectedCourse.id)); 
 
                           const token = localStorage.getItem('auth_token') || '';
 
@@ -2304,7 +2255,7 @@ if (adminId) {
                             return;
                           }
 
-                          // 上传成功：拿到 /material/<courseId>/<filename>
+                          // Upload successful: Received/material/<courseId>/<filename>
                           setUploadedUrl(res.data.url as string);
                           setUploadStatus('done');
                         } catch (err: any) {
@@ -2323,7 +2274,7 @@ if (adminId) {
               </div>
             </div>
 
-            {/* 弹窗底部 */}
+            {/* */}
             <div className="material-modal-footer">
               <button 
                 className="material-create-btn" 
@@ -2337,7 +2288,7 @@ if (adminId) {
         </div>
       )}
 
-      {/* 删除任务确认弹窗 */}
+      {/* Confirmation deletion */}
       <ConfirmationModal
         isOpen={deleteTaskId !== null}
         onClose={() => setDeleteTaskId(null)}
@@ -2377,11 +2328,11 @@ if (adminId) {
                     className="batch-nav-btn"
                     onClick={() => {
                       if (currentQuestionIndex > 0) {
-                        // 保存当前修改
+                        // save changes
                         const updated = [...batchQuestions];
                         updated[currentQuestionIndex] = newQuestion;
                         setBatchQuestions(updated);
-                        // 切换到上一个
+                        // switch to the previous one
                         setCurrentQuestionIndex(currentQuestionIndex - 1);
                         setNewQuestion(updated[currentQuestionIndex - 1]);
                       }
@@ -2397,11 +2348,11 @@ if (adminId) {
                     className="batch-nav-btn"
                     onClick={() => {
                       if (currentQuestionIndex < batchQuestions.length - 1) {
-                        // 保存当前修改
+                        // save changes
                         const updated = [...batchQuestions];
                         updated[currentQuestionIndex] = newQuestion;
                         setBatchQuestions(updated);
-                        // 切换到下一个
+                        // switch to the next
                         setCurrentQuestionIndex(currentQuestionIndex + 1);
                         setNewQuestion(updated[currentQuestionIndex + 1]);
                       }

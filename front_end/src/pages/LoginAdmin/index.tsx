@@ -8,10 +8,10 @@ import { courseAdmin } from '../../store/coursesAdmin'
 
 export function LoginAdmin() {
   const [adminId, setID] = useState('')
-  const [error, setError] = useState('')     //  补上错误状态
-  const [loading, setLoading] = useState(false) // 可选：加载中状态
+  const [error, setError] = useState('')     
+  const [loading, setLoading] = useState(false)
   const [password, setPassword] = useState('')
-  const handleLogin = async () => {           //  绑定到按钮
+  const handleLogin = async () => {           
       setError('')
       if (!adminId || !password) {
         setError('PLEASE ENTER YOUR ID OR PASSWORD!')
@@ -33,7 +33,7 @@ export function LoginAdmin() {
     }
   return (
     <div className="signup-container theme-admin">
-      {/* 左侧插画面板（Admin 专属插图） */}
+      {/* Left illustration panel (Admin exclusive illustration) */}
       <section className="illustration-panel">
         <div className="illustration-bg" />
         <img className="illustration-image" src={illustration} alt="" />

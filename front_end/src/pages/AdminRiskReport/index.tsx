@@ -96,7 +96,7 @@ export function AdminRiskReport() {
     }
   }, []);
 
-  // 计算Risk tier的函数
+  //  the function of Calculate risk tier
   const calculateRiskTier = (overdueParts: number, consecutiveNotOnTimeDays: number): 'Red' | 'Orange' | 'Yellow' | 'Green' => {
     // Red — overdue_parts ≥ 5 OR consecutive_not_on_time_days > 5
     if (overdueParts >= 5 || consecutiveNotOnTimeDays > 5) {
@@ -117,7 +117,7 @@ export function AdminRiskReport() {
     return 'Yellow';
   };
 
-  // 根据Risk tier获取Suggested Action
+  //Obtain Suggested Actions based on Risk Tier
   const getSuggestedAction = (riskTier: 'Red' | 'Orange' | 'Yellow' | 'Green'): string => {
     switch (riskTier) {
       case 'Red': return '1:1 conversation';
@@ -181,7 +181,7 @@ export function AdminRiskReport() {
     return course?.tasks.find(task => task.id === selectedTask);
   };
 
-  // 风险过滤器切换
+  // Risk filter switching
   const toggleRiskFilter = (tier: string) => {
     setRiskFilter(prev => 
       prev.includes(tier) 
@@ -190,7 +190,7 @@ export function AdminRiskReport() {
     );
   };
 
-  // 获取风险等级颜色
+  // Obtain risk level color
   const getRiskColor = (tier: string) => {
     switch (tier) {
       case 'Red': return '#FF6B6B';
@@ -201,16 +201,16 @@ export function AdminRiskReport() {
     }
   };
 
-  // 过滤和搜索逻辑
+  // Filtering and search logic
   useEffect(() => {
     let result = [...students];
     
-    // 应用风险过滤器
+    // Application risk filter
     if (riskFilter.length > 0 && riskFilter.length < 4) {
       result = result.filter(student => riskFilter.includes(student.riskTier));
     }
     
-    // 应用搜索过滤器
+    // Apply search filters
     if (searchTerm) {
       result = result.filter(student => 
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -218,18 +218,18 @@ export function AdminRiskReport() {
       );
     }
     
-    // 按照指定优先级进行排序
+    // Sort by specified priority
     result.sort((a, b) => {
-      // 第一键：Risk 严重度（Red → Orange → Yellow → Green）
+      // First rule: Risk severity (Red → Orange → Yellow → Green)
       const riskOrder = { 'Red': 0, 'Orange': 1, 'Yellow': 2, 'Green': 3 };
       const riskDiff = riskOrder[a.riskTier] - riskOrder[b.riskTier];
       if (riskDiff !== 0) return riskDiff;
       
-      // 第二键：Overdue Parts 降序（数字大的在前）
+      // Second rule: Overdue Parts descending order (with the largest number first)
       const overdueDiff = b.overdueParts - a.overdueParts;
       if (overdueDiff !== 0) return overdueDiff;
       
-      // 第三键：Student Name A→Z（字母序稳定）
+      // Third rule：Student Name A→Z
       return a.name.localeCompare(b.name);
     });
     
@@ -238,7 +238,7 @@ export function AdminRiskReport() {
 
   return (
     <div key={uid} className="admin-progress-trend-layout">
-      {/* 左侧导航栏 - 与AdminProgressTrend完全一致 */}
+      {/* Left navigation bar - completely consistent with AdminProgressTrend */}
       <aside className="ah-sidebar">
         <div className="ah-profile-card">
           <div className="avatar">
@@ -279,7 +279,7 @@ export function AdminRiskReport() {
         <button className="btn-outline" onClick={handleLogout}>Log Out</button>
       </aside>
 
-      {/* 右侧主内容区域 - 最外侧包裹框 */}
+      {/* Right main content area - outermost wrapping box */}
       <div className="apt-outer-container">
         <main className="apt-main">
           <header className="apt-header">
@@ -302,9 +302,9 @@ export function AdminRiskReport() {
             </div>
           </header>
 
-          {/* 可滚动内容区域 */}
+          {/* Scrollable content area*/}
           <div className="apt-scrollable-content">
-            {/* 过滤器区域 */}
+            {/* Filter area */}
             <section className="apt-filters">
               <div className="progress-filters">
                 <span className="filter-label">Risk Tiers:</span>
@@ -335,7 +335,7 @@ export function AdminRiskReport() {
               </div>
             </section>
 
-            {/* 学生风险表格 */}
+            {/* Student Risk Table */}
             <section className="apt-table-section">
               {filteredStudents.length === 0 ? (
                 <div className="empty-state">
@@ -385,7 +385,7 @@ export function AdminRiskReport() {
               )}
             </section>
 
-            {/* Tips区域 - 基于Figma设计 */}
+            {/* Tips area - designed based on Figma */}
             <section className="apt-tips-section">
               <div className="tips-header">
                 <h3>Tips:</h3>

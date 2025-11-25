@@ -35,9 +35,9 @@ export function StudentCourses() {
     }
   })();
 
-  // 如果没登录或无用户数据
+
   if (!uid || !user) {
-    return null; // 或者直接 window.location.hash = '#/signup';
+    return null; 
   }
   const [q, setQ] = useState('')
   const [v, setV] = useState(0)
@@ -53,21 +53,6 @@ export function StudentCourses() {
   const [unreadMessageCount, setUnreadMessageCount] = useState(0)
   useUnreadMessagePolling(setUnreadMessageCount);
 
-  // 页面加载时获取未读消息数量
-  //有轮询删掉首次访问
-  // useEffect(() => {
-  //   const loadUnreadMessageCount = async () => {
-  //     try {
-  //       const messages = await apiService.getMessages();
-  //       const unreadCount = messages.filter(msg => !msg.isRead).length;
-  //       setUnreadMessageCount(unreadCount);
-  //     } catch (error) {
-  //       console.error('加载未读消息数量失败:', error);
-  //     }
-  //   };
-
-  //   loadUnreadMessageCount();
-  // }, []);
 useEffect(() => {
   coursesStore.ensureLoaded();
 }, []);

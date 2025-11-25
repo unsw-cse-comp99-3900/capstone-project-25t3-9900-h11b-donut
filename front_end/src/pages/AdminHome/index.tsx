@@ -15,7 +15,6 @@ import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import { courseAdmin } from '../../store/coursesAdmin';
 
 
-// 图片映射 - 循环使用4张图片
 const adminIllustrations = [
   illustrationAdmin,
   illustrationAdmin2, 
@@ -33,7 +32,7 @@ export function AdminHome() {
     catch { return null; }
   });
   
-  //4个数量展示
+  //4 data to show(for admin to manage course/students)
   const [stats, setStats] = useState({
       totalCourses: 0,
       totalStudents: 0,
@@ -41,7 +40,7 @@ export function AdminHome() {
       atRiskStudents: 0
     })
   
-  //展示创建的课程 
+  //show created course
   const [createdCourses, setCreatedCourses] = useState<Array<{
   id: string;
   title: string;
@@ -76,12 +75,12 @@ export function AdminHome() {
   });
 
     (async () => {
-    await courseAdmin.getMyCourses();     // 先等课程
-    await courseAdmin.getMyTasks();       // 再拉任务
-    await courseAdmin.getMyMaterials();   // 再拉材料
-    await courseAdmin.getMyQuestions();   // 再拉question
+    await courseAdmin.getMyCourses();     // 1.get course
+    await courseAdmin.getMyTasks();       // 2.get task
+    await courseAdmin.getMyMaterials();   // 3.get material
+    await courseAdmin.getMyQuestions();   // 4.get question bank
   })();
-    // 监听localStorage变化来更新课程数据
+    // monitor localstorage
     const handleStorageChange = () => {
       try {
         const adminId = localStorage.getItem('current_user_id');
@@ -98,10 +97,9 @@ export function AdminHome() {
       }
     };
 
-    // 添加storage事件监听器
     window.addEventListener('storage', handleStorageChange);
 
-    // 更新统计数据
+    // update data
     const totalCreatedCourses = createdCourses.length;
     
     const totalStudents = createdCourses.reduce(
@@ -112,7 +110,7 @@ export function AdminHome() {
 
     let totalTasks = 0;
     const adminId = localStorage.getItem('current_user_id');
-    // 直接读取总任务数
+    // number of total tasks
     const savedTotal = localStorage.getItem(`admin:${adminId}:tasks_total_count`);
     if (savedTotal) {
       totalTasks = Number(savedTotal);
@@ -143,7 +141,7 @@ export function AdminHome() {
   }
   }, [uid]);
 
-  // 监听createdCourses变化，实时更新统计数据
+  // monitor createdCourses and update in real time
   useEffect(() => {
     setStats(prev => ({
       ...prev,
@@ -151,25 +149,25 @@ export function AdminHome() {
     }));
   }, [createdCourses]);
 
-  // 统计Risk Student数量（橙色和红色学生）
+  // Count the number of Risk Students (orange and red students)
   useEffect(() => {
     const calculateRiskStudents = () => {
       try {
-        // 从localStorage获取所有课程的风险学生数据
+        // Retrieve risk student data for all courses from localStorage
         const adminId = localStorage.getItem('current_user_id');
         if (!adminId) return 0;
 
-        // 获取管理员创建的所有课程
+        // Get all courses created by the administrator
         const savedCourses = localStorage.getItem(`admin:${adminId}:courses`);
         if (!savedCourses) return 0;
 
         const courses = JSON.parse(savedCourses);
         let totalRiskStudents = 0;
 
-        // 遍历所有课程，统计风险学生
+        // Traverse all courses and count students at risk
         courses.forEach((course: any) => {
           if (course.students && Array.isArray(course.students)) {
-            // 统计橙色和红色的学生
+
             const riskStudents = course.students.filter((student: any) => 
               student.riskTier === 'Orange' || student.riskTier === 'Red'
             );
@@ -184,7 +182,7 @@ export function AdminHome() {
       }
     };
 
-    // 更新统计数据
+    //update data
     setStats(prev => ({
       ...prev,
       atRiskStudents: calculateRiskStudents()
@@ -253,7 +251,7 @@ export function AdminHome() {
           </div>
         </header>
 
-        {/* 统计卡片区域 */}
+        {/*  */}
         <section className="ah-stats-section">
           <div className="stats-grid">
             <div className="stat-card">
@@ -275,7 +273,7 @@ export function AdminHome() {
           </div>
         </section>
 
-        {/* 课程区域 */}
+        {/*  */}
         <section className="ah-courses-section">
           <div className="section-title">Courses <span aria-hidden>😉</span></div>
 
@@ -322,7 +320,7 @@ export function AdminHome() {
   )
 }
 
-/* 管理员主页样式 - 紫色主题 */
+/* Administrator homepage style - purple theme */
 const css = `
 :root{
   --ah-border: #EAEAEA;

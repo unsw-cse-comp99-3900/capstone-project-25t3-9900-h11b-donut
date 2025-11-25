@@ -11,15 +11,15 @@ import { aiChatService, type ChatMessage, type PracticeReadyMessage, type ChatMe
 import { PracticeSession } from '../PracticeSession'
 
 /** ChatWindow
- *  - 左侧：完全复用 StudentHome 的侧栏结构（用户卡/导航/AI卡/登出按钮）
- *  - 右侧：按设计图构建居中内容与输入框
- *  - 仅前端静态样式与交互占位，不接后端（遵循规则：数据走 API，现为占位）
+*- Left side: Fully reusing the sidebar structure of StudentHome (user card/navigation/AI card/logout button)
+*- Right side: Build centered content and input box according to the design drawing
+*- Only the front-end static style and interaction occupy space, without connecting to the back-end (following the rule: data goes through API, currently occupying space)
  */
 export function ChatWindow() {
   const uid = localStorage.getItem('current_user_id') || ''
   
-  // 调试：显示当前用户信息
-  console.log('🔍 ChatWindow初始化 - 用户信息:', {
+
+  console.log('🔍 ChatWindow initialization - user info:', {
     uid,
     localStorage_current_user_id: localStorage.getItem('current_user_id'),
     auth_token: localStorage.getItem('auth_token') ? 'exists' : 'missing',
@@ -32,7 +32,7 @@ export function ChatWindow() {
   })
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   
-  // 聊天状态管理
+  // Chat status management
   const [showChat, setShowChat] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessageWithPractice[]>([])
   const [currentInput, setCurrentInput] = useState('')
@@ -41,59 +41,59 @@ export function ChatWindow() {
   const messagesRef = useRef<HTMLDivElement | null>(null)
   const [practiceOpen, setPracticeOpen] = useState(false)
   const [practiceStage, setPracticeStage] = useState<'intro' | 'quiz'>('intro')
-  // 如果 sessionId 存在，使用真正的 PracticeSession 组件在弹窗内呈现
+  // If the session ID exists, use the real PracticeSession component to present it in the pop-up window
   const [practiceSessionInfo, setPracticeSessionInfo] = useState<{course:string; topic:string; sessionId:string} | null>(null)
   const [showLoadHistory, setShowLoadHistory] = useState(false)
-  const [hasLoadedHistory, setHasLoadedHistory] = useState(false) // 标记是否已加载过历史
-  // 新增：聊天模式指示（根据AI回复的intent）
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false) // Has the tag been loaded with history
+  // New: Chat mode indication (based on AI reply intent)
   const [chatMode, setChatMode] = useState<'general_chat' | 'study_plan_qna' | 'practice_setup' | 'general'>('general')
-  // 新增：练习生成状态管理
+  // New: Practice Generating Status Management
   const [isGeneratingPractice, setIsGeneratingPractice] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [pendingPractice, setPendingPractice] = useState<{course: string, topic: string} | null>(null)
   
-  // 新增：记录每个 session 的提交状态（sessionId -> 是否已提交）
+  // New: Record the submission status of each session (sessionId ->whether submitted)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [submittedSessions, setSubmittedSessions] = useState<Set<string>>(new Set())
   
-  // 练习相关状态
+  // Practice related states
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [quizIndex, setQuizIndex] = useState(0)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [answers, setAnswers] = useState<(number | string | null)[]>(Array(5).fill(null))
   
-  // 幂等保护ref，防止StrictMode下副作用重复执行
+
   const initializedRef = useRef(false)
 
-  // 定义 startPracticeSession 函数（使用 useCallback 确保稳定引用）
+  // Define the startPracticeSession function (using usecallbacks to ensure stable references)
   const handleStartPracticeSession = useCallback((course?: string, topic?: string, sessionId?: string) => {
-    console.log('🎯🎯🎯 [handleStartPracticeSession] 被调用 🎯🎯🎯');
-    console.log('📋 参数类型:', { 
+    console.log('🎯🎯🎯 [handleStartPracticeSession] is called 🎯🎯🎯');
+    console.log('📋 parameter type:', { 
       course: typeof course, 
       topic: typeof topic, 
       sessionId: typeof sessionId 
     });
-    console.log('📋 参数值:', { course, topic, sessionId });
+    console.log('📋 parameter:', { course, topic, sessionId });
     
     if (course && topic && sessionId) {
-      console.log('✅ 参数完整，设置状态');
+      console.log('✅ Complete parameters, set status');
       
       const sessionInfo = { course, topic, sessionId };
-      console.log('📦 即将设置的 sessionInfo:', sessionInfo);
+      console.log('📦 Upcoming session information:', sessionInfo);
       
-      // 直接设置状态
+      // Directly set the status
       setPracticeSessionInfo(sessionInfo);
       setPracticeStage('quiz');
       setPracticeOpen(true);
       
-      console.log('🚀 状态设置命令已发出');
+      console.log('🚀 The status setting command has been issued');
     } else {
-      console.error('❌ 缺少必要的练习参数:', { course, topic, sessionId });
+      console.error('❌ Lack of necessary practice parameters:', { course, topic, sessionId });
       alert('Unable to start practice session. Please try generating a new practice set.');
     }
-  }, []); // 空依赖数组，因为我们使用的是 setState 函数（它们是稳定的）
+  }, []); 
 
-  // 辅助函数：创建默认消息
+  // Auxiliary function: Create default message
   const createFallbackMessage = (content: string): ChatMessage => ({
     id: Date.now(),
     type: 'ai',
@@ -101,9 +101,9 @@ export function ChatWindow() {
     timestamp: new Date().toISOString()
   })
 
-  // 新增：调用练习生成API
+  // New: Call the exercise generation API
   const generatePracticeQuestions = async (course: string, topic: string, numQuestions?: number, difficulty?: string) => {
-    console.log('🎯 开始生成练习题目:', { course, topic, numQuestions, difficulty })
+    console.log('🎯 Start generating exercise questions:', { course, topic, numQuestions, difficulty })
     
     try {
       const response = await fetch('/api/ai/generate-practice/', {
@@ -122,19 +122,18 @@ export function ChatWindow() {
       })
 
       const data = await response.json()
-      console.log('📡 练习生成API响应:', data)
+      console.log('📡 Practice generating API responses:', data)
 
       if (data.success) {
-        // 🔥 生成成功后，从后端获取最新的练习就绪消息，而不是前端自己创建
-        // 等待一小段时间确保后端消息已保存
+
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // 获取最新的历史消息（只获取最后1条）
+        // Get the latest historical news (only get the last one)
         const historyResponse = await aiChatService.getChatHistory(1);
         if (historyResponse.success && historyResponse.messages.length > 0) {
           const latestMessage = historyResponse.messages[0];
           
-          // 转换为 PracticeReadyMessage 格式
+          // Convert to PracticeReadyMessage format
           const practiceReadyMessage: PracticeReadyMessage = latestMessage.metadata?.messageType === 'practice_ready' && latestMessage.metadata?.practiceInfo ? {
             ...latestMessage,
             messageType: 'practice_ready' as const,
@@ -156,7 +155,7 @@ export function ChatWindow() {
           setChatMessages(prev => [...prev, practiceReadyMessage]);
         }
       } else {
-        // 生成失败，显示错误消息
+        // Generation failed with error message displayed
         const errorMessage: ChatMessage = {
           id: Date.now() + 1,
           type: 'ai',
@@ -177,9 +176,9 @@ export function ChatWindow() {
         setChatMessages(prev => [...prev, errorMessage])
       }
     } catch (error) {
-      console.error('❌ 生成练习题目失败:', error)
+      console.error('❌ Failed to generate exercise questions:', error)
       
-      // 网络错误，显示错误消息
+      // Network error, displaying error message
       const errorMessage: ChatMessage = {
         id: Date.now() + 1,
         type: 'ai',
@@ -210,61 +209,60 @@ export function ChatWindow() {
       catch { setUser(null) }
     } else setUser(null)
 
-    // 与 StudentHome 一致：确保周计划预加载（不影响本页 UI）
+
     preferencesStore.loadWeeklyPlans?.()
   }, [uid])
 
-  // 设置全局函数（独立的 useEffect，不影响初始化）
+  // Set global functions
   useEffect(() => {
-    // 🔥 关键修复：立即赋值全局函数，确保按钮点击时可用
+    // 🔥 Key fix: Immediately assign global functions to ensure button usability when clicked
     (window as any).startPracticeSession = handleStartPracticeSession;
     (window as any).openPracticeModal = (course: string, topic: string, sessionId: string) => {
       handleStartPracticeSession(course, topic, sessionId);
     };
-    console.log('✅ 全局 startPracticeSession 函数已定义');
-    console.log('🔍 测试调用 window.startPracticeSession:', typeof (window as any).startPracticeSession);
+    console.log('✅ The global startPracticeSession function has been defined');
+    console.log('🔍 Test call window.startPracticeSession:', typeof (window as any).startPracticeSession);
     
-    // 添加事件监听器处理练习按钮点击
+    // Click on the button to add event listener and handle practice exercises
     const handlePracticeEvent = (event: CustomEvent) => {
-      console.log('🎯 收到练习事件:', event.detail);
+      console.log('🎯 Received practice event:', event.detail);
       const { course, topic, sessionId } = event.detail;
       handleStartPracticeSession(course, topic, sessionId);
     };
     
     window.addEventListener('openPractice', handlePracticeEvent as EventListener);
     
-    // 清理函数
     return () => {
       window.removeEventListener('openPractice', handlePracticeEvent as EventListener);
     };
   }, [handleStartPracticeSession]);
 
-  // 初始化AI服务和对话状态管理
+  // Initialize AI services and manage dialogue states
   useEffect(() => {
     if (initializedRef.current) return
     initializedRef.current = true
 
     const initializeAI = async () => {
-      console.log('🚀 初始化 AI 聊天窗口', { uid })
+      console.log('🚀 Initialize AI chat window', { uid })
 
       if (!uid) {
-        console.log('⚠️ 没有用户ID，跳过初始化')
+        console.log('⚠️ No user ID, skip initialization')
         return
       }
 
       const healthy = await aiChatService.healthCheck()
       setIsAiHealthy(healthy)
       if (!healthy) {
-        console.log('⚠️ AI 服务不可用')
+        console.log('⚠️ AI Service unavailable')
         return
       }
 
-      // 检查是否是本次登录后第一次进入chat页面
+      // Check if it is the first time entering the chat page after logging in this time
       const loginTime = localStorage.getItem('login_time')
       const chatSessionKey = `chat_visited_${uid}_${loginTime}`
       const hasVisitedChatThisLogin = sessionStorage.getItem(chatSessionKey)
       
-      console.log('🔍 检查聊天访问状态:', {
+      console.log('🔍 Check chat access status:', {
         uid,
         loginTime,
         chatSessionKey,
@@ -273,37 +271,35 @@ export function ChatWindow() {
       })
       
       if (!hasVisitedChatThisLogin) {
-        // 首次进入：显示问候消息，并显示Load History按钮
-        console.log('✅ 首次进入chat页面，发送问候消息')
+        //First entry: Display a greeting message and show the Load History button
+        console.log('✅ First time entering the chat page, send a greeting message')
         sessionStorage.setItem(chatSessionKey, 'true')
         
-        // 清空之前的聊天消息，确保只显示问候消息
+        // Clear previous chat messages and ensure that only greeting messages are displayed
         setChatMessages([])
         setHasLoadedHistory(false)
-        // 🔥 立即设置 showLoadHistory 为 true，不要等到异步操作完成
+        // Set showLoadHistory to true immediately, do not wait for asynchronous operations to complete
         setShowLoadHistory(true)
         
-        console.log('📝 设置初始状态: showLoadHistory=true, hasLoadedHistory=false')
+        console.log('📝 Set initial state: showLoadHistory=true, hasLoadedHistory=false')
         
-        // 防止重复发送问候消息
+        // Prevent duplicate sending of greeting messages
         setTimeout(async () => {
-          // 再次检查是否已经有消息了（防止竞态条件）
           const currentMessages = JSON.parse(sessionStorage.getItem(`chat_state_${uid}`) || '{}').messages || [];
           if (currentMessages.length === 0) {
             await sendWelcomeMessage();
-            console.log('✅ 问候消息发送完成');
+            console.log('✅ Greetings message sent completed');
           }
         }, 100);
       } else {
-        // 非首次进入：尝试恢复之前的状态
-        console.log('🔄 非首次进入，恢复之前的聊天状态')
+        console.log('🔄 Not the first time entering, restore the previous chat status')
         const savedState = sessionStorage.getItem(`chat_state_${uid}`)
-        console.log('💾 保存的状态:', savedState)
+        console.log('💾 Saved state:', savedState)
         
         if (savedState) {
           try {
             const { messages, hasLoadedHistory: savedHasLoadedHistory, showLoadHistory: savedShowLoadHistory } = JSON.parse(savedState)
-            console.log('📋 恢复状态:', { 
+            console.log('📋 recover state:', { 
               messagesCount: messages?.length || 0, 
               savedHasLoadedHistory,
               savedShowLoadHistory,
@@ -311,25 +307,25 @@ export function ChatWindow() {
             })
             setChatMessages(messages || [])
             setHasLoadedHistory(savedHasLoadedHistory || false)
-            // 优先使用保存的 showLoadHistory，如果没有则根据 hasLoadedHistory 判断
+            //Prioritize using the saved showLoadHistory, if not available, determine based on hasLoadedHistory
             const shouldShowButton = savedShowLoadHistory !== undefined ? savedShowLoadHistory : !savedHasLoadedHistory
             setShowLoadHistory(shouldShowButton)
-            console.log('🔘 Load History按钮状态:', shouldShowButton)
+            console.log('🔘 Load History button status:', shouldShowButton)
           } catch (error) {
-            console.error('❌ 恢复聊天状态失败:', error)
-            // 如果恢复失败，回退到发送问候消息
+            console.error('❌ Failed to restore chat status:', error)
+            //If the recovery fails, go back to sending a greeting message
             setChatMessages([])
             setHasLoadedHistory(false)
             await sendWelcomeMessage()
-            setShowLoadHistory(true) // 🔥 确保按钮显示
+            setShowLoadHistory(true) 
           }
         } else {
-          // 没有保存的状态，发送问候消息
-          console.log('📝 没有保存的状态，发送问候消息')
+          //Sending a greeting message without saving status
+          console.log('📝 Sending a greeting message without saving status')
           setChatMessages([])
           setHasLoadedHistory(false)
           await sendWelcomeMessage()
-          setShowLoadHistory(true) // 🔥 确保按钮显示
+          setShowLoadHistory(true)
         }
       }
 
@@ -338,9 +334,9 @@ export function ChatWindow() {
 
     initializeAI()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid]) // 只依赖 uid，避免重复初始化
+  }, [uid]) 
 
-  // 发送欢迎消息的函数（首次进入）
+
   const sendWelcomeMessage = async () => {
     setIsLoading(true)
     try {
@@ -364,7 +360,7 @@ export function ChatWindow() {
     }
   }
 
-  // 保存聊天状态到sessionStorage
+  // Save chat status to session storage
   const saveChatState = () => {
     if (uid) {
       const stateToSave = {
@@ -374,7 +370,7 @@ export function ChatWindow() {
       }
       sessionStorage.setItem(`chat_state_${uid}`, JSON.stringify(stateToSave))
       
-      console.log('💾 聊天状态已保存:', {
+      console.log('💾 Chat status saved:', {
         messagesCount: chatMessages.length,
         hasLoadedHistory,
         showLoadHistory
@@ -382,21 +378,18 @@ export function ChatWindow() {
     }
   }
 
-  // 处理练习按钮点击
+  // Click on the exercise button for processing
   const handlePracticeButtonClick = (topic: string) => {
-    console.log('🎯 点击练习按钮，主题:', topic);
+    console.log('🎯 Click the practice button, topic:', topic);
     
-    // 打开练习窗口
     setPracticeStage('intro');
     setQuizIndex(0);
-    setAnswers(Array(5).fill(null)); // 假设5道题
+    setAnswers(Array(5).fill(null)); // Assuming 5 questions
     setPracticeOpen(true);
-    
-    // 如果需要，可以调用AI生成题目
-    // generatePracticeQuestions(topic);
+
   };
 
-  // 获取CSRF Token的辅助函数
+  // Auxiliary function for obtaining CSRF Token
   const getCsrfToken = (): string => {
     const name = 'csrftoken';
     let cookieValue = '';
@@ -413,12 +406,10 @@ export function ChatWindow() {
     return cookieValue;
   };
 
-  // 格式化消息内容，确保正确的段落和列表格式
-
-
-  // 当聊天消息或历史加载状态改变时，保存状态
+//Format message content to ensure correct paragraph and list formatting
+//When the chat message or historical loading status changes, save the status
   useEffect(() => {
-    // 即使消息为空，也保存状态（因为 showLoadHistory 状态很重要）
+    //Even if the message is empty, save the state (because the showLoadHistory state is important)
     if (uid && showChat) {
       saveChatState()
     }
@@ -432,59 +423,54 @@ export function ChatWindow() {
 
   const confirmLogout = async () => {
     try {
-      // 调用后端 /api/auth/logout
-      // await apiService.logout();
 
-      // ✅ 清除所有状态数据
       localStorage.removeItem('auth_token');
       localStorage.removeItem('login_time');
       localStorage.removeItem('current_user_id');
       localStorage.removeItem('ai_chat_session_started');
-      
-      // 清除所有用户相关的localStorage数据
+
       if (uid) {
         localStorage.removeItem(`u:${uid}:user`);
         localStorage.removeItem(`u:${uid}:weekly_plans`);
       }
-      
-      // 清除sessionStorage中的聊天状态
+
       sessionStorage.clear();
 
       console.log('User logged out');
-      window.location.hash = '#/login-student'; // 跳回登录页
+      window.location.hash = '#/login-student'; 
     } catch (e) {
       console.error('Logout failed:', e);
     } finally {
-      setLogoutModalOpen(false); // 关闭弹窗
+      setLogoutModalOpen(false); 
     }
   };
 
   const goBack = () => {
-    // 简单返回上一页，若无历史则回 Home
+
     if (window.history.length > 1) window.history.back()
     else window.location.hash = '#/student-home'
   }
 
   const loadHistoryMessages = async () => {
-    console.log('📜 开始加载历史消息')
+    console.log('📜 Start loading historical messages')
     const currentUserId = localStorage.getItem('current_user_id')
-    console.log('🔍 当前用户ID:', currentUserId)
-    console.log('🔍 uid变量:', uid)
+    console.log('🔍 Current user ID:', currentUserId)
+    console.log('🔍 UID variable:', uid)
     setIsLoading(true)
     try {
-      // 不指定days参数，让后端根据消息数量自动决定加载多少天的历史
+      // Do not specify the days parameter, let the backend automatically determine how many days of history to load based on the number of messages
       const historyResponse = await aiChatService.getChatHistory(200)
-      console.log('📡 历史消息响应:', { 
+      console.log('📡 Historical message response:', { 
         success: historyResponse.success, 
         messageCount: historyResponse.messages?.length || 0,
         userId: currentUserId
       })
       
       if (historyResponse.success && historyResponse.messages.length > 0) {
-        // 获取历史消息并排序
+        // Retrieve historical messages and sort them
         const historyMessages = historyResponse.messages
           .map(msg => {
-            // 🔥 如果消息的 metadata 中包含 practice_ready 信息，转换为 PracticeReadyMessage
+            //  If the metadata of the message contains practice_ready information, convert it to PracticeReadyMessage
             if (msg.metadata?.messageType === 'practice_ready' && msg.metadata?.practiceInfo) {
               return {
                 ...msg,
@@ -496,42 +482,41 @@ export function ChatWindow() {
           })
           .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-        console.log('📋 处理后的历史消息:', historyMessages.map(m => ({
+        console.log('📋 Processed historical messages:', historyMessages.map(m => ({
           id: m.id,
           type: m.type,
           messageType: (m as any).messageType,
           hasPracticeInfo: !!(m as any).practiceInfo
         })));
 
-        // 合并历史消息和当前会话的消息，允许内容重复（只要不是同一条消息）
+        // Merge historical messages and current session messages, allowing for duplicate content (as long as they are not the same message)
         setChatMessages(prev => {
-          // 创建消息ID的Set来去重（只去重完全相同的消息ID）
+
           const existingIds = new Set(prev.map(msg => msg.id));
           const newHistoryMessages = historyMessages.filter(msg => !existingIds.has(msg.id));
           
-          // 合并并按时间排序
+          // Merge and sort by time
           const allMessages = [...prev, ...newHistoryMessages].sort((a, b) =>
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
           
           return allMessages;
         });
         
-        setHasLoadedHistory(true) // 标记已加载历史
-        setShowLoadHistory(false) // 隐藏加载历史按钮
-        console.log('✅ 历史消息已合并，保留当前会话消息')
+        setHasLoadedHistory(true) 
+        setShowLoadHistory(false) 
+        console.log('✅ Historical messages have been merged, keep current session messages')
       } else {
-        console.log('⚠️ 没有历史消息，隐藏加载按钮')
+        console.log('⚠️ No historical messages, hide loading button')
         setShowLoadHistory(false)
       }
     } catch (error) {
-      console.error('❌ 加载历史消息失败:', error)
+      console.error('❌ Failed to load historical messages:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
-  // 占位题库（前端 mock，不接后端）- 包含选择题和简答题
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const quizQuestions = [
     {
       type: 'multiple-choice' as const,
@@ -567,9 +552,7 @@ export function ChatWindow() {
     setCurrentInput('')
     setIsLoading(true)
     setShowChat(true)
-    // 发送消息时不改变Load History按钮状态，保持用户的选择
-    
-    // 先添加一个临时的用户消息（使用临时ID）
+
     const tempUserMessage: ChatMessage = {
       id: Date.now(),
       type: 'user',
@@ -580,9 +563,9 @@ export function ChatWindow() {
     setChatMessages(prev => [...prev, tempUserMessage])
     
     try {
-      // 发送消息到AI服务 - 现在会根据用户的具体内容进行智能回复
+      // Sending messages to AI services - now intelligently responding based on the user's specific content
       const currentUserId = localStorage.getItem('current_user_id')
-      console.log('🚀 发送消息:', { 
+      console.log('🚀 send msg:', { 
         userInput, 
         currentUserId, 
         uid,
@@ -591,11 +574,10 @@ export function ChatWindow() {
         all_localStorage: Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)]))
       })
       
-      // 如果没有用户ID，这是一个严重问题，不应该设置随机ID
       if (!currentUserId) {
-        console.error('❌ 严重错误：没有找到用户ID！')
-        console.error('localStorage内容:', Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])))
-        alert('用户未登录或登录信息丢失，请重新登录')
+        console.error('❌ Serious error: User ID not found！')
+        console.error('localStorage content:', Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])))
+        alert('User not logged in or login information lost, please log in again')
         window.location.hash = '/login-student'
         return
       }
@@ -603,7 +585,7 @@ export function ChatWindow() {
       const response = await aiChatService.sendMessage(userInput)
       
       if (response.success && response.ai_response) {
-        // 更新用户消息为后端返回的真实消息，然后添加AI回复
+        // Update user messages to the actual messages returned by the backend, and then add AI replies
         const realUserMessage: ChatMessage = response.user_message ? {
           id: response.user_message.id,
           type: 'user',
@@ -619,25 +601,22 @@ export function ChatWindow() {
           metadata: response.ai_response.metadata
         }
         
-        // 更新模式徽章
+        // Update mode badge
         const intent = (response.ai_response as any)?.metadata?.intent as string | undefined
         if (intent === 'practice') setChatMode('practice_setup')
         else if (intent === 'explain_plan' || intent === 'task_help') setChatMode('study_plan_qna')
         else if (intent === 'greeting' || intent === 'general') setChatMode('general_chat')
         else setChatMode('general')
 
-        // 替换临时用户消息为真实消息,并添加AI回复
+        // Replace temporary user messages with real messages and add AI replies
         setChatMessages(prev => {
-          const withoutTemp = prev.slice(0, -1); // 移除临时用户消息
+          const withoutTemp = prev.slice(0, -1); // Remove temporary user messages
           return [...withoutTemp, realUserMessage, aiReply];
         });
 
-        // 检测是否是"正在生成"消息，如果是则触发练习生成
+        // Check if it is a 'generating' message, if so, trigger practice generation
         if (aiReply.content.includes('I\'m now generating')) {
-          console.log('🎯 检测到"正在生成"消息，开始练习生成流程')
-          
-          // 从AI回复中提取课程、主题、数量和难度
-          // 格式: "I'm now generating {num} {difficulty} questions for {course} – {topic}."
+         
           const practiceMatch = aiReply.content.match(/I'm now generating\s+(\d+)\s+(easy|medium|hard)\s+questions for\s+([A-Z]{4}\d{4})\s*–\s*([^\.]+)/i);
           if (practiceMatch) {
             const numQuestions = parseInt(practiceMatch[1]);
@@ -645,21 +624,21 @@ export function ChatWindow() {
             const mentionedCourse = practiceMatch[3].trim();
             const mentionedTopic = practiceMatch[4].trim();
             
-            console.log('📋 从AI回复中提取到练习参数:', { 
+            console.log('📋 Extract exercise parameters from AI responses:', { 
               course: mentionedCourse, 
               topic: mentionedTopic,
               numQuestions,
               difficulty
             })
             
-            // 设置生成状态
+            // Set generation status
             setIsGeneratingPractice(true)
             setPendingPractice({ course: mentionedCourse, topic: mentionedTopic })
             
-            // 调用练习生成API，传递所有参数
+            // Call the exercise to generate API and pass all parameters
             generatePracticeQuestions(mentionedCourse, mentionedTopic, numQuestions, difficulty)
           } else {
-            console.error('❌ 无法从AI回复中提取练习参数:', aiReply.content)
+            console.error('❌ Unable to extract exercise parameters from AI replies:', aiReply.content)
           }
         }
       } else {
@@ -669,8 +648,8 @@ export function ChatWindow() {
         ])
       }
       
-      // 不再自动同步后端数据，避免覆盖新消息
-      // 用户可以通过"Load History"按钮手动加载历史消息
+  //No longer automatically synchronize backend data to avoid overwriting new messages
+//Users can manually load historical messages through the 'Load History' button
       
     } catch (error) {
       console.error('Error sending message:', error)
@@ -711,7 +690,7 @@ export function ChatWindow() {
     }, 50)
   }
 
-  // 新消息出现时自动滚动到底部
+  //Automatically scroll to the bottom when new messages appear
   useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight
@@ -905,31 +884,31 @@ export function ChatWindow() {
               ×
             </button>
             {(() => {
-              console.log('🔍 [弹窗渲染] practiceSessionInfo:', practiceSessionInfo);
-              console.log('🔍 [弹窗渲染] practiceStage:', practiceStage);
+              console.log('🔍 [Pop up rendering] practiceSessionInfo:', practiceSessionInfo);
+              console.log('🔍 [Pop up rendering] practiceStage:', practiceStage);
               return null;
             })()}
             {practiceSessionInfo ? (
-              // 嵌入真实的 PracticeSession 页面（会直接从后端拉题）
+              // Embed a real PracticeSession page (which will directly pull questions from the backend)
               <div style={{textAlign:'left', margin: '-18px -18px -14px'}}>
                 <PracticeSession 
                   course={practiceSessionInfo.course} 
                   topic={practiceSessionInfo.topic} 
                   sessionId={practiceSessionInfo.sessionId}
                   onSubmitSuccess={(sessionId) => {
-                    // 记录该 session 已提交
+                    // Record that the session has been submitted
                     setSubmittedSessions(prev => new Set(prev).add(sessionId));
-                    console.log('✅ Session 已提交:', sessionId);
+                    console.log('✅ Session submitted:', sessionId);
                   }}
                   onClose={() => {
                     // 关闭弹窗
                     setPracticeOpen(false);
-                    console.log('🔒 练习弹窗已关闭');
+                    console.log('🔒 close window');
                   }}
                 />
               </div>
             ) : (
-              // 没有 sessionId 时显示错误提示
+              // Display error message when there is no session ID
               <div style={{padding: '40px 20px', textAlign: 'center'}}>
                 <div style={{fontSize: 18, fontWeight: 700, color: '#172239', marginBottom: 12}}>
                   ⚠️ No Practice Session Available

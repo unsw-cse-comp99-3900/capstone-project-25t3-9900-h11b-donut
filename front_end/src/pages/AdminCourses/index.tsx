@@ -13,7 +13,7 @@ import illustrationAdmin4 from '../../assets/images/illustration-admin4.png'
 import apiService from '../../services/api'
 import { courseAdmin } from '../../store/coursesAdmin'
 
-// 图片映射 - 循环使用4张图片
+
 const adminIllustrations = [
   illustrationAdmin,
   illustrationAdmin2, 
@@ -47,7 +47,7 @@ export function AdminCourses() {
   }
 });
 
-  // 删除课程函数
+  // delete course
   const handleDeleteCourse = async(courseId: string) => {
     const snapshot = createdCourses;
 
@@ -62,7 +62,7 @@ export function AdminCourses() {
     try {
     await apiService.adminDeleteCourse(courseId); 
     } catch (e) {
-      // 失败回滚
+      // fallback
       setCreatedCourses(snapshot);
       const adminId = localStorage.getItem('current_user_id');
       if (adminId) {
@@ -80,7 +80,7 @@ export function AdminCourses() {
   });
 
   useEffect(() => {
-    // 切换账号后重读 user
+    // switch account -> reset user
     if (uid) {
       try {
         setUser(JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'));
@@ -123,7 +123,7 @@ export function AdminCourses() {
     setCourseDescription('');
   };
 
-  // Course ID格式化函数 - 前四个字母自动转为大写
+ 
   const formatCourseId = (input: string): string => {
     if (input.length <= 4) {
       return input.toUpperCase();
@@ -131,7 +131,6 @@ export function AdminCourses() {
     return input.substring(0, 4).toUpperCase() + input.substring(4);
   };
 
-  // Course Name格式化函数 - 每个单词首字母大写
   const formatCourseName = (input: string): string => {
     return input
       .split(' ')
@@ -141,15 +140,15 @@ export function AdminCourses() {
 
   const handleSubmitCreateCourse = async() => {
     if (creating) return; 
-    // 验证必填字段
+    // required part
     if (!courseId.trim()) { alert('Please enter Course ID'); return; }
     if (!courseName.trim()) { alert('Please enter Course Name'); return; }
     
-    // 格式化输入数据
+
     const formattedCourseId = formatCourseId(courseId);
     const formattedCourseName = formatCourseName(courseName);
     
-    // 计算图片索引 - 循环使用4张图片
+
     const illustrationIndex = createdCourses.length % 4;
     
     const check = await apiService.adminCheckCourseExists(formattedCourseId);
@@ -160,7 +159,7 @@ export function AdminCourses() {
     }
     const illustrations: Array<'orange' | 'student' | 'admin'> = ['orange', 'student', 'admin'];
     const illustration = illustrations[createdCourses.length % illustrations.length];
-    // 创建新课程
+    // create new course
     const newCourse = {
       id: formattedCourseId,
       title: formattedCourseName,
@@ -171,7 +170,7 @@ export function AdminCourses() {
     const adminId = localStorage.getItem('current_user_id');
     const snapshot = createdCourses;
 
-    // 添加到已创建课程列表并保存到localStorage
+    // store in db/localstorage
    
     try {
     await apiService.adminCreateCourse({
@@ -187,8 +186,8 @@ export function AdminCourses() {
       });
     handleCloseCreateCourseModal();
   } catch (e: any) {
-    // 失败回滚本地
-    alert(`创建失败：${e?.message || 'Please try again'}`);
+    // fallback
+    alert(`fail to create：${e?.message || 'Please try again'}`);
     setCreatedCourses(snapshot);
     if (adminId) localStorage.setItem(`admin:${adminId}:courses`, JSON.stringify(snapshot));
   }
@@ -196,7 +195,7 @@ export function AdminCourses() {
 
   return (
     <div key={uid} className="admin-courses-layout">
-      {/* 左侧导航栏 - 与AdminHome保持一致 */}
+      {/*  */}
       <aside className="ac-sidebar">
         <div className="ac-profile-card">
           <div className="avatar">
@@ -237,7 +236,7 @@ export function AdminCourses() {
         <button className="btn-outline" onClick={handleLogout}>Log Out</button>
       </aside>
 
-      {/* 右侧主内容区域 */}
+      {/**/}
       <main className="ac-main">
         <header className="ac-header">
           <div className="left">
@@ -250,7 +249,7 @@ export function AdminCourses() {
           </div>
         </header>
 
-        {/* 课程内容区域 */}
+        {/* course section */}
         <section className="ac-content">
           {courses.length === 0 && createdCourses.length === 0 ? (
             <div className="empty-state">
@@ -260,7 +259,7 @@ export function AdminCourses() {
             </div>
           ) : (
             <div className="courses-grid">
-              {/* 显示已创建的课程 */}
+              {/* show created courses */}
               {createdCourses.map((course) => (
                 <div key={course.id} className="course-card">
                   <div className="course-thumb">
@@ -304,7 +303,7 @@ export function AdminCourses() {
         cancelText="Cancel"
       />
 
-      {/* 创建课程弹窗 */}
+      {/* */}
       {createCourseModalOpen && (
         <div className="modal-overlay">
           <div className="create-course-modal">
@@ -362,7 +361,7 @@ export function AdminCourses() {
   )
 }
 
-/* Admin My Courses 页面样式 */
+/* Admin My Courses page format */
 const css = `
 :root{
   --ac-border: #EAEAEA;

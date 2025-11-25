@@ -12,8 +12,8 @@ export function SignupAdmin() {
   const [adminId, setAdminId] = useState('')          //  adminId
   const [fullName, setFullName] = useState('')        // fullName
   const [password, setPassword] = useState('')
-  const [error, setError] = useState<string>('')       // 错误消息
-  const [loading, setLoading] = useState<boolean>(false) // 加载状态
+  const [error, setError] = useState<string>('')       // error msg
+  const [loading, setLoading] = useState<boolean>(false) // loading status
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
 
   const handleRegister = async (): Promise<void> => {

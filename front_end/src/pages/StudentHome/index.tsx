@@ -22,7 +22,7 @@ import useUnreadMessagePolling from '../../hooks/useUnreadMessagePolling';
 
 
 function getPlanBasedProgressByDeadlineId(deadlineId: string): number {
-  // 遵循可视范围：仅遍历到“最后一个 deadline 所在周”为止
+  // Follow the visual range: only traverse to the week where the last deadline is located
   const latest = coursesStore.getLatestDeadline();
   const now = new Date();
   const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() || 7) - 1));
@@ -89,7 +89,7 @@ const [user, setUser] = useState<any>(() => {
 });
 useUnreadMessagePolling(setUnreadMessageCount);
   useEffect(() => {
-  //  切换账号后重读 user
+
   if (uid) {
     try {
       setUser(JSON.parse(localStorage.getItem(`u:${uid}:user`) || 'null'));
@@ -100,7 +100,6 @@ useUnreadMessagePolling(setUnreadMessageCount);
     setUser(null);
   }
   if (uid) {
-  //preferencesStore.loadWeeklyPlans?.(uid); // 如果支持传 uid，最好显式传入
   preferencesStore.loadAllPlansSmart(uid); 
 }
   coursesStore.ensureLoaded();
@@ -137,7 +136,7 @@ useUnreadMessagePolling(setUnreadMessageCount);
     setLessons(sortedDeadlines);
   });
 
-  // 订阅计划变化，打勾后立即刷新 Deadlines 显示
+  // Subscription plan changes, check the box and refresh the Deadlines display immediately
   preferencesStore.subscribe?.(() => {
     const parseTime = (dueIn: string) => {
       const isNegative = dueIn.startsWith('-');
@@ -156,35 +155,17 @@ useUnreadMessagePolling(setUnreadMessageCount);
     unsubCourses();
     unsubDeadlines();
   };
-}, [uid]); // ★ 关键：依赖 uid
-  // 每分钟刷新一次，保证倒计时实时更新并按倒计时升序展示
+}, [uid]);
   useEffect(() => {
   if (!uid) return;
 
   if (coursesStore.myCourses.length === 0) {
-    void coursesStore.refreshMyCourses();        //  没数据就拉一次
+    void coursesStore.refreshMyCourses();        
   }
   if (coursesStore.availableCourses.length === 0) {
-    void coursesStore.refreshAvailableCourses(true); //  搜索页依赖的目录也拉
+    void coursesStore.refreshAvailableCourses(true); 
   }
 }, [uid]);
-
-
-  // 页面加载时获取未读消息数量
-  //有轮询删掉首次访问
-  // useEffect(() => {
-  //   const loadUnreadMessageCount = async () => {
-  //     try {
-  //       const messages = await apiService.getMessages();
-  //       const unreadCount = messages.filter(msg => !msg.isRead).length;
-  //       setUnreadMessageCount(unreadCount);
-  //     } catch (error) {
-  //       console.error('Failed to load the number of unread messages:', error);
-  //     }
-  //   };
-
-  //   loadUnreadMessageCount();
-  // }, []);
 
   useEffect(() => {
     const parseTime = (dueIn: string) => {
@@ -201,7 +182,6 @@ useUnreadMessagePolling(setUnreadMessageCount);
       setLessons(sorted);
     };
     const timer = setInterval(refresh, 60 * 1000);
-    // 首次也刷新一次，避免初次静态值
     refresh();
     return () => clearInterval(timer);
   }, [])

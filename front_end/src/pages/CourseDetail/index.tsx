@@ -53,9 +53,8 @@ export function CourseDetail() {
   catch { return null; }
 });
 
-  // 如果必须已登录用户才可访问，则直接拦截
+  // a logged in user is required to access, intercept directly
   if (!uid || !user) {
-    // 也可以返回一个占位 skeleton，或触发跳转
     return null;
   }
 
@@ -65,7 +64,7 @@ export function CourseDetail() {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'material' // 简化文件名，实际项目中可以从material对象获取
+      link.download = 'material'
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -76,54 +75,17 @@ export function CourseDetail() {
     }
   }
 
-  // useEffect(() => {
-  //   coursesStore.ensureLoaded();
-  // }, []);
-  // useEffect(() => {
-  //   // 从 URL 获取课程 ID
-  //   const hash = window.location.hash
-  //   const match = hash.match(/#\/course-detail\/(.+)/)
-  //   if (match) {
-  //     const id = match[1]
-      
-  //     // 查找课程信息
-  //     const foundCourse = coursesStore.availableCourses.find(c => c.id === id)
-  //     setCourse(foundCourse || null)
-      
-  //     // 获取课程详情数据：任务统一从 coursesStore 获取，材料从API获取
-  //     const loadCourseData = async () => {
-  //       try {
-  //         const materials = await apiService.getCourseMaterials(id)
-  //         const data = { 
-  //           tasks: await coursesStore.getCourseTasksAsync(id), 
-  //           materials 
-  //         }
-         
-  //         setDetailData(data)
-  //       } catch (error) {
-  //         console.error('Failed to load materials:', error)
-  //         // 如果API失败，使用空材料列表
-  //         const data = { 
-  //           tasks: await coursesStore.getCourseTasksAsync(id), 
-  //           materials: [] 
-  //         }
-  //         setDetailData(data)
-  //       }
-  //     }
-      
-  //     loadCourseData()
-  //   }
-  // }, [])
+  
   useEffect(() => {
   let mounted = true;
 
   const load = async () => {
-    // 等待课程加载完成
+    // Waiting for the course loading to complete
     await coursesStore.ensureLoaded?.();
 
     if (!mounted) return;
 
-    // 从 hash 里取 id，并解码
+    // Retrieve the ID from the hash and decode it
     const hash = window.location.hash;
     const match = hash.match(/#\/course-detail\/(.+)/);
     const id = match ? decodeURIComponent(match[1]).trim() : "";
