@@ -7,7 +7,6 @@ from django.http import JsonResponse, HttpRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from .models import StudentPreference, StudentPreferenceDefault
-# 导入模块 - Django运行时需要绝对导入，类型检查器偏好相对导入
 try:
     from stu_accounts.models import StudentAccount
     from utils.auth import get_student_id_from_request
@@ -15,7 +14,7 @@ except Exception:  # Fallback when executed from project root context
     from django_backend.stu_accounts.models import StudentAccount  # type: ignore
     from django_backend.utils.auth import get_student_id_from_request  # type: ignore
 
-# 注意：模型注释写的是 0..6 表示 周日..周六
+#  0..6 -> Sun..Sat
 WEEK_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 LABEL_TO_INDEX = {name: i for i, name in enumerate(WEEK_LABELS)}
 
@@ -28,7 +27,7 @@ def labels_to_bitmask(days: Optional[Iterable[Union[str, int]]]) -> int:
                 raise ValueError(f"invalid day label: {d}")
             idx = LABEL_TO_INDEX[d]
         else:
-            # 兼容数字 0..6
+
             idx = int(d)
             if idx < 0 or idx > 6:
                 raise ValueError(f"invalid day index: {d}")
@@ -50,19 +49,19 @@ def _err(msg: str, status: int = 400) -> JsonResponse:
 
 @csrf_exempt
 def preferences_entry(request: HttpRequest):
-    # 1) 鉴权：从 Bearer Token 中解析 student_id
+    
     student_id = get_student_id_from_request(request)
     if not student_id:
         return _err("Unauthorized", 401)
-    # 2) 获取学生
+
     try:
         student = StudentAccount.objects.get(student_id=student_id)
     except StudentAccount.DoesNotExist:
         return _err("Student not found", 404)
 
-    # ---------- GET ----------
+
     if request.method == "GET":
-        # 优先读取 current 表，没有再回落到 default 表
+        # read current first，then default 
         pref = StudentPreference.objects.filter(student=student).first()
         source = "current"
         if not pref:
@@ -86,7 +85,7 @@ def preferences_entry(request: HttpRequest):
     if request.method != "PUT":
         return _err("Method Not Allowed", 405)
 
-    # 3) 解析 JSON
+    # 3) decode JSON
     try:
         body = json.loads((request.body or b"").decode("utf-8") or "{}")
     except Exception:
@@ -98,7 +97,7 @@ def preferences_entry(request: HttpRequest):
     save_as_default   = bool(body.get("saveAsDefault"))
     description       = (body.get("description") or "").strip()
 
-    # 4) 校验（与模型约束一致）
+    # 4) check
     # daily_hours: Decimal(0.25~24)
     try:
         dh = Decimal(str(daily_hours))
@@ -125,15 +124,14 @@ def preferences_entry(request: HttpRequest):
     all_days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     available_days = [d for d in all_days if d not in avoid_days_list]
     if len(available_days) < wsd:
-        # 直接拒绝，不写库
+        # refuse, not store
         return _err(
             f"weeklyStudyDays={wsd} exceeds available days {len(available_days)} after avoidDays={avoid_days_list}",
             400
         )
 
-    # 5) 落库：根据 saveAsDefault 决定写哪张表（默认 or 当前）
+    # 5) write into db：which table to writein base on saveAsDefault 
     try:
-        # 使用 transaction.atomic 作为上下文管理器
         with transaction.atomic():  # pyright: ignore[reportGeneralTypeIssues]
             payload = dict(
                 daily_hours=dh,

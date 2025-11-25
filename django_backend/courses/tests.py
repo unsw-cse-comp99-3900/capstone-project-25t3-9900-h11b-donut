@@ -25,12 +25,12 @@ class CoursesApiTests(TestCase):
         self.assertGreater(len(data.get("data")), 0)
 
     def test_materials_and_download(self):
-        # 列材料
+  
         resp = self.client.get("/api/courses/COMP9900/materials", **self.auth)
         self.assertEqual(resp.status_code, 200)
         mats = resp.json().get("data") or []
         self.assertTrue(isinstance(mats, list))
-        # 下载示例（与 views 中的 material_id 对齐）
+        
         resp2 = self.client.get("/api/materials/comp9900-coach-pdf/download", **self.auth)
-        # 如果组件文件存在则 200，否则 404（两者都被视为接口有效行为）
+       
         self.assertIn(resp2.status_code, (200, 404))

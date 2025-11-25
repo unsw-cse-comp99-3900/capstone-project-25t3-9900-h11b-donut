@@ -17,8 +17,8 @@ from datetime import date, datetime
 from typing import Any, Dict, List
 
 def _require_student(request):
-    """从请求中提取学生ID（支持 Bearer token，与 courses/_require_student 一致）"""
-    # 优先解析 Authorization: Bearer <token>
+    """get stu ID from request"""
+    # decode Authorization: Bearer <token>
     auth = request.headers.get("Authorization", "") or request.META.get("HTTP_AUTHORIZATION", "")
     if auth.startswith("Bearer "):
         token = auth[7:].strip()
@@ -31,11 +31,10 @@ def _require_student(request):
         if sid:
             return sid
     
-    # 回退到 Django 用户
+    # back to  Django user
     if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
         return getattr(request.user, 'username', None)
-    
-    # 回退到自定义头或 session
+    #back to session
     student_id = request.headers.get('X-Student-ID')
     if student_id:
         return student_id
@@ -44,13 +43,12 @@ def _require_student(request):
 @csrf_exempt
 @require_http_methods(["GET", "PUT"])
 def task_progress_detail(request, task_id):
-    """获取或更新特定任务的进度"""
+    """get specific task's progress"""
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     if request.method == "GET":
-        # 获取任务进度
         try:
             row = TaskProgress.objects.filter(student_id=sid, task_id=int(task_id)).first()
             value = row.progress if row else 0
@@ -66,11 +64,11 @@ def task_progress_detail(request, task_id):
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
     elif request.method == "PUT":
-        # 更新任务进度
+        # update the progress bar
         try:
             payload = json.loads(request.body.decode("utf-8"))
             progress = int(payload.get("progress") or 0)
-            progress = max(0, min(100, progress))  # 确保进度在0-100之间
+            progress = max(0, min(100, progress))  # progress between 0-100
             
             TaskProgress.objects.update_or_create(
                 student_id=sid,
@@ -86,13 +84,13 @@ def task_progress_detail(request, task_id):
 @csrf_exempt
 @require_http_methods(["GET"])
 def student_task_progress(request):
-    """获取学生所有任务的进度"""
+    """stu progress"""
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        # 获取该学生的所有任务进度
+        # all tasks of this stu
         progress_list = TaskProgress.objects.filter(student_id=sid)
         data = [
             {
@@ -109,29 +107,29 @@ def student_task_progress(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def course_tasks_progress(request, course_code):
-    """获取学生特定课程下所有任务的进度"""
+    """get stu's courses with all tasks"""
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Authentication required"}, status=401)
 
     try:
-        # 需要导入CourseTask模型来获取课程的任务列表
+        # get the table 
         from courses.models import CourseTask
         
-        # 获取课程的所有任务
+        # get all tasks
         course_tasks = CourseTask.objects.filter(course_code=course_code)
         task_ids = [task.id for task in course_tasks]
         
-        # 获取这些任务的进度
+        # get all progress
         progress_list = TaskProgress.objects.filter(
             student_id=sid, 
             task_id__in=task_ids
         )
         
-        # 构建进度映射
+        # progress projection
         progress_map = {progress.task_id: progress.progress for progress in progress_list}
         
-        # 返回所有任务的进度（包括进度为0的任务）
+        # get all progress 0~100
         data = []
         for task in course_tasks:
             progress = progress_map.get(task.id, 0)
@@ -144,7 +142,7 @@ def course_tasks_progress(request, course_code):
         
         return JsonResponse({"success": True, "data": data})
     except ImportError:
-        # 如果courses应用不可用，返回空列表
+        # no course, return empty list
         return JsonResponse({"success": True, "data": []})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
@@ -155,19 +153,18 @@ def overdue_report_day(request):
     if request.method != "POST":
         return JsonResponse({"ok": False, "error": "POST required"}, status=405)
 
-    # ---------- 解析 JSON ----------
     try:
         payload: Dict[str, Any] = json.loads(request.body.decode("utf-8"))
     except Exception:
         return JsonResponse({"ok": False, "error": "Invalid JSON"}, status=400)
 
-    # ---------- 基本字段 ----------
+
     student_id = payload.get("student_id")
     date_str = payload.get("date")  # 期望: YYYY-MM-DD
     overdue_tasks = payload.get("overdue_tasks", [])  # [{course_code, task_id}, ...]
     is_whole_day_overdue = payload.get("is_whole_day_overdue", False)
 
-    # ---------- 校验 ----------
+
     if not isinstance(student_id, str) or not student_id:
         return JsonResponse({"ok": False, "error": "student_id required"}, status=400)
 
@@ -182,7 +179,7 @@ def overdue_report_day(request):
     if not isinstance(overdue_tasks, list):
         return JsonResponse({"ok": False, "error": "overdue_tasks must be a list"}, status=400)
 
-    # 任务项校验（最小要求）
+
     normalized_tasks: List[Dict[str, str]] = []
     for i, t in enumerate(overdue_tasks):
         if not isinstance(t, dict):
@@ -199,11 +196,11 @@ def overdue_report_day(request):
     if not isinstance(is_whole_day_overdue, bool):
         return JsonResponse({"ok": False, "error": "is_whole_day_overdue must be boolean"}, status=400)
 
-    # ---------- 入库（幂等：先插日志表，成功后再+1） ----------
+
     student_overdue_incremented = False
     task_overdue_incremented_count = 0
 
-    # 1) 整天 overdue（学生维度）
+
     if is_whole_day_overdue:
         try:
             with transaction.atomic():
@@ -218,11 +215,10 @@ def overdue_report_day(request):
                     stu.save(update_fields=["count_overdue", "updated_at"])
                     student_overdue_incremented = True
         except IntegrityError:
-            # 并发竞争等场景下，唯一键冲突视为已统计过
+
             pass
 
-    # 2) 任务级 overdue（学生×课程×任务维度）
-    #    —— 为安全起见再去重（即便前端已做聚合）
+
     seen = set()
     for item in normalized_tasks:
         key = (student_id, item["course_code"], item["task_id"], day)
@@ -248,10 +244,10 @@ def overdue_report_day(request):
                     ocs.save(update_fields=["count_overdue", "updated_at"])
                     task_overdue_incremented_count += 1
         except IntegrityError:
-            # 已存在同日日志，跳过
+            # same log ,skip
             pass
 
-    # ---------- 返回 ----------
+    # ---------- return ----------
     return JsonResponse(
         {
             "ok": True,

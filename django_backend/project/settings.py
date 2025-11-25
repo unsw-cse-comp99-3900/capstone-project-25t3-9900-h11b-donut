@@ -58,7 +58,7 @@ INSTALLED_APPS = [
     "ai_chat",
     "plans",
     "reminder",
-    "ai_question_generator",  # AI题目生成与评分
+    "ai_question_generator",  
     #"rest_framework",
     "django_crontab"
 ]
@@ -108,7 +108,7 @@ DATABASES = {
         "OPTIONS": {
             "charset": "utf8mb4",
             "init_command": "SET sql_mode='STRICT_ALL_TABLES'",
-            "ssl": {"ssl_mode": "VERIFY_IDENTITY"},  # TiDB Cloud需要SSL连接
+            "ssl": {"ssl_mode": "VERIFY_IDENTITY"},  # TiDB Cloud need ssl connection
         },
     }
 }

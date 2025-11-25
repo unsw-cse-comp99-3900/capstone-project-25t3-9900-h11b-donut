@@ -14,18 +14,12 @@ from task_progress.models import OverdueCourseStudent,OverdueStudentDailyLog
 from stu_accounts.models import StudentAccount
 from django.db import transaction,IntegrityError
 from django.shortcuts import get_object_or_404
-
 from django.http import FileResponse, Http404
 from django.utils import timezone
-
 from datetime import datetime, time
-
 from reminder.models import DueReport
-
 from decimal import Decimal
-
 from datetime import datetime, date
-
 from django.utils import timezone
 from datetime import datetime
 import pytz
@@ -115,7 +109,7 @@ def courses_admin(request):
             "title": c.get("title", ""),
             "description": c.get("description", ""),
             "illustration": c.get("illustration", ""),
-            "student_count": enroll_count_map.get(code, 0),  # 新增：该课程的学生人数
+            "student_count": enroll_count_map.get(code, 0),  
         })
     
     return JsonResponse({"success": True, "data": enriched})
@@ -131,12 +125,11 @@ def course_exists(request):
 })
 @csrf_exempt
 def create_course(request):
-    # 1) 取参（form > json > query）
+    # 1) get parameter（form > json > query）
     admin_id = request.POST.get("admin_id") or request.GET.get("admin_id")
     code = request.POST.get("code") or request.GET.get("code")
     title = request.POST.get("title") or request.GET.get("title")
     description = request.POST.get("description") or request.GET.get("description") or ""
-    # illustration 可选：如果你的 CourseCatalog 有这个字段就用；没有就忽略
     illustration = request.POST.get("illustration") or request.GET.get("illustration")
 
     if (not admin_id or not code or not title) and request.body:
@@ -155,14 +148,12 @@ def create_course(request):
     description = (description or "").strip()
 
     if not admin_id or not code or not title:
-        return JsonResponse({"success": False, "message": "缺少参数：admin_id / code / title"}, status=400)
+        return JsonResponse({"success": False, "message": "missing parameters：admin_id / code / title"}, status=400)
 
-    # 2) 事务内创建或更新课程 + 关联管理员
     try:
         with transaction.atomic():
-            # 2.1 创建或更新课程（幂等）
             defaults = {"title": title, "description": description}
-            # 仅当模型真的有 illustration 字段时才写入，避免 AttributeError
+        
             if illustration is not None and hasattr(CourseCatalog, "_meta") and any(
                 f.name == "illustration" for f in CourseCatalog._meta.fields
             ):
@@ -170,7 +161,6 @@ def create_course(request):
 
             course, created = CourseCatalog.objects.get_or_create(code=code, defaults=defaults)
             if not created:
-                # 更新基础信息（只更新传入的字段）
                 course.title = title
                 course.description = description
                 if illustration is not None and hasattr(CourseCatalog, "_meta") and any(
@@ -179,25 +169,22 @@ def create_course(request):
                     setattr(course, "illustration", illustration)
                 course.save()
 
-            # 2.2 建立管理员与课程的关联（外键字段名是 code）
             CourseAdmin.objects.get_or_create(admin_id=admin_id, code=course)
 
         return JsonResponse({
             "success": True,
-            "message": f"课程 {code} 已{'创建' if created else '更新'}",
+            "message": f"course {code} {'created!' if created else 'updated!'}",
             "created": created
         })
 
     except IntegrityError as e:
-        return JsonResponse({"success": False, "message": f"创建失败：{e}"}, status=400)
+        return JsonResponse({"success": False, "message": f"fail to create {e}"}, status=400)
     except Exception as e:
-        return JsonResponse({"success": False, "message": f"系统错误：{e}"}, status=500)
+        return JsonResponse({"success": False, "message": f"system error! {e}"}, status=500)
 @csrf_exempt
 def delete_course(request):
-    # ---- Step 0. Method check ----
     if request.method not in ("DELETE", "POST"):
         return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
-    # ---- Step 1. 获取参数 ----
     admin_id = request.POST.get("admin_id") or request.GET.get("admin_id")
     course_code = request.POST.get("code") or request.GET.get("code")
 
@@ -214,13 +201,13 @@ def delete_course(request):
 
     course = get_object_or_404(CourseCatalog, code=course_code)
 
-    # 必须是这个课程的管理员
+    # must be the admin who create the course
     if not CourseAdmin.objects.filter(admin_id=admin_id, code__code=course_code).exists():
         return JsonResponse({"success": False, "message": "wrong!"}, status=403)
 
     try:
-        task_file_paths = []      # 任务附件 (TASK_ROOT/...)
-        material_file_paths = []  # 课程资料 (MAT_ROOT/<course_code>/filename)
+        task_file_paths = []      
+        material_file_paths = [] 
 
         with transaction.atomic():
             tasks = list(CourseTask.objects.filter(course_code=course_code))
@@ -292,11 +279,11 @@ def delete_course(request):
             except Exception as fe:
                 print(f"[delete_course] material file delete failed: {fpath} err={fe}")
 
-        return JsonResponse({"success": True, "message": f"课程 {course_code} 已成功删除"})
+        return JsonResponse({"success": True, "message": f"course {course_code} has been deleted"})
 
     except Exception as e:
         print("[delete_course] error:", e)
-        return JsonResponse({"success": False, "message": f"删除失败：{e}"}, status=500)
+        return JsonResponse({"success": False, "message": f"fail to delete：{e}"}, status=500)
 @csrf_exempt
 def course_tasks(request, course_id):
     
@@ -304,7 +291,7 @@ def course_tasks(request, course_id):
         return JsonResponse({"error": "GET method required"}, status=405)
 
     try:
-        # 过滤出该课程下的任务
+        # filter all tasks
         tasks = CourseTask.objects.filter(course_code=course_id).values(
             "id",
             "title",
@@ -314,7 +301,7 @@ def course_tasks(request, course_id):
             "url"
         )
 
-        # 转成 list 并返回
+        # return a list
         data = list(tasks)
         return JsonResponse({"success": True, "data": data}, status=200)
     except Exception as e:
@@ -323,13 +310,14 @@ def course_tasks(request, course_id):
 
 @csrf_exempt
 def course_students_progress(request, course_id: str):
-    """管理员视角：获取课程下所有学生的加权进度与逾期数量。
-    支持 query 参数 task_id：当提供时，返回该任务维度的进度与逾期；否则返回课程加权汇总。
+    """
+    Administrator perspective: Obtain the weighted progress and overdue numbers of all students under the course.
+    Support query parameter task_id: When provided, return the progress and overdue of the task dimension; Otherwise, return the course weighted summary.
     """
     if request.method != "GET":
         return JsonResponse({"success": False, "message": "GET method required"}, status=405)
     try:
-        # 可选单任务视角
+        
         task_id_qs = request.GET.get("task_id")
         task_filter: dict[str, object] = {"course_code": course_id}
         if task_id_qs:
@@ -337,17 +325,17 @@ def course_students_progress(request, course_id: str):
                 task_filter["id"] = int(task_id_qs)
             except Exception:
                 pass
-        # 课程任务列表（id, deadline, percent_contribution）
+        # （id, deadline, percent_contribution）
         tasks = list(CourseTask.objects.filter(**task_filter).values("id", "deadline", "percent_contribution"))
         task_ids = [t["id"] for t in tasks]
 
-        # 选课学生列表（即使没有任务也返回学生占位数据）
+        # List of selected students (return student occupancy data even without tasks)
         enrolls = list(StudentEnrollment.objects.filter(course_code=course_id).values("student_id"))
         student_ids = [e["student_id"] for e in enrolls]
         if not student_ids:
             return JsonResponse({"success": True, "data": []})
 
-        # 学生姓名映射（可选）
+        # stu name mapping 
         try:
             from stu_accounts.models import StudentAccount
             name_map = {
@@ -362,7 +350,7 @@ def course_students_progress(request, course_id: str):
         except Exception:
             name_map = {}
 
-        # 进度映射：student_id -> {task_id -> progress}
+        #progress mapping：student_id -> {task_id -> progress}
         try:
             from task_progress.models import TaskProgress as TP
         except Exception:
@@ -373,7 +361,7 @@ def course_students_progress(request, course_id: str):
         prog_map: dict[str, dict[int, int]] = {}
         for r in rows:
             sid = r["student_id"]
-            tid = int(r["task_id"])  # 保证是 int
+            tid = int(r["task_id"]) 
             prog_map.setdefault(sid, {})[tid] = int(r["progress"]) or 0
 
         today = date.today()
@@ -391,16 +379,14 @@ def course_students_progress(request, course_id: str):
                 p = int(task_prog.get(int(t["id"]), 0))
                 if p > 0:
                     completed_weight += w * min(p, 100) / 100.0
-                # 逾期：截至今天过去的任务未满 100
+                # overdue：progress!= 100
                 dl = t.get("deadline")
-                if dl:
-                    # 如果是 datetime，就取 date()；如果本来就是 date，就直接用
+                if dl:          
                     if isinstance(dl, datetime):
                         dl_date = dl.date()
                     else:
                         dl_date = dl
 
-                    # 截止日期早于今天 & 进度未满 100 → 逾期
                     if dl_date < today and p < 100:
                         overdue_cnt += 1
             progress_pct = 0
@@ -423,7 +409,6 @@ def course_students_progress(request, course_id: str):
                 "overdue_count": overdue_cnt,
                 "bonus": bonus_float,
             })
-        # 按姓名排序，空名用学号
         result.sort(key=lambda x: (x["name"] or x["student_id"]))
         return JsonResponse({"success": True, "data": result})
     except Exception as e:
@@ -450,7 +435,7 @@ def course_materials(request, course_id):
 def course_questions(request, course_id):
     """
     GET /api/courses_admin/<course_id>/questions
-    返回该课程的所有题目（含 choices、keywords）
+    Return all questions of the course (including choices and keywords)
     """
     if request.method != "GET":
         return JsonResponse({"error": "GET method required"}, status=405)
@@ -494,7 +479,7 @@ def course_questions(request, course_id):
 def create_course_question(request, course_code):
     """
     POST /api/courses_admin/<course_code>/questions/create
-    创建题目及其选项、关键词映射。
+    Create a title and its options, keyword mapping.
     """
     if request.method != "POST":
         return JsonResponse({"error": "POST method required"}, status=405)
@@ -514,7 +499,6 @@ def create_course_question(request, course_code):
     short_answer = body.get("short_answer") or ""
     keywords = body.get("keywords") or []
 
-    # 清洗关键词
     norm_keywords = []
     seen = set()
     for kw in keywords:
@@ -526,7 +510,7 @@ def create_course_question(request, course_code):
 
     try:
         with transaction.atomic():
-            # 1️⃣ 创建 Question
+            #create Question
             q = Question.objects.create(
                 course_code=course_code,
                 qtype=qtype,
@@ -537,7 +521,7 @@ def create_course_question(request, course_code):
                 keywords_json=norm_keywords,
             )
 
-            # 2️⃣ 若是选择题，写入 QuestionChoice
+            # mcq -> QuestionChoice
             if qtype == "mcq":
                 choices = body.get("choices") or []
                 if not choices:
@@ -554,7 +538,6 @@ def create_course_question(request, course_code):
                     for c in choices
                 ])
 
-            # 3️⃣ 写入关键词表与映射表
             if norm_keywords:
                 keyword_objs = []
                 for name in norm_keywords:
@@ -579,13 +562,12 @@ def update_course_question(request, course_id, question_id):
     if request.method != "PUT":
         return JsonResponse({"success": False, "message": "PUT method required", "data": None}, status=405)
 
-    # 解析 JSON
+    # decode JSON
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
         return JsonResponse({"success": False, "message": "Invalid JSON", "data": None}, status=400)
 
-    # 取题目
     q = get_object_or_404(Question, id=question_id, course_code=course_id)
 
     
@@ -598,14 +580,13 @@ def update_course_question(request, course_id, question_id):
     if not title or not text:
         return JsonResponse({"success": False, "message": "title and text are required", "data": None}, status=400)
 
-    #先更新 Question 主表 
+    #updaate Question 
     q.qtype       = qtype
     q.title       = title
     q.description = data.get("description") or ""
     q.text        = text
 
-    # keywords：不单独封装函数，直接在此就地处理
-    # 接受 list[str] 或 逗号字符串；做简单清洗：strip、lower、去空、去重（保持顺序）
+
     raw_kw = data.get("keywords")
     if isinstance(raw_kw, str):
         kw_list = [s.strip().lower() for s in raw_kw.split(",")]
@@ -631,7 +612,6 @@ def update_course_question(request, course_id, question_id):
 
     q.save()
 
-    # 重建关键词映射 #
     QuestionKeywordMap.objects.filter(question=q).delete()
     if keywords_list:
         kw_objs = []
@@ -644,14 +624,13 @@ def update_course_question(request, course_id, question_id):
         )
     QuestionKeyword.objects.filter(
         ~Exists(QuestionKeywordMap.objects.filter(keyword_id=OuterRef('pk')))
-    ).delete()#清除无映射的keyword
-    #处理选项 #
+    ).delete()
+
     if qtype == "mcq":
         choices = data.get("choices")
         if not isinstance(choices, list) or len(choices) == 0:
             return JsonResponse({"success": False, "message": "choices required for mcq", "data": None}, status=400)
 
-        # 至少两个非空 content
         filled_cnt = sum(1 for c in choices if str(c.get("content", "")).strip())
         if filled_cnt < 2:
             return JsonResponse({"success": False, "message": "at least two non-empty choices are required", "data": None}, status=400)
@@ -659,7 +638,6 @@ def update_course_question(request, course_id, question_id):
         if not any(bool(c.get("isCorrect")) for c in choices):
             return JsonResponse({"success": False, "message": "one correct choice required", "data": None}, status=400)
 
-        # 清空旧选项并重建
         q.choices.all().delete()
 
         to_create = []
@@ -674,11 +652,9 @@ def update_course_question(request, course_id, question_id):
                 content=content,
                 is_correct=bool(c.get("isCorrect", False))
             ))
-        # 保证 order 递增，避免 unique_together 冲突
         to_create.sort(key=lambda x: x.order)
         QuestionChoice.objects.bulk_create(to_create)
     else:
-        # 简答题：删除所有旧选项
         q.choices.all().delete()
 
     return JsonResponse({
@@ -699,19 +675,19 @@ def update_course_question(request, course_id, question_id):
 def delete_course_question(request, course_id, question_id):
     """
     DELETE /api/courses_admin/<course_id>/questions/<question_id>
-    删除题目及关联项（choices、keywords）
+    Delete the title and related items (choices, keywords)
     """
     if request.method != "DELETE":
         return JsonResponse({"error": "DELETE method required"}, status=405)
 
     try:
         q = Question.objects.get(id=question_id, course_code=course_id)
-        q.delete()  # 自动级联删除 choices 和 keyword_map
+        q.delete()  # Automatic cascading deletion of choices and keyword_map
         QuestionKeyword.objects.filter(
             ~Exists(
                 QuestionKeywordMap.objects.filter(keyword_id=OuterRef('pk'))
             )
-        ).delete()#删除keyword
+        ).delete()#delete keyword
         return JsonResponse({"success": True})
     except Question.DoesNotExist:
         return JsonResponse({"success": False, "message": "Question not found"}, status=404)
@@ -741,7 +717,7 @@ def upload_task_file(request):
         for chunk in f.chunks():
             dst.write(chunk)
 
-    #  返回 task URL
+    #  return task URL
     url_path = f"{settings.TASK_URL}{course}/{filename}".replace("\\", "/")
 
     return ok({
@@ -765,21 +741,7 @@ def create_course_tasks(request, course_id: str):
     if not title:
         return err("title is required")
 
-# <<<<<<< HEAD
-#     deadline_raw = body.get("deadline")
-    
-#     if not deadline_raw:
-#         return err("deadline is required (YYYY-MM-DD-MIN-SEC)")
-#     deadline = parse_datetime(str(deadline_raw))
-    
-#     if not deadline:
-#         return err("deadline must be YYYY-MM-DD-MIN-SEC")
-#     if deadline < datetime.now():
-#         return err("deadline cannot be in the past")
-# =======
-    # -----------------------------
-    #  🔥 支持 datetime 的 deadline 解析
-    # -----------------------------
+
     deadline_str = body.get("deadline")
     if not deadline_str:
         return err("deadline is required (YYYY-MM-DD HH:MM:SS)")
@@ -791,7 +753,6 @@ def create_course_tasks(request, course_id: str):
     if deadline < timezone.localtime():
         return err("deadline cannot be in the past")
 
-    # -----------------------------
 
 
     brief = (body.get("brief") or "").strip()
@@ -842,24 +803,24 @@ def delete_course_task(request, course_id, task_id):
             if not task:
                 return JsonResponse({"success": False, "message": "Task not found"}, status=404)
 
-            # 删除进度（如果 task_progress 应用存在）
+            # delete progress
             try:
                 from task_progress.models import TaskProgress as TP3
                 TP3.objects.filter(task_id=task_id).delete()
             except Exception:
                 pass
 
-            # 附件路径
+            # filepath
             file_path = None
             if delete_file and task.url:
                 if task.url.startswith(settings.TASK_URL):
                     rel_path = task.url[len(settings.TASK_URL):].lstrip("/")
                     file_path = os.path.join(settings.TASK_ROOT, rel_path)
 
-            # 删除任务
+            # delete task
             task.delete()
 
-            # 删除附件文件
+            # delete file
             if file_path and os.path.exists(file_path):
                 try:
                     os.remove(file_path)
@@ -877,27 +838,24 @@ def update_course_task(request, course_id: str, task_id: int):
     if request.method not in ("PUT", "POST", "PATCH"):
         return err("Method not allowed", status=405)
 
-    # 解析 JSON
+    # decode JSON
     try:
         body = json.loads(request.body.decode("utf-8") or "{}")
     except Exception:
         return err("invalid json body")
 
-    # 查任务（限定 course_id）
+    # search task
     task = CourseTask.objects.filter(id=task_id, course_code=course_id).first()
     if not task:
         return err("Task not found", status=404)
 
-    # 取字段（仅对提供的字段做更新）
     title = body.get("title", None)
     deadline_raw = body.get("deadline", None)
     brief = body.get("brief", None)
     pc_raw = body.get("percent_contribution", None)
     new_url = body.get("url", None)
 
-    # ----------------------------
-    # ① 校验 title
-    # ----------------------------
+    # check title
     if title is not None:
         if not str(title).strip():
             return err("title cannot be empty")
@@ -913,13 +871,6 @@ def update_course_task(request, course_id: str, task_id: int):
         if dl < timezone.localtime():
             return err("deadline cannot be in the past")
 
-    # ===========================================================
-    #  deadline 处理结束 
-    # ===========================================================
-
-    # ----------------------------
-    # ③ 校验贡献度
-    # ----------------------------
     if pc_raw is not None:
         try:
             pc = int(pc_raw)
@@ -930,13 +881,13 @@ def update_course_task(request, course_id: str, task_id: int):
     else:
         pc = None
 
-    # 是否删除旧文件
+    # delete old file or not
     delete_old = request.GET.get("delete_old_file") in ("1", "true", "True")
     old_url = task.url
 
-    # ----------------------------
-    # ④ 执行更新
-    # ----------------------------
+
+    # update
+
     try:
         with transaction.atomic():
             if title is not None:
@@ -948,7 +899,7 @@ def update_course_task(request, course_id: str, task_id: int):
                 print("parsed deadline obj  =", dl, " tzinfo=", dl.tzinfo)
                 print("deadline.isoformat() =", dl.isoformat())
                 print("===========================================\n")
-                task.deadline = dl      # ← 已经是 datetime
+                task.deadline = dl     
             if brief is not None:
                 task.brief = str(brief).strip()
             if pc is not None:
@@ -958,7 +909,6 @@ def update_course_task(request, course_id: str, task_id: int):
 
             task.save()
             
-            #  Admin 更新 CourseTask → 自动给选课学生推送系统通知 
            
             from reminder.models import Notification
             from courses.models import StudentEnrollment
@@ -967,14 +917,13 @@ def update_course_task(request, course_id: str, task_id: int):
             timestamp = timezone.now().strftime('%H%M%S')
             msg_type = f"system_ntf_{task.id}_{timestamp}"
 
-            # msg_type = f"system_notification_{task.id}_{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        
 
             for stu in enrolled_students:
                 Notification.objects.update_or_create(
                     student_id=stu.student_id,
                     task_id=task.id,
                     message_type=msg_type, 
-                    # message_type="system_notification",  # 已在前端支持
                     defaults={
                         "title": f"Admin updated {task.course_code} – {task.title}",
                         "preview": (
@@ -986,7 +935,7 @@ def update_course_task(request, course_id: str, task_id: int):
                             "in your dashboard."
                         ),
                         "course_code": task.course_code,
-                        "due_time": task.deadline,  # 可留可删，不影响 UI
+                        "due_time": task.deadline,  
                     }
                 )
             print(">>> [DEBUG] Admin task update notifications sent!", flush=True)
@@ -1048,12 +997,12 @@ def upload_material_file(request):
     if not f:
         return JsonResponse({"error": "file is required"}, status=400)
 
-    #  从表单取课程 ID，用于保存路径
+    #  get saving path
     course_id = (request.POST.get("course") or "").strip()
     if not course_id:
         return JsonResponse({"error": "course id is required"}, status=400)
 
-    # 拼接保存目录 material/<course_id>/
+    # construct path
     subdir = os.path.join(course_id)
     save_dir = os.path.join(settings.MAT_ROOT, subdir)
     os.makedirs(save_dir, exist_ok=True)
@@ -1061,7 +1010,7 @@ def upload_material_file(request):
     filename = f.name
     save_path = os.path.join(save_dir, filename)
 
-    # 保存文件
+    # save
     with open(save_path, "wb+") as dst:
         for chunk in f.chunks():
             dst.write(chunk)
@@ -1082,30 +1031,29 @@ def delete_course_material(request, course_id: str, materials_id: int):
     if request.method != "POST":
         return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
     try:
-        # 1) 读取记录并校验课程归属
+     
         try:
             material = Material.objects.get(id=materials_id, course_code=course_id)
         except Material.DoesNotExist:
             return JsonResponse({"success": False, "message": "material not found"}, status=404)
 
-        # 2) 从 url 还原文件名并构造磁盘路径
+   
         url_value = (material.url or "").strip()
-        # 防 URL 编码（空格/中文）
+
         url_value = unquote(url_value)
 
-        filename = os.path.basename(url_value)  # 只取文件名
+        filename = os.path.basename(url_value) 
         course_dir = os.path.join(settings.MAT_ROOT, course_id)
         file_path = os.path.join(course_dir, filename)
 
-        # 安全删除文件（文件不存在则忽略）
         try:
             if os.path.isfile(file_path):
                 os.remove(file_path)
         except Exception as fe:
-            # 记录日志但不阻塞删除 DB
+
             print(f"[delete_course_material] remove file failed: {file_path} err={fe}")
 
-        # 3) 删除数据库记录
+
         material.delete()
 
         return JsonResponse({"success": True})
@@ -1117,7 +1065,7 @@ def update_course_material(request, course_id: str, materials: int):
     if request.method != "POST":
         return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
 
-    # 解析 JSON
+    # decode JSON
     try:
       payload = json.loads(request.body.decode("utf-8"))
     except Exception:
@@ -1133,7 +1081,7 @@ def update_course_material(request, course_id: str, materials: int):
     try:
         material = Material.objects.get(id=materials, course_code=course_id)
 
-        # 如果提供了新的 URL，且与旧 URL 不同，则尝试删除旧文件
+        # if new URL which is different from old URL delete old file
         old_url = (material.url or "").strip()
         if new_url and old_url and new_url != old_url:
             try:
@@ -1147,7 +1095,7 @@ def update_course_material(request, course_id: str, materials: int):
               
                 print(f"[update_course_material] remove old file failed: {old_path if 'old_path' in locals() else ''} err={fe}")
 
-        # 更新字段
+        # uodate
         material.title = title
         material.description = description
         if new_url:
@@ -1205,7 +1153,7 @@ import urllib.parse
 from django.http import FileResponse, JsonResponse
 from django.conf import settings
 from django.utils.encoding import escape_uri_path
-##下载material
+#download material
 def download_material(request, filename):
     decoded_name = urllib.parse.unquote(filename).strip()
     print(f"[DEBUG] Looking for file: '{decoded_name}' in {settings.MAT_ROOT}")

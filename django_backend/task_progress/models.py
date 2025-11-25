@@ -1,6 +1,6 @@
 from django.db import models
 
-# 任务进度（按学生-任务）
+# Task Progress (by Student Task)
 class TaskProgress(models.Model):
     id = models.AutoField(primary_key=True)
     student_id = models.CharField(max_length=64)
@@ -21,7 +21,7 @@ class TaskProgress(models.Model):
     
 class OverdueStudent(models.Model):
     """
-    学生维度累计：某天“整天都未勾选”则 +1
+    Student dimension accumulation: If a day is not checked all day, then+1
     """
     id = models.AutoField(primary_key=True)
     student_id = models.CharField(max_length=64, unique=True)
@@ -41,7 +41,7 @@ class OverdueStudent(models.Model):
 
 class OverdueCourseStudent(models.Model):
     """
-    学生×课程×任务维度累计：某天该 task 的所有 part 都未勾选则 +1（同日只加一次）
+    Student x Course x Task Dimension Cumulative: If all parts of the task are not checked on a certain day, then+1 (only added once on the same day)
     """
     id = models.AutoField(primary_key=True)
     student_id = models.CharField(max_length=64)
@@ -67,12 +67,12 @@ class OverdueCourseStudent(models.Model):
 
 class OverdueStudentDailyLog(models.Model):
     """
-    去重日志（学生×日期）：用于防止同一天重复记账“整天未勾选”
+   Duplicate log (student x date): used to prevent duplicate accounting on the same day "not checked all day"
     """
     id = models.AutoField(primary_key=True)
     student_id = models.CharField(max_length=64)
-    date = models.DateField()  # 以学生本地时区的自然日
-    reason = models.CharField(max_length=128, blank=True, default="")  # 可选
+    date = models.DateField()  # Based on the natural day in the student's local time zone
+    reason = models.CharField(max_length=128, blank=True, default="")  # optional
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -89,13 +89,13 @@ class OverdueStudentDailyLog(models.Model):
 
 class OverdueTaskDailyLog(models.Model):
     """
-    去重日志（学生×课程×任务×日期）：用于防止同一天对同一任务重复记账
+        Duplicate log (student x course x task x date): used to prevent duplicate bookkeeping of the same task on the same day
     """
     id = models.AutoField(primary_key=True)
     student_id = models.CharField(max_length=64)
     course_code = models.CharField(max_length=32)
     task_id = models.PositiveIntegerField()
-    date = models.DateField()  # 以学生本地时区的自然日
+    date = models.DateField()  
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

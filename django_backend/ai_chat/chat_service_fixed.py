@@ -8,7 +8,7 @@ from stu_accounts.models import StudentAccount
 from .models import ChatConversation, ChatMessage, UserStudyPlan
 from dotenv import load_dotenv
 
-# 加载环境变量
+# load vairable
 load_dotenv()
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 use_gemini: bool = bool(GEMINI_KEY)
@@ -23,31 +23,31 @@ if use_gemini:
             generation_config={"temperature": 0.7, "max_output_tokens": 1024}
         )
     except Exception as e:
-        print(f"[DEBUG] Gemini 初始化失败: {e}")
+        print(f"[DEBUG] Gemini fail to load!: {e}")
         use_gemini = False
 
 class AIChatService:
-    """AI聊天服务 - 简化版本"""
+    """AI chat simple version"""
     
     def __init__(self):
         pass
     
     def detect_intent(self, message: str) -> str:
-        """检测用户意图"""
+        """check user's desiration"""
         message_lower = message.lower()
         
-        # 解释计划意图
+        # explain
         if any(keyword in message_lower for keyword in [
             'explain my plan', 'explain plan', 'tell me about my plan',
             'what is my plan', 'describe my plan', 'plan explanation'
         ]):
             return 'explain_plan'
         
-        # 其他情况都返回通用意图
+        
         return 'general'
     
     def get_user_study_plan(self, account: StudentAccount) -> Optional[Dict]:
-        """获取用户的当前学习计划"""
+        """get user's current plan"""
         try:
             # 创建临时User对象用于查询
             user, _ = User.objects.get_or_create(
@@ -60,7 +60,7 @@ class AIChatService:
             return None
     
     def generate_plan_explanation(self, account: StudentAccount) -> str:
-        """生成学习计划解释"""
+        """Generate learning plan explanation"""
         plan_data = self.get_user_study_plan(account)
         
         if not plan_data:
@@ -83,12 +83,12 @@ class AIChatService:
             </div>
             """
         
-        # 提取计划信息
+        # Extract plan information
         ai_summary = plan_data.get('aiSummary', {})
         description = ai_summary.get('description', '')
         tasks = ai_summary.get('tasks', [])
         
-        # 如果有保存的描述，使用它
+        # If there is a saved description, use it
         if description:
             return f"""
             <div>
@@ -103,7 +103,7 @@ class AIChatService:
             </div>
             """
         
-        # 如果没有描述，生成基本解释
+        # If there is no description, generate a basic explanation
         return f"""
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">
@@ -119,7 +119,7 @@ class AIChatService:
         """
     
     def generate_welcome_response(self) -> str:
-        """生成固定的欢迎回复"""
+        """Generate a fixed welcome reply"""
         return """
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">
@@ -142,26 +142,26 @@ class AIChatService:
         """
     
     def generate_ai_response(self, message: str, account: StudentAccount, conversation_history: List[Dict] = None) -> str:
-        """生成AI回复 - 简化版本"""
-        # 检测用户意图
+        """Generate AI reply - Simplified version"""
+        # Detecting user intent
         intent = self.detect_intent(message)
         
-        # 如果用户要求解释计划，返回保存的计划描述
+        # If the user requests an explanation of the plan, return the saved plan description
         if intent == 'explain_plan':
             return self.generate_plan_explanation(account)
         
-        # 对于其他所有情况，返回固定的欢迎回复
+        # For all other situations, return a fixed welcome reply
         return self.generate_welcome_response()
     
     def get_or_create_conversation(self, account: StudentAccount) -> ChatConversation:
-        """获取或创建对话会话"""
-        # 创建或获取User对象
+        """Get or create a conversation session"""
+        # Create or retrieve User object
         user, _ = User.objects.get_or_create(
             username=account.student_id,
             defaults={'email': account.email or f'{account.student_id}@temp.com'}
         )
         
-        # 获取或创建对话会话
+        # Get or create a conversation session
         conversation, created = ChatConversation.objects.get_or_create(
             user=user,
             defaults={'is_active': True}
@@ -169,14 +169,14 @@ class AIChatService:
         return conversation
     
     def get_conversation_history(self, account: StudentAccount, limit: int = 50) -> List[Dict]:
-        """获取对话历史"""
+        """conversation history"""
         try:
             conversation = self.get_or_create_conversation(account)
             messages = ChatMessage.objects.filter(
                 conversation=conversation
             ).order_by('-timestamp')[:limit]
             
-            # 转换为前端需要的格式
+            # format transform
             history = []
             for msg in reversed(messages):
                 history.append({
@@ -189,32 +189,32 @@ class AIChatService:
             
             return history
         except Exception as e:
-            print(f"[DEBUG] 获取对话历史失败: {e}")
+            print(f"[DEBUG] fail to load conversation history: {e}")
             return []
     
     def process_message(self, account: StudentAccount, message: str) -> Dict[str, Any]:
         """处理用户消息并生成AI回复"""
         try:
-            # 获取或创建对话会话
+            # Process user messages and generate AI replies
             conversation = self.get_or_create_conversation(account)
             
-            # 获取对话历史用于上下文
+            # Retrieve conversation history for context
             conversation_history = self.get_conversation_history(account, limit=10)
             
-            # 保存用户消息
+            # save information
             user_message = ChatMessage.objects.create(
                 conversation=conversation,
                 message_type='user',
                 content=message
             )
             
-            # 生成AI回复
+            # generate ai reply
             ai_response = self.generate_ai_response(message, account, conversation_history)
             
-            # 检测意图（用于元数据）
+            # check intent
             intent = self.detect_intent(message)
             
-            # 保存AI回复
+            # save ai reply
             ai_message = ChatMessage.objects.create(
                 conversation=conversation,
                 message_type='ai',
@@ -241,25 +241,25 @@ class AIChatService:
             }
             
         except Exception as e:
-            print(f"[DEBUG] 消息处理失败: {e}")
+            print(f"[DEBUG] fail to handle msg: {e}")
             return {
                 'success': False,
                 'error': str(e)
             }
     
     def save_study_plan(self, account: StudentAccount, plan_data: Dict) -> bool:
-        """保存学习计划数据"""
+        """save study plan"""
         try:
-            # 创建临时User对象
+            
             user, _ = User.objects.get_or_create(
                 username=account.student_id,
                 defaults={'email': account.email or f'{account.student_id}@temp.com'}
             )
             
-            # 停用旧的计划
+            
             UserStudyPlan.objects.filter(user=user, is_active=True).update(is_active=False)
             
-            # 创建新的活跃计划
+           
             UserStudyPlan.objects.create(
                 user=user,
                 plan_data=plan_data,

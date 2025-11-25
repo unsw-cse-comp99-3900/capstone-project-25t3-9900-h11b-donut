@@ -1,18 +1,18 @@
 from django.db import models
-from courses.models import CourseCatalog        # 引用课程目录
-from adm_accounts.models import AdminAccount    # 引用管理员表
+from courses.models import CourseCatalog       
+from adm_accounts.models import AdminAccount   
 
 class CourseAdmin(models.Model):
-    # 外键：对应 CourseCatalog 的主键 code
+    # fk-> CourseCatalog code
     code = models.OneToOneField(
         CourseCatalog,
         on_delete=models.CASCADE,
         to_field='code',
         db_column='code',
-        primary_key=True  # 让 code 作为主键
+        primary_key=True  
     )
 
-    # 外键：对应 AdminAccount 的主键 admin_id
+    # fk ->  AdminAccount admin_id
     admin = models.ForeignKey(
         AdminAccount,
         on_delete=models.CASCADE,
@@ -21,9 +21,9 @@ class CourseAdmin(models.Model):
         related_name='created_courses'
     )
 
-    # 可选：记录创建时间
+=
     class Meta:
-        db_table = 'course_admin'   # 数据库中的表名
+        db_table = 'course_admin'   
         verbose_name = 'Course-Admin Mapping'
         verbose_name_plural = 'Course-Admin Mappings'
 

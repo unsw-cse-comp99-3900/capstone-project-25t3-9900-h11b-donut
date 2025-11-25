@@ -38,7 +38,7 @@ def mark_messages_as_read(request):
 
 @require_GET
 def get_reminders(request, student_id):
-    """获取用户所有提醒（按时间倒序）"""
+    """Get all user reminders (in reverse chronological order)"""
 
     only_unread = request.GET.get("unread") == "1"
 

@@ -43,14 +43,14 @@ class Notification(models.Model):
 class DueReport(models.Model):
 
 
-    # 学生 ID
+
     student_id = models.CharField(
         max_length=50,
         db_index=True,
         verbose_name="student ID",
     )
 
-    # 对应的任务：Taskid
+  
     task = models.ForeignKey(
         CourseTask,
         on_delete=models.CASCADE,
@@ -61,19 +61,19 @@ class DueReport(models.Model):
         blank=True,    
     )
 
-    # 累计“有未完成”的天数
+
     total_due_days = models.PositiveIntegerField(
         default=0,
         verbose_name="total due days",
     )
 
-    # 连续“有未完成”的天数
+
     consecutive_due_days = models.PositiveIntegerField(
         default=0,
         verbose_name="consecutive due days",
     )
 
-    # 最近一次 overdue 的日期
+
     last_overdue_date = models.DateField(
         null=True,
         blank=True,

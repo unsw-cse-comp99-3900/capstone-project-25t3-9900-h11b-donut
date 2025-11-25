@@ -30,18 +30,18 @@ urlpatterns = [
     path("api/admin/", include("adm_accounts.urls")),
     path("api/", include("task_progress.urls")),
     path('api/reminders/', include('reminder.urls')),
-    path('api/ai/', include('ai_question_generator.urls')),  # AI题目生成与评分
-    path('api/ai/', include('ai_chat.urls')),  # AI对话服务
+    path('api/ai/', include('ai_question_generator.urls')), 
+    path('api/ai/', include('ai_chat.urls')),  
 
 ] 
 if settings.DEBUG:
-    # 已有的 /media/ 映射
+   
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    # 新增 /api/media/ 映射，用于兼容前端拼了 /api 的情况(用于登录头像)
+  
     urlpatterns += static('/api/media/', document_root=settings.MEDIA_ROOT)
-    # 映射task 可选：兼容前端拼了 /api/task/ 的情况
+  
     urlpatterns += static(settings.TASK_URL, document_root=settings.TASK_ROOT)
     urlpatterns += static('/api/task/', document_root=settings.TASK_ROOT)
     urlpatterns += static(settings.MAT_URL, document_root=settings.MAT_ROOT)
-    # 可选：兼容前端带 /api 前缀的情况
+  
     urlpatterns += static('/api/material/', document_root=settings.MAT_ROOT)

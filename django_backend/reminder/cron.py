@@ -10,8 +10,8 @@ from reminder.models import Notification, DueReport
 
 def check_daily_overdue():
     """
-    每天固定澳洲时间 13:00 检查未完成的 study_plan_item
-    并写入 daily_overdue 通知
+    Check the unfinished study_plan_item at 13:00 fixed Australian time every day
+And write the daily_overdue notification
     """
     print(">>> DAILY OVERDUE CRON IS RUNNING")
 
@@ -47,10 +47,10 @@ def check_daily_overdue():
             
             message_type="nightly_notice",
             defaults={
-                "title": "今日学习任务未完成提醒",
-                "preview": f"{item.course_title} - 第 {item.part_index+1}/{item.parts_count} 部分未完成",
+                "title": "today overdue notification",
+                "preview": f"{item.course_title} - No.{item.part_index+1}/{item.parts_count} parts not finished",
                 "content": (
-                    f"你的任务 [{item.part_title}] 未完成，已自动顺延到明天。"
+                    f"your task [{item.part_title}] didn't finish, delay to tommorow"
                 ),
                 "due_time": item.scheduled_date,
             }
@@ -104,12 +104,12 @@ def check_due_tasks():
 
     alert_hours = [24, 12, 2, 1]
 
-    # 先拿所有未来一点点的任务（防止历史任务干扰）
+    # Take all future tasks first (to prevent interference from historical tasks)
     all_tasks = CourseTask.objects.filter(
         deadline__gte=timezone.now() - timedelta(days=1)
     )
 
-    # 打印所有任务的本地时间
+    # Print the local time of all tasks
     print("=== ALL TASK DEADLINES (local) ===")
     for t in all_tasks:
         ld = timezone.localtime(t.deadline)

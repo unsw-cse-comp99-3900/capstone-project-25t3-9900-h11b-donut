@@ -7,7 +7,6 @@ from django.views import View
 import json
 import logging
 
-# 导入你的AI模块
 from ai_module.plan_generator import generate_plan
 
 logger = logging.getLogger(__name__)
@@ -15,33 +14,32 @@ logger = logging.getLogger(__name__)
 @method_decorator(csrf_exempt, name='dispatch')
 @method_decorator(login_required, name='dispatch')
 class GenerateStudyPlanView(View):
-    """生成学习计划的API视图"""
+    """API View for Generating Learning Plans"""
     
     def post(self, request):
         try:
-            # 1. 解析请求数据
+            # 1. Analyze request data
             data = json.loads(request.body)
             
-            # 2. 提取偏好设置
+            # 2. Extract preference settings
             preferences = self._extract_preferences(data.get('preferences', {}))
             
-            # 3. 提取任务数据
+            # 3. Extract task data
             tasks_meta = self._extract_tasks(data.get('tasks', []))
             
-            # 4. 验证数据
+            # 4. validation
             if not tasks_meta:
                 return JsonResponse({
                     'ok': False,
                     'error': 'No tasks provided'
                 }, status=400)
             
-            # 5. 调用AI模块生成计划
-            # 获取用户时区，默认使用Australia/Sydney
+            # 5. Call AI module to generate plan
+            
             user_timezone = data.get('timezone', 'Australia/Sydney')
             logger.info(f"Generating study plan for user {request.user.id}, timezone: {user_timezone}")
             result = generate_plan(preferences, tasks_meta, user_timezone=user_timezone)
-            
-            # 6. 可选：保存到数据库
+
             if result.get('ok'):
                 self._save_plan_to_database(request.user, result)
                 logger.info(f"Study plan generated successfully for user {request.user.id}")
@@ -99,11 +97,11 @@ class GenerateStudyPlanView(View):
 
 @csrf_exempt
 def test_ai_module(request):
-    """测试AI模块的简单端点"""
+    """Simple endpoints for testing AI modules"""
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST method allowed'}, status=405)
     
-    # 使用测试数据
+    # test data
     test_preferences = {
         'daily_hour_cap': 3,
         'weekly_study_days': 5,
@@ -131,26 +129,22 @@ def test_ai_module(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-# 如果你需要从数据库获取数据的版本
+
 @method_decorator(csrf_exempt, name='dispatch')
 @method_decorator(login_required, name='dispatch')
 class GenerateStudyPlanFromDBView(View):
-    """从数据库获取数据并生成学习计划"""
+    """Retrieve data from the database and generate a learning plan"""
     
     def post(self, request):
         try:
-            # 1. 从数据库获取用户的课程和作业
+
             tasks_meta = self._get_user_tasks_from_db(request.user)
             
-            # 2. 从数据库获取用户偏好
             preferences = self._get_user_preferences_from_db(request.user)
             
-            # 3. 调用AI模块
-            # 从请求中获取时区，默认Australia/Sydney
             user_timezone = body.get('timezone', 'Australia/Sydney') 
             result = generate_plan(preferences, tasks_meta, user_timezone=user_timezone)
-            
-            # 4. 保存结果
+
             if result.get('ok'):
                 self._save_plan_to_database(request.user, result)
             
@@ -161,9 +155,8 @@ class GenerateStudyPlanFromDBView(View):
             return JsonResponse({'error': 'Internal server error'}, status=500)
     
     def _get_user_tasks_from_db(self, user):
-        """从数据库获取用户的任务列表"""
-        # TODO: 根据你的数据模型实现
-        # 示例：
+        """Retrieve data from the database and generate a learning plan"""
+        # TODO: 
         # tasks = []
         # user_courses = Course.objects.filter(students=user)
         # for course in user_courses:
@@ -178,9 +171,8 @@ class GenerateStudyPlanFromDBView(View):
         return []
     
     def _get_user_preferences_from_db(self, user):
-        """从数据库获取用户偏好"""
-        # TODO: 根据你的数据模型实现
-        # 示例：
+        """Retrieve user preferences from the database"""
+        # TODO: 
         # try:
         #     prefs = UserPreference.objects.get(user=user)
         #     return {
@@ -193,12 +185,12 @@ class GenerateStudyPlanFromDBView(View):
         return {'daily_hour_cap': 3, 'weekly_study_days': 5, 'avoid_days': [5, 6]}
     
     def _save_plan_to_database(self, user, plan_data):
-        """保存计划到数据库，同时保存到AI对话模块"""
+        """Save the plan to the database and also save it to the AI dialogue module"""
         try:
-            # 导入AI对话模块的服务
+            # Importing AI dialogue module services
             from ai_chat.chat_service import AIChatService
             
-            # 保存到AI对话模块
+            # Save to AI dialogue module
             chat_service = AIChatService()
             success = chat_service.save_study_plan(user, plan_data)
             
@@ -209,4 +201,3 @@ class GenerateStudyPlanFromDBView(View):
             
         except Exception as e:
             logger.error(f"Error saving plan to AI chat module for user {user.id}: {str(e)}")
-            # 不抛出异常，避免影响主要的计划生成流程

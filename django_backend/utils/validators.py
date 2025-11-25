@@ -3,7 +3,7 @@ import re
 from django.core.exceptions import ValidationError
 
 EMAIL_RE = re.compile(r'^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
-STUDENT_ID_RE = re.compile(r'^[zZ]\d{7}$')  # 如果你学校不是 z+7位，改这里
+STUDENT_ID_RE = re.compile(r'^[zZ]\d{7}$')  # if your id is not this type z+7，modify here
 NAME_RE = re.compile(r"^[A-Za-z\u00C0-\u024F\u1E00-\u1EFF\u2E80-\u9FFF·'\- ]{2,50}$")
 PASSWORD_STRICT_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s])\S{8,64}$')
 

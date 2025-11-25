@@ -25,25 +25,24 @@ def choose_courses(request):
     if request.method == "GET":
         return render(request, "choose_courses.html")
 
-    # POST: 处理新增课程（沿用原来 form 的 course_code）
     code = (request.POST.get("course_code") or "").strip().upper()
     if not code:
-        return render(request, "choose_courses.html", {"message": "请输入课程代码。"})
+        return render(request, "choose_courses.html", {"message": "please enter course code"})
 
     try:
-        # 检查课程是否存在（在 catalog 中）
+        # check course availablility
         exists = CourseCatalog.objects.filter(code=code).exists()
         if not exists:
-            return render(request, "choose_courses.html", {"message": f"没有查询到该课程：{code}"})
+            return render(request, "choose_courses.html", {"message": f"no courses found:{code}"})
 
-        # 检查是否已选
+        # enrolled or not
         if StudentEnrollment.objects.filter(student_id=sid, course_code=code).exists():
             return redirect(f"/courses/materials/{code}?duplicated=1")
 
         StudentEnrollment.objects.create(student_id=sid, course_code=code)
         return redirect(f"/courses/materials/{code}?added=1")
     except IntegrityError:
-        return render(request, "choose_courses.html", {"message": "选课失败，请稍后再试。"})
+        return render(request, "choose_courses.html", {"message": "fail to enroll,try again later"})
 
 
 def materials_of_course(request, course_code):
@@ -53,11 +52,11 @@ def materials_of_course(request, course_code):
 
     code = (course_code or "").upper()
 
-    # 读取 URL 参数 added / duplicated
+    # get url added / duplicated
     added = request.GET.get("added")
     duplicated = request.GET.get("duplicated")
 
-    # 查询资料（从 DB 的 Material)
+    # search material
     mats = Material.objects.filter(course_code=code).values("title", "url")
 
     return render(request, "materials.html", {
@@ -75,9 +74,7 @@ def show_my_material(request, course_code):
     code = (course_code or "").upper()
     return render(request, "show_my_material.html", {"code": code})
 
-# =========================
-# JSON APIs（前端调用）
-# =========================
+
 
 def _require_student(request):
     auth = request.headers.get("Authorization", "") or request.META.get("HTTP_AUTHORIZATION", "")
@@ -98,7 +95,7 @@ def available_courses(request):
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
     rows = list(CourseCatalog.objects.values("code", "title", "description", "illustration"))
-    # 映射为前端期望结构（包含 id）
+    # format mapping 
     data = [{"id": r["code"], "title": r["title"], "description": r["description"], "illustration": r["illustration"]} for r in rows]
     return JsonResponse({"success": True, "data": data})
 
@@ -152,11 +149,6 @@ def my_courses(request):
 
 @csrf_exempt
 def remove_course(request, course_code):
-    """
-    学生退课：
-    1) 删除该学生在该课程下的所有 TaskProgress
-    2) 删除该学生的选课关系 StudentEnrollment
-    """
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
@@ -167,23 +159,23 @@ def remove_course(request, course_code):
 
     try:
         with transaction.atomic():
-            # 先删除这个学生所有的plan数据
+            # delete plan (fair enough cuz u need to regenerate new plan)
             deleted_plans, cascade_details = StudyPlan.objects.filter(
                 student_id=sid
             ).delete()
             deleted_plan_items = cascade_details.get(StudyPlanItem._meta.label, 0)
-            # 子查询：该课程下所有任务的 id
+           
             task_ids_subq = CourseTask.objects.filter(
                 course_code=code
             ).values('id')
 
-            # 1) 删进度
+            # 1) delete progress
             deleted_progress_count, _ = TaskProgress.objects.filter(
                 student_id=sid,
                 task_id__in=Subquery(task_ids_subq)
             ).delete()
 
-            # 2) 删选课关系
+            # 2)delete enrollments
             deleted_enroll_count, _ = StudentEnrollment.objects.filter(
                 student_id=sid,
                 course_code=code
@@ -205,16 +197,6 @@ def remove_course(request, course_code):
             status=500
         )
 
-# def course_tasks(request, course_code):
-#     sid = _require_student(request)
-#     if sid is None:
-#         return JsonResponse({"error": "Auth required"}, status=401)
-#     code = (course_code or "").upper()
-#     qs = CourseTask.objects.filter(course_code=code).values(
-#         "id", "course_code", "title", "deadline", "brief", "percent_contribution","url"
-#     )
-#     data = list(qs)
-#     return JsonResponse({"success": True, "data": data})
 
 
 from django.utils import timezone
@@ -230,7 +212,7 @@ def course_tasks(request, course_code):
 
     data = []
     for t in tasks:
-        # deadline 转换成本地时区（Australia/Sydney）
+        # deadline fits timezone（Australia/Sydney）
         local_deadline = None
         if t.deadline:
             local_deadline = timezone.localtime(t.deadline).strftime("%Y-%m-%d %H:%M:%S")
@@ -239,7 +221,7 @@ def course_tasks(request, course_code):
             "id": t.id,
             "course_code": t.course_code,
             "title": t.title,
-            "deadline": local_deadline,   # ← 返回本地时间
+            "deadline": local_deadline,   
             "brief": t.brief,
             "percent_contribution": t.percent_contribution,
             "url": t.url,
@@ -253,15 +235,12 @@ def course_materials(request, course_code):
         return JsonResponse({"error": "Auth required"}, status=401)
     code = (course_code or "").upper()
     rows = list(Material.objects.filter(course_code=code).values("title", "url"))
-    # 视图层补齐前端期望的字段结构
     data = []
     for r in rows:
         url: str = r["url"] or ""
-        # 推断 fileType：扩展名或默认 pdf
         ext = "pdf"
         if "." in url:
             ext = url.split(".")[-1].lower() or "pdf"
-        # 生成 id：优先根据文件名，无则基于标题派生
         base_name = url.split("/")[-1] if "/" in url else url
         base_name = base_name.split(".")[0] if "." in base_name else base_name
         mat_id = base_name or r["title"].lower().replace(" ", "-")
@@ -279,22 +258,9 @@ def download_material(request, material_id):
     sid = _require_student(request)
     if sid is None:
         return JsonResponse({"error": "Auth required"}, status=401)
-    # material_id → 组件目录文件名
     base = Path(settings.BASE_DIR) / "components"
     file_path = base / f"{material_id}.pdf"
     if not file_path.exists():
         return JsonResponse({"success": False, "message": "Material not found"}, status=404)
     return FileResponse(open(file_path, "rb"), as_attachment=True, filename=file_path.name)
 
-# =========================
-# 路由在 urls.py 中应映射如下（示例）
-# path("courses/available", available_courses)
-# path("courses/search", search_courses)
-# path("courses/add", add_course)
-# path("courses/my", my_courses)
-# path("courses/<str:course_code>/materials", course_materials)
-# path("courses/<str:course_code>/tasks", course_tasks)
-# path("courses/<str:course_code>", remove_course)  # DELETE /courses/{code}
-# path("materials/<str:material_id>/download", download_material)
-# path("tasks/<int:task_id>/progress", task_progress)
-# =========================

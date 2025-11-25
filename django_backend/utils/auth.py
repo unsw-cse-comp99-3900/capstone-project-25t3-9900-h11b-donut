@@ -9,8 +9,8 @@ def make_token() -> str:
     return secrets.token_urlsafe(48)
 def get_student_id_from_request(request: HttpRequest) -> Optional[str]:
     """
-    从 Authorization: Bearer <token> 头部解析并反查当前 student_id。
-    新实现：直接查询数据库的 current_token，不再解码 token。
+    Parse from the Authorization: Bearer<token>header and backtrack the current student ID.
+New implementation: Directly query the database's current token without decoding the token.
     """
    
     auth = request.headers.get("Authorization") or request.META.get("HTTP_AUTHORIZATION") or ""
@@ -21,7 +21,7 @@ def get_student_id_from_request(request: HttpRequest) -> Optional[str]:
     if not token:
         return None
 
-    # 从数据库反查 token 对应的用户
+    # Retrieve the user corresponding to the token from the database
     account = (
         StudentAccount.objects
         .only("student_id")

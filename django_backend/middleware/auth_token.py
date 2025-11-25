@@ -5,7 +5,7 @@ from stu_accounts.models import StudentAccount
 from adm_accounts.models import AdminAccount
 
 class AuthTokenMiddleware(MiddlewareMixin):
-    # 登录、注册等公共接口
+    # for route_protection
     PUBLIC_PREFIXES = (
         "/api/login",
         "/api/logout",
@@ -15,16 +15,16 @@ class AuthTokenMiddleware(MiddlewareMixin):
         "/api/auth/register",   
         "/api/admin/register",
         "/api/admin/login",
-        "/api/ai/health/",  # AI健康检查不需要认证
-        "/api/ai/chat/",    # AI聊天接口（用于测试）
-        "/api/ai/generate-practice/",  # 练习生成API（用于测试）
-        "/api/ai/questions/generate",  # AI问题生成器（内部调用）
-        "/api/ai/questions/session/",  # 获取练习题目
-        "/api/ai/answers/submit",  # 提交答案
+        "/api/ai/health/",  
+        "/api/ai/chat/",  
+        "/api/ai/generate-practice/",  
+        "/api/ai/questions/generate",  
+        "/api/ai/questions/session/", 
+        "/api/ai/answers/submit",  
         "/api/overdue/report-day", 
     )
 
-    # 静态文件白名单路径
+    # whitelist
     PUBLIC_FILE_PREFIXES = (
         "/task/",
         "/api/task/",
@@ -37,15 +37,15 @@ class AuthTokenMiddleware(MiddlewareMixin):
     def process_request(self, request):
         path = request.path
 
-        # 如果是静态文件路径，直接放行，不要求 token
+        # If it is a static file path, it can be released directly without requiring a token
         if any(path.startswith(p) for p in self.PUBLIC_FILE_PREFIXES):
             return None
 
-        # 原本就有的登录注册白名单
+        # The existing login and registration whitelist
         if any(path.startswith(p) for p in self.PUBLIC_PREFIXES):
             return None  
 
-        # 读取 Bearer token
+        # read Bearer token
         auth = request.headers.get("Authorization") or request.META.get("HTTP_AUTHORIZATION") or ""
         if not auth.startswith("Bearer "):
             return JsonResponse({
@@ -64,7 +64,7 @@ class AuthTokenMiddleware(MiddlewareMixin):
                 "data": None
             }, status=401)
 
-        # 用 current_token 反查用户
+        # Use Current_token to backtrack users
         account = StudentAccount.objects.filter(current_token=token).only(
             "student_id", "name", "email", "avatar_url"
         ).first()
@@ -81,6 +81,5 @@ class AuthTokenMiddleware(MiddlewareMixin):
                 "data": None
             }, status=401)
 
-        # 通过，挂在 request 上
         request.account = account
         return None

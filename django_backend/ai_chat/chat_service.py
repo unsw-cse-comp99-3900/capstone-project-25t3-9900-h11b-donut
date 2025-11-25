@@ -9,7 +9,7 @@ from stu_accounts.models import StudentAccount  # type: ignore
 from .models import ChatConversation, ChatMessage, UserStudyPlan
 from dotenv import load_dotenv
 
-# 加载环境变量
+# load var
 load_dotenv()
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 use_gemini: bool = bool(GEMINI_KEY)
@@ -24,11 +24,12 @@ if use_gemini:
             generation_config={"temperature": 0.7, "max_output_tokens": 2048}
         )
     except Exception as e:
-        print(f"[DEBUG] Gemini 初始化失败: {e}")
+        print(f"[DEBUG] Gemini fail to initialize: {e}")
         use_gemini = False
 
 class AIChatService:
-    """AI对话服务 - 处理用户消息并生成智能回复"""
+    """AI chat Service - Processing User Messages and Generating Intelligent Replies
+"""
     
     def __init__(self):
         self.intent_patterns = {

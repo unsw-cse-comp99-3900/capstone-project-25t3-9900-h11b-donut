@@ -1,6 +1,6 @@
 from django.db import models
 
-# 课程目录：用于搜索/展示
+
 class CourseCatalog(models.Model):
     code = models.CharField(max_length=16, primary_key=True)
     title = models.CharField(max_length=255)
@@ -14,10 +14,9 @@ class CourseCatalog(models.Model):
         return f"{self.code} - {self.title}"
 
 
-# 课程任务：课程内的发布任务
 class CourseTask(models.Model):
     id = models.AutoField(primary_key=True)
-    course_code = models.CharField(max_length=16)  # 直接存课程代码，Sprint1 简化
+    course_code = models.CharField(max_length=16)  
     title = models.CharField(max_length=255)
     # deadline = models.DateField()
     deadline = models.DateTimeField()
@@ -32,7 +31,7 @@ class CourseTask(models.Model):
         return f"{self.course_code} - {self.title}"
 
 
-# 学生选课
+
 class StudentEnrollment(models.Model):
     id = models.AutoField(primary_key=True)
     student_id = models.CharField(max_length=64)
@@ -43,13 +42,11 @@ class StudentEnrollment(models.Model):
         unique_together = ("student_id", "course_code")
 
 
-# 任务进度功能已迁移到独立的task_progress应用
-# 学习材料（保持不变：与课程关联并提供下载）
 class Material(models.Model):
     course_code = models.CharField(max_length=16)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    url = models.CharField(max_length=1024)  # 可为后端下载路径或外链
+    url = models.CharField(max_length=1024)
 
     class Meta:
         db_table = "material"
@@ -72,10 +69,9 @@ class Question(models.Model):
     description = models.TextField(blank=True)
     text = models.TextField()
 
-    # 简答题答案（mcq 留空）
+
     short_answer = models.TextField(blank=True, null=True)
 
-    # 关键词：先走 JSON，够用也好迁移
     keywords_json = models.JSONField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -93,9 +89,9 @@ class QuestionChoice(models.Model):
     question = models.ForeignKey(
         Question, on_delete=models.CASCADE, related_name='choices'
     )
-    # 不强制依赖 A/B/C/D，保留序号，label 可选
-    label = models.CharField(max_length=2, blank=True, null=True)   # 'A'/'B'/'C'/'D'
-    order = models.PositiveIntegerField(default=0)                  # 0..n
+
+    label = models.CharField(max_length=2, blank=True, null=True)  
+    order = models.PositiveIntegerField(default=0)               
     content = models.TextField()
     is_correct = models.BooleanField(default=False)
 

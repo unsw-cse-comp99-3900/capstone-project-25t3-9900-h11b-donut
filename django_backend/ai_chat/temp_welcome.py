@@ -1,6 +1,6 @@
     
 def generate_welcome_response(self) -> str:
-        """生成固定的欢迎回复"""
+        """fixed reply"""
         return """
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">

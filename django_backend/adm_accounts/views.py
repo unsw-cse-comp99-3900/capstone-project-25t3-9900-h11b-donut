@@ -10,7 +10,7 @@ from django.utils import timezone
 from .models import AdminAccount 
 from utils.validators import validate_email, validate_id, validate_name, validate_password
 from utils.auth import make_token
-# 头像配置
+# avatar configure
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png"}
 MAX_AVATAR_BYTES = 2 * 1024 * 1024  # 2MB
 
@@ -20,20 +20,20 @@ def api_ok(data=None, message="OK", status=200):
 def api_err(message="Bad Request", status=400):
     return JsonResponse({"success": False, "message": message, "data": None}, status=status)
 def _json_body(request: HttpRequest):
-    """安全解析 JSON 请求体"""
+   
     try:
         return json.loads(request.body.decode("utf-8") or "{}")
     except Exception:
         return {}
 @csrf_exempt
 def register_admin(request: HttpRequest):
-    """管理员注册接口"""
+   
     
     if request.method != "POST":
         return api_err("Method Not Allowed", 405)
 
     try:
-        # --- 1) 同时兼容 JSON 与 FormData ---
+        # --- 1) JSON  FormData acceptable ---
         if (request.content_type or "").lower().startswith("application/json"):
             data = json.loads(request.body.decode("utf-8") or "{}")
             admin_id = (data.get("admin_id") or "").strip()
@@ -48,7 +48,7 @@ def register_admin(request: HttpRequest):
             password = request.POST.get("password") or ""
             avatar_file = request.FILES.get("avatar")
 
-        # --- 2) 基础校验 ---
+        # --- 2) basic check---
         if not admin_id or not email or not password or not full_name:
             return api_err("Please enter admin_id, email, name and password", 400)
 
@@ -60,13 +60,13 @@ def register_admin(request: HttpRequest):
         except ValidationError as ve:
             return api_err(str(ve), 400)
 
-        # --- 3) 查重 ---
+        # --- 3) duplicate check ---
         if AdminAccount.objects.filter(admin_id=admin_id).exists():
             return api_err("Admin ID already exists", 409)
         if AdminAccount.objects.filter(email=email).exists():
             return api_err("Email already exists", 409)
 
-        # --- 4) 处理头像 ---
+        # --- 4) handle avatar ---
         avatar_url = None
         if avatar_file:
             if avatar_file.size > MAX_AVATAR_BYTES:
@@ -83,7 +83,7 @@ def register_admin(request: HttpRequest):
             base = getattr(settings, "MEDIA_URL", "/media/")
             avatar_url = f"{base}{saved_path}"
 
-        # --- 5) 哈希密码 + 写入数据库 ---
+        # --- 5) use hash pwd and store into db ---
         hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
         with transaction.atomic():
@@ -95,7 +95,7 @@ def register_admin(request: HttpRequest):
                 avatar_url=avatar_url,
             )
 
-        # --- 6) 返回成功信息 ---
+        # --- 6) return msg ---
         return JsonResponse({
             "success": True,
             "message": "Admin registered successfully",
@@ -135,7 +135,7 @@ def login_admin(request: HttpRequest):
             return api_err("Invalid id or password", 401)
 
         token = make_token()
-        # 在 user 里带上 avatarUrl
+        # user with avatarUrl
         now = timezone.now()
         with transaction.atomic():
             account.current_token = token
@@ -146,7 +146,7 @@ def login_admin(request: HttpRequest):
             "adminId": account.admin_id,
             "name": account.full_name or "",
             "email": account.email or "",
-            "avatarUrl": getattr(account, "avatar_url", None),  # 可能为 None
+            "avatarUrl": getattr(account, "avatar_url", None),  # possible None
         }
 
         return api_ok({"token": token, "user": user_payload})
