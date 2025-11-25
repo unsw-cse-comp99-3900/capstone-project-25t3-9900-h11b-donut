@@ -8,14 +8,14 @@ from .models import ChatManager, UserStudyPlan
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ChatView(View):
-    """AI对话API视图"""
+  
     
     def __init__(self):
         super().__init__()
         self.chat_service = AIChatService()
     
     def post(self, request):
-        """发送消息到AI"""
+        """send msg toAI"""
         try:
             data = json.loads(request.body)
             message = data.get('message', '').strip()
@@ -26,22 +26,22 @@ class ChatView(View):
                     'error': 'Message cannot be empty'
                 }, status=400)
             
-            # 检查认证，使用真实的用户账户
+          
             if not hasattr(request, 'account'):
-                # 尝试从认证token获取真实用户
+              
                 from stu_accounts.models import StudentAccount
                 from django.contrib.auth.models import User
                 
-                # 从请求头获取认证token（暂时允许无token访问）
+                # Obtain authentication token from request header (temporarily allow token free access)
                 auth_header = request.headers.get('Authorization', '')
-                if auth_header.startswith('Bearer ') or True:  # 暂时允许无token访问
-                    token = auth_header[7:]  # 去掉'Bearer '前缀
+                if auth_header.startswith('Bearer ') or True:  
+                    token = auth_header[7:]  
                     
-                    # 这里应该验证token并获取对应的用户
-                    # 暂时使用一个简单的逻辑：从localStorage中获取用户ID
-                    # 在实际应用中，这里应该验证token并获取对应的用户
-                    
-                    # 从请求参数或请求体获取用户ID
+                    #We should verify the token here and obtain the corresponding user
+                    #Temporarily use a simple logic: retrieve the user ID from localStorage
+                    #In practical applications, the token should be verified and the corresponding user should be obtained here
+                                        
+                    #Retrieve user ID from request parameters or request body
                     user_id = request.GET.get('user_id') or data.get('user_id')
                     if not user_id:
                         return JsonResponse({
@@ -49,9 +49,8 @@ class ChatView(View):
                             'error': 'User ID is required'
                         }, status=400)
                     
-                    print(f"[DEBUG] 获取用户历史: user_id={user_id}")
+                    print(f"[DEBUG] get user's history: user_id={user_id}")
                     
-                    # 创建或获取对应的学生账户
                     account, created = StudentAccount.objects.get_or_create(
                         student_id=user_id,
                         defaults={
@@ -61,19 +60,19 @@ class ChatView(View):
                         }
                     )
                     if created:
-                        print(f"[DEBUG] 创建新用户账户: {user_id}")
+                        print(f"[DEBUG] create new account: {user_id}")
                     else:
-                        print(f"[DEBUG] 使用现有用户账户: {user_id}")
+                        print(f"[DEBUG] use available account: {user_id}")
                     
                     request.account = account
                 else:
-                    # 如果没有认证信息，返回错误
+                  
                     return JsonResponse({
                         'success': False,
                         'error': 'Authentication required'
                     }, status=401)
             
-            # 处理消息并获取AI回复
+            # handle msg and ai response
             result = self.chat_service.process_message(request.account, message)
             
             return JsonResponse(result)
@@ -90,24 +89,24 @@ class ChatView(View):
             }, status=500)
     
     def get(self, request):
-        """获取对话历史"""
+        """get history conversation"""
         try:
-            # 检查认证，使用真实的用户账户
+          
             if not hasattr(request, 'account'):
-                # 尝试从认证token获取真实用户
+               
                 from stu_accounts.models import StudentAccount
                 from django.contrib.auth.models import User
                 
-                # 从请求头获取认证token（暂时允许无token访问）
+                
                 auth_header = request.headers.get('Authorization', '')
-                if auth_header.startswith('Bearer ') or True:  # 暂时允许无token访问
-                    token = auth_header[7:]  # 去掉'Bearer '前缀
+                if auth_header.startswith('Bearer ') or True: 
+                    token = auth_header[7:]  
                     
-                    # 这里应该验证token并获取对应的用户
-                    # 暂时使用一个简单的逻辑：从localStorage中获取用户ID
-                    # 在实际应用中，这里应该验证token并获取对应的用户
-                    
-                    # 从请求参数或请求体获取用户ID
+                    #We should verify the token here and obtain the corresponding user
+                    #Temporarily use a simple logic: retrieve the user ID from localStorage
+                    #In practical applications, the token should be verified and the corresponding user should be obtained here
+                                        
+                    #Retrieve user ID from request parameters or request body
                     user_id = request.GET.get('user_id') or data.get('user_id')
                     if not user_id:
                         return JsonResponse({
@@ -115,9 +114,8 @@ class ChatView(View):
                             'error': 'User ID is required'
                         }, status=400)
                     
-                    print(f"[DEBUG] 获取用户历史: user_id={user_id}")
+                    print(f"[DEBUG] get user's history: user_id={user_id}")
                     
-                    # 创建或获取对应的学生账户
                     account, created = StudentAccount.objects.get_or_create(
                         student_id=user_id,
                         defaults={
@@ -127,13 +125,13 @@ class ChatView(View):
                         }
                     )
                     if created:
-                        print(f"[DEBUG] 创建新用户账户: {user_id}")
+                        print(f"[DEBUG] create new account: {user_id}")
                     else:
-                        print(f"[DEBUG] 使用现有用户账户: {user_id}")
+                        print(f"[DEBUG] use available account: {user_id}")
                     
                     request.account = account
                 else:
-                    # 如果没有认证信息，返回错误
+                  
                     return JsonResponse({
                         'success': False,
                         'error': 'Authentication required'

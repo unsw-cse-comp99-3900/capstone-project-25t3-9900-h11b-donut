@@ -2050,7 +2050,7 @@ Respond as their AI Learning Coach. Use the student's actual course, task, and p
                     user.save()
                     print(f"[DEBUG] 同步了User email: {user.email}")
                     
-            print(f"[DEBUG] 保存计划 - StudentAccount: {account.student_id} -> Django User: {user.username}")
+            print(f"[DEBUG] save plan - StudentAccount: {account.student_id} -> Django User: {user.username}")
             
             # 将之前的计划设为非活跃
             UserStudyPlan.objects.filter(user=user, is_active=True).update(is_active=False)  # type: ignore
