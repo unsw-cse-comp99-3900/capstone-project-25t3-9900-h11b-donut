@@ -1,16 +1,16 @@
 export function installErrorGuards() {
   if (typeof window === 'undefined') return;
 
-  // 改进的错误处理：安全处理所有getBoundingClientRect错误
+  // Improved error handling: Safely handle all getBoundingClientRect errors
   window.addEventListener(
     'error',
     (e) => {
       const msg = String((e as ErrorEvent)?.message ?? '');
 
       
-      // 安全处理所有getBoundingClientRect错误，包括内部错误
+      // Safely handle all getBoundingClientRect errors, including internal errors
       if (msg.includes('getBoundingClientRect') || msg.includes('Cannot read properties of null')) {
-        // 记录更详细的上下文，帮助定位来源文件与行号
+        // Record more detailed context to help locate the source file and line numbers
         const err = e as ErrorEvent;
         console.error('[guard] getBoundingClientRect error:', msg, {
           filename: err.filename,
@@ -22,7 +22,7 @@ export function installErrorGuards() {
         return;
       }
       
-      // 对于其他内部错误，记录但不阻止
+      // For other internal errors, record but do not prevent them
       console.warn('[guard] Error detected:', msg, e);
     },
     true
@@ -37,14 +37,14 @@ export function installErrorGuards() {
         (reason && reason.message) ||
         '';
       
-      // 安全处理所有getBoundingClientRect相关的拒绝
+      // Safely handle all rejections related to getBoundingClientRect
       if (String(msg).includes('getBoundingClientRect') || String(msg).includes('Cannot read properties of null')) {
         console.debug('[guard] Silenced getBoundingClientRect rejection:', msg);
         e.preventDefault();
         return;
       }
       
-      // 对于其他拒绝，记录但不阻止
+      // For other rejections, record but do not prevent
       console.warn('[guard] Rejection detected:', msg);
     },
     true

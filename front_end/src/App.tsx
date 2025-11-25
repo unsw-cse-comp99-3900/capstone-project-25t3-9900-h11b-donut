@@ -22,7 +22,7 @@ import { PracticeSession } from './pages/PracticeSession'
 
 
 
-// 登录状态检查（只用本地）
+// Login status check (local only)
 function isAuthed(maxAgeMs = 30 * 60 * 1000) {
   const token = localStorage.getItem('auth_token')
   const uid = localStorage.getItem('current_user_id')
@@ -31,7 +31,8 @@ function isAuthed(maxAgeMs = 30 * 60 * 1000) {
   return Boolean(token && uid && !expired)
 }
 
-// 需要保护的页面（前缀匹配）
+// Pages that need protection (prefix matching)
+
 const PROTECTED_PREFIXES = [
   '#/student-profile',
   '#/student-home',
@@ -41,7 +42,7 @@ const PROTECTED_PREFIXES = [
   '#/chat-window',
 ]
 
-//  判断当前 hash 是否受保护
+//  Determine whether the current hash is protected
 function isProtectedHash(hash: string) {
   return PROTECTED_PREFIXES.some(p => hash.startsWith(p))
 }

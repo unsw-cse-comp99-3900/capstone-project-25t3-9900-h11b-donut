@@ -15,7 +15,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
   const [loading, setLoading] = useState(false);
   const [selectedType, setSelectedType] = useState<MessageType>('all');
 
-  // 加载消息列表
+  // load msg list
   const loadMessages = async () => {
     if (!isOpen) return;
     
@@ -27,13 +27,13 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
       setUnreadCount(newUnreadCount);
       onUnreadCountChange?.(newUnreadCount);
     } catch (error) {
-      console.error('加载消息失败:', error);
+      console.error('fail to load msg!:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 标记消息为已读
+  // mark as readed
   const markAsRead = async (messageId: string) => {
     try {
       const message = messages.find(msg => msg.id === messageId);
@@ -52,7 +52,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
     }
   };
 
-  // 一键标记所有消息为已读
+  // mark all msg as done in one go
   const markAllAsRead = async () => {
     try {
       const unreadMessages = messages.filter(msg => !msg.isRead);
@@ -73,7 +73,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
     }
   };
 
-  // 格式化时间显示（英文相对时间）
+  // time display
   const formatTime = (timestamp: string) => {
     const now = new Date();
     const t = new Date(timestamp);
@@ -88,7 +88,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
   };
 
   const getMessageIcon = (type: string) => {
-  // 所有 due_ 开头的
+  // starting with due_
   if (type.startsWith('due_')) {
     return '⏰';
   }
@@ -103,7 +103,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
     return '🏆';
   }
 
-  // 所有 system_notification 相关
+  //  system_notification 
   if (type.startsWith('system')) {
     return '🔔';
   }
@@ -113,18 +113,17 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
 };
 
 
-  // 筛选消息并按时间倒序排列（最新的在最前面）
+  // reverse order the msg
   const filteredMessages = messages
     .filter(message =>
       selectedType === 'all' ||
 
-      // ⭐ due_alert 动态类型
+      // ⭐ due_alert dynamic type
       (selectedType === 'due_alert' && message.type.startsWith('due_')) ||
 
-      // ⭐ system_notification 动态类型
+      // ⭐ system_notification dynamic type
       (selectedType === 'system_notification' && message.type.startsWith('system')) ||
 
-      // 原来的严格匹配
       message.type === selectedType
     )
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -133,7 +132,6 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
 
 
 
-  // 依据类型生成简洁行文案
   const formatMessage = (m: Message) => {
     if (m.type === 'due_alert') {
       let hoursLeft: number | null = null;
@@ -148,7 +146,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
       const taskName = match ? match[1] : 'Assignment';
       const course = (anyM.courseId || '') as string;
       
-      // 检查是否是管理员修改DDL的消息
+      // check admin modify the ddl
       if (preview.includes('Admin has') || preview.includes('deadline updated') || preview.includes('deadline changed')) {
         if (preview.includes('extended')) {
           return `Deadline extended: ${taskName} – ${course}`;
@@ -196,7 +194,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
           </div>
         </div>
 
-        {/* 消息分类筛选器行 - 包含筛选器、未读计数和All read按钮 */}
+        {/*  */}
         <div className="message-filter-row">
           <div className="filter-dropdown-container">
             <select 
@@ -725,7 +723,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
           to { transform: rotate(360deg); }
         }
 
-        /* 响应式设计 */
+
         @media (max-width: 480px) {
           .message-modal {
             width: 92vw;

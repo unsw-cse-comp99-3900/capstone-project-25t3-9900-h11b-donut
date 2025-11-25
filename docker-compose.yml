@@ -3,14 +3,14 @@ version: "3.9"
 services:
   backend:
     build:
-      context: .                           # 构建上下文是整个项目根目录
+      context: .                           
       dockerfile: django_backend/Dockerfile.backend
     container_name: donut-backend
     working_dir: /app
     ports:
       - "8000:8000"
     env_file:
-      - ./django_backend/.env             # 这里会把你 .env 里的 GEMINI_KEY、DB_* 注入容器
+      - ./django_backend/.env            
     restart: unless-stopped
 
   frontend:

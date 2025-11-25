@@ -70,7 +70,7 @@ body {
 }
 .illustration-image {
   position: absolute;
-  /* 缩小尺寸并保持中心不变（相对原365x317） */
+  
   left: 171px;   /* 原153 + (365-330)/2 ≈ 18px */
   top: 289px;    /* 原273.5 + (317-286)/2 ≈ 15.5px */
   width: 330px;  /* 缩小约 9.6% */
@@ -98,7 +98,7 @@ body {
 }
 .header {
   width: 672px;
-  margin: 48px auto 0; /* 居中到列内 */
+  margin: 48px auto 0; /* Center to column */
   text-align: center;
 }
 .header .title { margin: 0 0 6px; }
@@ -117,7 +117,8 @@ body {
 
 .select-grid {
   margin-left: 0;
-  margin-top: 96px; /* 让标题与卡片留白更小 */
+  margin-top: 96px; /* Make the title and card space smaller
+ */
   width: 100%;
   display: grid;
   grid-template-rows: 235px 235px;
@@ -136,13 +137,13 @@ body {
 }
 .role-card.selected {
   border-color: var(--color-accent);
-  border-width: 2px; /* Figma 2px 选中描边 */
-  box-shadow: none;  /* 取消内阴影，更贴近设计 */
+  border-width: 2px; 
+  box-shadow: none;  
 }
 .role-card .icon {
   position: absolute;
   top: 32px;
-  left: 50%; transform: translateX(-50%); /* 居中徽标 */
+  left: 50%; transform: translateX(-50%); 
   width: 56px; height: 56px;
   border-radius: 14px;
   background: #FFF1E8;
@@ -155,7 +156,7 @@ body {
 .role-card .text {
   position: absolute;
   top: 120px;
-  left: 50%; transform: translateX(-50%); /* 文案块横向居中 */
+  left: 50%; transform: translateX(-50%); 
   width: 362px;
   text-align: center;
 }
@@ -184,7 +185,7 @@ body {
   align-items: center;
   padding: 0 24px;
   cursor: pointer;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.04); /* 细微立体感 */
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04); 
 }
 .primary-btn .arrow {
   justify-self: end;
@@ -302,7 +303,8 @@ body {
 .secondary-btn:hover { filter: brightness(0.99); }
 .secondary-btn:active { transform: translateY(1px); }
 
-/* SignUp 头像圆形占位 */
+/* SignUp Avatar circular occupying space
+ */
 /* .avatar-uploader {
   width: 96px; height: 96px;
   border-radius: 50%;
@@ -324,7 +326,8 @@ body {
 }
 
 
-/* Ghost buttons: 默认白底描边，悬停橙色（学生主题） */
+/* Ghost buttons: Default white background stroke, hover orange (student theme)
+ */
 .ghost-btn {
   width: 100%; height: 64px;
   border-radius: 20px;
@@ -343,10 +346,12 @@ body {
   background: var(--color-primary);
   border-color: var(--color-primary);
 }
-/* 统一箭头对齐到按钮右侧 */
+/* Align the unified arrow to the right of the button
+ */
 .ghost-btn .arrow { justify-self: end; width: 16px; height: 16px; }
 
-/* Header 放回退按钮 */
+/* Header Release the rollback button
+ */
 .header { position: relative; }
 .back-btn {
   position: absolute;
@@ -359,6 +364,7 @@ body {
   cursor: pointer;
 }
 .back-btn:hover {
-  background: #FFF3E9; /* 轻微橙色提示 */
+  background: #FFF3E9; /* Slight orange prompt
+ */
   border-color: var(--color-primary);
 }

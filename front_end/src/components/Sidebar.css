@@ -1,10 +1,12 @@
-/* 通用侧栏容器（两页都包含） */
+/*general sidebar container (included on both pages)*/
+
 .ac-sidebar, .amc-sidebar {
   display:flex;
   flex-direction:column;
 }
 
-/* 统一 Log Out 按钮为课程页的视觉：Arial、13.3333px、#000 */
+/*Unified Log Out button for course page visual: Arial, 13.3333px, # 000*/
+
 .ac-sidebar .btn-outline,
 .amc-sidebar .btn-outline {
   padding:14px;
@@ -13,14 +15,15 @@
   border:1px solid #EAEAEA;
   cursor:pointer;
   font-weight:600;
-  font-size:13.3333px;   /* 课程页的 computed 值 */
-  color:#000;            /* 课程页的 computed 值 */
+  font-size:13.3333px;   
+  color:#000;            
   margin-top:auto;
   display:block;
-  /* 不要在这里设置固定 width/height */
+
 }
 
-/* 通用侧栏布局样式 */
+/*general sidebar layout style*/
+
 .admin-sidebar-layout {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -33,7 +36,7 @@
   min-height: 100vh;
 }
 
-/* 通用侧栏内容样式 */
+
 .sidebar-content {
   display: flex;
   flex-direction: column;
@@ -41,7 +44,7 @@
   height: 100%;
 }
 
-/* 通用用户信息卡片 */
+/* general users' info card */
 .sidebar-profile-card {
   display: flex;
   align-items: center;
@@ -54,7 +57,8 @@
   height: 95.36px;
 }
 
-/* 通用导航菜单 */
+/* General navigation menu
+ */
 .sidebar-nav {
   display: flex;
   flex-direction: column;
@@ -66,7 +70,7 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.04);
 }
 
-/* 通用导航菜单项 */
+
 .sidebar-nav .item {
   display: flex;
   align-items: center;
@@ -90,7 +94,8 @@
   height: 20px;
 }
 
-/* 通用插图区域 */
+/* General illustration area
+ */
 .sidebar-illustration {
   margin-top: auto;
   margin-bottom: 20px;

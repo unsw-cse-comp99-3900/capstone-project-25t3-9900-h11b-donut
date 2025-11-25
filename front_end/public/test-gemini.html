@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini标题测试</title>
+    <title>GeminiTitle Test</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
         .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
@@ -13,7 +13,7 @@
     </style>
 </head>
 <body>
-    <h1>🧪 Gemini标题生成测试</h1>
+    <h1>🧪 Gemini Title generating Test</h1>
     <div id="test-results"></div>
     
     <script>
@@ -21,14 +21,14 @@
             const resultsDiv = document.getElementById('test-results');
             
             try {
-                resultsDiv.innerHTML += '<div class="info">🚀 开始测试后端AI计划生成...</div>';
+                resultsDiv.innerHTML += '<div class="info">🚀 start testing ai plan...</div>';
                 
-                // 测试后端API
+                // test backend API
                 const response = await fetch('http://localhost:8000/api/plans/generate-ai-plan/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': 'Bearer test-token' // 临时测试token
+                        'Authorization': 'Bearer test-token' 
                     },
                     body: JSON.stringify({})
                 });
@@ -40,16 +40,16 @@
                 const data = await response.json();
                 
                 if (data.success && data.data) {
-                    resultsDiv.innerHTML += '<div class="success">✅ 后端AI计划生成成功!</div>';
+                    resultsDiv.innerHTML += '<div class="success">✅ The backend AI plan has been successfully generated!</div>';
                     
                     const aiPlan = data.data;
                     
-                    // 检查aiSummary中的标题
+                    
                     if (aiPlan.aiSummary && aiPlan.aiSummary.tasks) {
-                        resultsDiv.innerHTML += `<div class="info">🔍 AI摘要任务数: ${aiPlan.aiSummary.tasks.length}</div>`;
+                        resultsDiv.innerHTML += `<div class="info">🔍 Number of AI summary tasks: ${aiPlan.aiSummary.tasks.length}</div>`;
                         
                         aiPlan.aiSummary.tasks.forEach((task, i) => {
-                            resultsDiv.innerHTML += `<div class="info">任务 ${i+1}: ${task.taskTitle}</div>`;
+                            resultsDiv.innerHTML += `<div class="info">task ${i+1}: ${task.taskTitle}</div>`;
                             if (task.parts) {
                                 task.parts.forEach((part, j) => {
                                     const title = part.title || 'No title';
@@ -60,13 +60,13 @@
                         });
                     }
                     
-                    // 检查days中的blocks标题
+           
                     if (aiPlan.days && aiPlan.days.length > 0) {
-                        resultsDiv.innerHTML += '<div class="info">📅 检查每日计划中的标题:</div>';
+                        resultsDiv.innerHTML += '<div class="info">📅 Check the titles in the daily plan:</div>';
                         
                         const day = aiPlan.days[0];
                         const blocks = day.blocks || [];
-                        resultsDiv.innerHTML += `<div class="info">日期 ${day.date}: ${blocks.length} 个blocks</div>`;
+                        resultsDiv.innerHTML += `<div class="info">date ${day.date}: ${blocks.length} 个blocks</div>`;
                         
                         blocks.slice(0, 3).forEach(block => {
                             const title = block.title || 'No title';
@@ -75,19 +75,19 @@
                         });
                     }
                     
-                    resultsDiv.innerHTML += '<div class="success">🎯 测试完成! 如果看到✅，说明Gemini成功生成了特定标题!</div>';
+                    resultsDiv.innerHTML += '<div class="success">🎯 Test completed! If you see ✅， Gemini has successfully generated a specific title!</div>';
                     
                 } else {
-                    resultsDiv.innerHTML += `<div class="error">❌ 后端返回错误: ${data.message || '未知错误'}</div>`;
+                    resultsDiv.innerHTML += `<div class="error">❌ Backend returns error: ${data.message || 'Unknown error'}</div>`;
                 }
                 
             } catch (error) {
-                resultsDiv.innerHTML += `<div class="error">❌ 测试失败: ${error.message}</div>`;
-                resultsDiv.innerHTML += '<div class="info">💡 请确保后端服务正在运行 (python manage.py runserver 8000)</div>';
+                resultsDiv.innerHTML += `<div class="error">❌ test failed: ${error.message}</div>`;
+                resultsDiv.innerHTML += '<div class="info">💡 Please ensure that the backend service is running (python manage.py runserver 8000)</div>';
             }
         }
         
-        // 页面加载后自动测试
+
         window.onload = testGeminiTitles;
     </script>
 </body>

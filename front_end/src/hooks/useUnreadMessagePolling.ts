@@ -14,9 +14,11 @@ export default function useUnreadMessagePolling(setUnreadMessageCount: (n: numbe
       }
     }
 
-    fetchCount(); // 页面加载时立即执行
-    const timer = setInterval(fetchCount, 30000); // 每 30s 执行一次
+    fetchCount(); // Execute immediately upon page loading
 
-    return () => clearInterval(timer); // 页面卸载时清除定时器
+    const timer = setInterval(fetchCount, 30000); // execute every 30s
+
+    return () => clearInterval(timer); // Clear timer during page uninstallation
+
   }, [setUnreadMessageCount]);
 }

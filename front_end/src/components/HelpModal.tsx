@@ -1,4 +1,3 @@
-// 使用简单的X符号代替图标库
 
 interface HelpModalProps {
   isOpen: boolean

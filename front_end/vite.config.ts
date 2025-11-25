@@ -36,10 +36,10 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  // 读取环境变量（Vite 只认以 VITE_ 开头的）
+
   const env = loadEnv(mode, process.cwd(), '')
 
-  // 如果没有配置 VITE_API_PROXY_TARGET，就用本地默认 127.0.0.1:8000
+
   const apiTarget = env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000'
 
   return {

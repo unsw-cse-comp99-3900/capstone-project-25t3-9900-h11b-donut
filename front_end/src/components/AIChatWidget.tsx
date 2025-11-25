@@ -1,7 +1,4 @@
-/**
- * AI对话组件
- * 可复用的AI对话界面组件
- */
+
 import { useState, useEffect, useRef } from 'react';
 import { aiChatService, type ChatMessage } from '../services/aiChatService';
 
@@ -24,14 +21,14 @@ export function AIChatWidget({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesRef = useRef<HTMLDivElement>(null);
 
-  // 加载对话历史
+  // load history
   useEffect(() => {
     if (showHistory) {
       loadChatHistory();
     }
   }, [showHistory]);
 
-  // 自动滚动到底部
+  // scroll down to btm
   useEffect(() => {
     if (messagesRef.current) {
       messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
@@ -59,7 +56,7 @@ export function AIChatWidget({
     setCurrentInput('');
     setIsLoading(true);
 
-    // 立即显示用户消息
+    // show message
     const tempUserMessage: ChatMessage = {
       id: Date.now(),
       type: 'user',
@@ -71,9 +68,9 @@ export function AIChatWidget({
     try {
       const response = await aiChatService.sendMessage(userMessage);
       
-      // 替换临时用户消息并添加AI回复
+   
       setMessages(prev => {
-        const newMessages = prev.slice(0, -1); // 移除临时消息
+        const newMessages = prev.slice(0, -1); // remove tmp msg
         const messagesToAdd = [];
         if (response.user_message) messagesToAdd.push(response.user_message);
         if (response.ai_response) messagesToAdd.push(response.ai_response);
@@ -85,7 +82,7 @@ export function AIChatWidget({
     } catch (error) {
       console.error('Failed to send message:', error);
       
-      // 显示错误消息
+      // show err msg
       const errorMessage: ChatMessage = {
         id: Date.now() + 1,
         type: 'ai',
@@ -100,7 +97,7 @@ export function AIChatWidget({
   };
 
   const formatMessageContent = (content: string) => {
-    // 简单的markdown格式化
+    // Simple markdown formatting
     return content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
@@ -109,7 +106,7 @@ export function AIChatWidget({
 
   return (
     <div className={`ai-chat-widget ${className}`}>
-      {/* 消息区域 */}
+      {/* msg section */}
       <div 
         className="chat-messages" 
         ref={messagesRef}
@@ -169,7 +166,7 @@ export function AIChatWidget({
         )}
       </div>
 
-      {/* 输入区域 */}
+      {/* input section */}
       <form className="chat-input-form" onSubmit={sendMessage}>
         <input
           className="chat-input"
