@@ -1,6 +1,6 @@
 """
-AI Auto-Grader - 使用 Gemini AI 自动评分
-Django集成版本 - 仅包含核心评分逻辑，所有数据通过API传输
+AI Auto Trader - Use Gemini AI for automatic scoring
+Django integrated version - only includes core rating logic, all data is transmitted through API
 """
 import os
 import json
@@ -8,23 +8,23 @@ import re
 from typing import List, Dict
 import google.generativeai as genai
 
-# 从环境变量获取API密钥
+
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 
 class AutoGrader:
-    """AI 自动评分器"""
+
     
     def __init__(self, api_key: str = None):
-        """初始化评分器"""
+
         self.api_key = api_key or GEMINI_API_KEY
         if not self.api_key:
-            raise ValueError("未找到 GEMINI_API_KEY，请在环境变量中设置")
+            raise ValueError("GEMINI_API_KEY not found, please set it in the environment variable")
         
-        # 配置 Gemini
+        # use Gemini
         genai.configure(api_key=self.api_key)
         
-        # 使用经过测试的可用模型，配置生成参数以提高一致性
+        # Using tested and available models, configure generation parameters to improve consistency
         self.model = genai.GenerativeModel(
             'gemini-2.5-flash',
             generation_config={
@@ -36,26 +36,26 @@ class AutoGrader:
     
     def grade_mcq(self, question: Dict, student_answer: str) -> Dict:
         """
-        评分选择题(直接比对)
+        Multiple choice rating questions (direct comparison)
         
         Args:
-            question: 题目信息
-            student_answer: 学生答案
-        
+        Question: Question Information
+        Student Answer: Student's Answer
+                
         Returns:
-            评分结果
+        Rating results
         """
         correct_answer = question.get('correct_answer', '').strip().upper()
         student_answer_clean = student_answer.strip().upper()
         
-        # 提取选项字母(处理 "A. ..." 或 "A" 格式)
+        # Extract option letters (in "A..." or "A" format)
         if '.' in student_answer_clean:
             student_answer_clean = student_answer_clean.split('.')[0].strip()
         if '.' in correct_answer:
             correct_answer = correct_answer.split('.')[0].strip()
         
         is_correct = student_answer_clean == correct_answer
-        # 🔥 强制每题10分
+        # 10MARKS PER QUESTION
         max_score = 10
         score = max_score if is_correct else 0
         
@@ -72,30 +72,30 @@ class AutoGrader:
     
     def grade_short_answer(self, question: Dict, student_answer: str, rubric: Dict = None) -> Dict:
         """
-        使用 AI 评分简答题
+        Using AI to score short answer questions
         
         Args:
-            question: 题目信息
-            student_answer: 学生答案
-            rubric: 评分细则(可选，使用默认评分标准)
-        
+        Question: Question Information
+        Student Answer: Student's Answer
+        Rubric: Rating criteria (optional, using default rating standards)
+                
         Returns:
-            评分结果
+        Rating results
         """
-        # 构建评分提示词
+        # Build rating prompt words
         prompt = self._build_grading_prompt(question, student_answer)
         
         try:
-            # 调用 Gemini API
+            # use Gemini API
             response = self.model.generate_content(prompt)
             
-            # 解析评分结果
+            # analyze solution
             result = self._parse_grading_response(response.text, question, student_answer)
             
             return result
             
         except Exception as e:
-            # 返回默认评分，🔥 强制10分满分
+
             return {
                 'question_id': question.get('id'),
                 'type': 'short_answer',
@@ -107,9 +107,7 @@ class AutoGrader:
             }
     
     def _build_grading_prompt(self, question: Dict, student_answer: str) -> str:
-        """构建评分提示词"""
         
-        # 🔥 强制每题10分满分
         max_score = 10
         key_points = question.get('grading_points', [])
         key_points_text = "\n".join(f"- {p}" for p in key_points)
@@ -211,9 +209,7 @@ Begin grading:"""
         return prompt
     
     def _parse_grading_response(self, response_text: str, question: Dict, student_answer: str) -> Dict:
-        """解析 AI 评分响应"""
-        
-        # 提取 JSON
+
         cleaned = response_text.strip()
         if cleaned.startswith('```'):
             match = re.search(r'```(?:json)?\s*(\{.*\})\s*```', cleaned, re.DOTALL)
@@ -223,16 +219,14 @@ Begin grading:"""
                 cleaned = re.sub(r'^```(?:json)?[\s\n]*', '', cleaned)
                 cleaned = re.sub(r'[\s\n]*```$', '', cleaned)
         
-        # 解析 JSON
         grading_result = json.loads(cleaned)
         
-        # 构建标准格式结果，🔥 强制max_score为10
         return {
             'question_id': question.get('id'),
             'type': 'short_answer',
             'student_answer': student_answer,
             'score': grading_result.get('total_score', 0),
-            'max_score': 10,  # 强制10分
+            'max_score': 10, 
             'feedback': grading_result.get('feedback', ''),
             'breakdown': grading_result.get('breakdown', {}),
             'hint': grading_result.get('hint', ''),
@@ -241,15 +235,15 @@ Begin grading:"""
     
     def grade_all(self, questions: List[Dict], student_answers: Dict, student_id: str = 'unknown') -> Dict:
         """
-        评分所有题目
+        Rate all questions
         
         Args:
-            questions: 题目列表
-            student_answers: 学生答案字典 {question_id: answer}
-            student_id: 学生ID
-        
+        Questions: List of Questions
+        Student_answers: Student Answer Dictionary {question_id: answer}
+        Student_id: Student ID
+                
         Returns:
-            完整评分结果
+        Complete rating results
         """
         results = []
         
@@ -263,12 +257,12 @@ Begin grading:"""
                     'type': q.get('type'),
                     'student_answer': '',
                     'score': 0,
-                    'max_score': 10,  # 🔥 强制10分
+                    'max_score': 10, 
                     'feedback': 'No answer provided'
                 })
                 continue
             
-            # 根据题型评分
+            # Score based on question type
             if q.get('type') == 'mcq':
                 result = self.grade_mcq(q, student_ans)
             else:
@@ -276,7 +270,7 @@ Begin grading:"""
             
             results.append(result)
         
-        # 计算总分
+        # calculate total mark
         total_score = sum(r.get('score', 0) for r in results)
         total_max = sum(r.get('max_score', 0) for r in results)
         

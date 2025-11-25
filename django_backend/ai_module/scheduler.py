@@ -35,16 +35,16 @@ def compute_part_percentages(task: TaskWithParts) -> List[Dict[str, Any]]:
 
 def _allowed_weekdays_for_week(weekly_study_days: int, avoid_days: set[int],start_weekday: int) -> List[int]:
     """
-    返回一周中允许学习的 weekday 列表（0..6），
-    规则：先去掉 avoid_days，如果今天是要避开的天数，则从明天开始。
+    Return the list of allowed study days for a week (0.. 6),
+Rule: First remove avoid_days. If today is a day to avoid, start from tomorrow
     """
     allowed = [i for i in range(7) if i not in avoid_days]
     
-    # 如果今天是要避开的天数，从明天开始
+    # If today is the day to avoid, start tomorrow
     if start_weekday in avoid_days:
         start_weekday = (start_weekday + 1) % 7
     
-    order = [(start_weekday + k) % 7 for k in range(7)]  # 一周滚动顺序
+    order = [(start_weekday + k) % 7 for k in range(7)]  # Rolling order of the week
     picked = [d for d in order if d in allowed][:min(weekly_study_days, len(allowed))]
     return picked
     # base = [i for i in range(7) if i not in avoid_days]
@@ -54,19 +54,19 @@ def _allowed_weekdays_for_week(weekly_study_days: int, avoid_days: set[int],star
 
 def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[date] = None, user_timezone: str = 'UTC') -> Dict[str, Any]:
     """
-    把按顺序的 parts 放入实际日期 blocks。
-    规则：
-    - 严格保序（P1→P2→…）
-    - 不超过各任务 dueDate
-    - ≤ daily_hour_cap 小时/日；放松时可至 10h/日
-    - 每周仅允许 weekly_study_days 天；可逐步放宽（先扩大天数，再允许 avoid days，再升日上限）
-    - 根据任务量智能计算开始时间，不要过早开始
-    - 周视图：从计算出的开始周到最晚 dueDate 所在周周日
-    放松阶梯（不足时）：
-      1) expand-days-per-week：在不使用 avoid days 前提下，扩大 weekly_study_days 到可用工作日上限
-      2) allow-avoid-days：允许使用 avoid days
-      3) max10h：把每日上限提升到 10h
-    仍不足：返回 impossible，并列出无法安放的 parts。
+    Put the parts in order into the actual date blocks.
+    Rule:
+    -Strictly maintain order (P1 → P2 →...)
+    -Not exceeding the dueDate of each task
+    -≤ daily hours/day; Relaxation can last up to 10 hours per day
+    -Only weekly_sttudy_days are allowed per week; Can be gradually relaxed (first expanding the number of days, then allowing avoid days, and then raising the daily limit)
+    -Intelligent calculation of start time based on task volume, do not start too early
+    -Weekly view: From the calculated start to the latest due date on the Sunday of the week
+    Relaxation ladder (when insufficient):
+    1) Expand days per week: Expand weekly_sttudy_days to the upper limit of available working days without using avoid days
+    2) Allow avoidance days: Allow the use of avoid days
+    3) Max10h: Increase the daily limit to 10h
+    Still insufficient: Return 'impossible' and list the parts that cannot be placed.
     """
 
     print("===  prefs ===")
@@ -80,7 +80,7 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
             print(f"  [{i}] {v!r} ({type(v)})")
 
 
-    # 使用用户时区的日期，而不是UTC日期
+    # timezone adjustment
     if today is None:
         import pytz
         from django.utils import timezone as django_timezone
@@ -88,7 +88,7 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
             user_tz = pytz.timezone(user_timezone)
             today_local = django_timezone.now().astimezone(user_tz).date()
         except Exception:
-            # 如果时区无效，回退到UTC日期
+            # invalid tz->utc
             today_local = date.today()
         today = today_local
 
@@ -97,57 +97,42 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
 
     latest_due = max(iso_to_date(t.dueDate) for t in tasks)
     
-    # 计算智能开始时间
+    # Calculate the start time of intelligent computing
     def calculate_smart_start_date() -> date:
-        # 计算总工作量（分钟）
+        # total study time
         total_minutes = sum(int(max(0, p.minutes)) for t in tasks for p in t.parts)
         
-        # 基于偏好计算每周可用分钟数
+        # Calculate weekly available minutes based on preferences
         daily_cap_min = int(prefs.daily_hour_cap) * 60
         weekly_days = max(1, min(7, int(prefs.weekly_study_days)))
         weekly_capacity = daily_cap_min * weekly_days
         
-        # 计算需要的周数（向上取整）
+        # Calculate the required number of weeks (rounded up)
         import math
         weeks_needed = math.ceil(total_minutes / weekly_capacity) if weekly_capacity > 0 else 1
         
-        # 从最早截止日期往前推算，加上1周缓冲
+        # Starting from the earliest deadline and adding a one week buffer
         earliest_due = min(iso_to_date(t.dueDate) for t in tasks)
-        buffer_weeks = 1  # 1周缓冲时间
+        buffer_weeks = 1  # 1week buffer time
         calculated_start = earliest_due - timedelta(weeks=weeks_needed + buffer_weeks)
         
-        # 不能早于今天
+        # no earlier than today
         smart_start = max(today, calculated_start)
-        # print(f"📊今天是：{today}")
-        # print(f"📊 智能开始时间计算:")
-        # print(f"   总工作量: {total_minutes}分钟 ({total_minutes/60:.1f}小时)")
-        # print(f"   每周容量: {weekly_capacity}分钟 ({weekly_capacity/60:.1f}小时)")
-        # print(f"   需要周数: {weeks_needed}周")
-        # print(f"   最早截止: {earliest_due}")
-        # print(f"   计算开始: {calculated_start}")
-        # print(f"   实际开始: {smart_start}")
+  
         
         return smart_start
     
     smart_start = calculate_smart_start_date()
     #start = week_monday(smart_start)
-    start = today # 直接从今天开始
+    start = today # start from now
     end = week_monday(latest_due) + timedelta(days=6)
     
-   # print(f"📅 调度时间范围: {start} 到 {end}")
+  
 
     def build_days(daily_cap_min: int, weekly_days: int, avoid_set: set[int]) -> List[Dict[str, Any]]:
-        # days: List[Dict[str, Any]] = []
-        # d = start
-        # allowed_weekdays = set(_allowed_weekdays_for_week(weekly_days, avoid_set))
-        # while d <= end:
-        #     # 严格检查：只有在allowed_weekdays中的日期才有capacity
-        #     cap = daily_cap_min if d.weekday() in allowed_weekdays else 0
-        #     days.append({"date": d.isoformat(), "capacity": cap, "used": 0, "blocks": []})
-        #     d += timedelta(days=1)
-        # return days
+
         days: List[Dict[str, Any]] = []
-        # 如果开始日期就是要避开的天数，则从下一天开始
+        #If the start date is the number of days to avoid, start from the next day
         d = start
         if d.weekday() in avoid_set:
             d = d + timedelta(days=1)
@@ -174,7 +159,7 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
         weekly_days: int,
         avoid_set: set[int]
     ) -> Tuple[bool, List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
-        # 返回 (ok, days, summary, unplacedParts)
+        # return (ok, days, summary, unplacedParts)
         days = build_days(daily_cap_min, weekly_days, avoid_set)
         tasks_sorted = sorted(tasks, key=lambda t: iso_to_date(t.dueDate))
         unplaced: List[Dict[str, Any]] = []
@@ -183,25 +168,22 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
             due = iso_to_date(t.dueDate)
             for p in sorted(t.parts, key=lambda x: x.order):
                 remain = int(max(0, p.minutes))
-                # 分散排布：计算可用天数，均匀分配
-                # available_days = [day for day in days 
-                #                 if datetime.fromisoformat(day["date"]).date() <= due 
-                #                 and day["capacity"] > 0]
+                # Distributed arrangement: Calculate the number of available days and evenly distribute them
                 available_days = [
                                     day for day in days
                                     if (today <= datetime.fromisoformat(day["date"]).date() <= due)
                                     and day["capacity"] > 0
                                 ]
                 if not available_days:
-                    # 没有可用天数，直接标记为未安排
+                    # There are no available days, just mark as not scheduled
                     continue
                 
-                # 每个part作为整体（60-90分钟）分散到不同天
+              #Each part as a whole (60-90 minutes) is dispersed to different days
                 part_minutes = int(p.minutes)
                 if part_minutes <= 0:
                     continue
                 
-                # 寻找最佳的一天来放置这个完整的part
+                # Find the best day to place this complete part
                 best_day = None
                 for day in available_days:
                     free = day["capacity"] - day["used"]
@@ -210,7 +192,7 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
                         break
                 
                 if best_day:
-                    # 找到合适的天，放置整个part
+                    # Find a suitable day and place the entire part
                     best_day["blocks"].append({
                         "taskId": t.taskId,
                         "partId": p.partId,
@@ -219,14 +201,14 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
                         "reason": "within-preference" if daily_cap_min < (10*60) else "max10h"
                     })
                     best_day["used"] += part_minutes
-                    remain = 0  # 整个part已安排完毕
+                    remain = 0 
                 else:
-                    # 没找到能容纳整个part的天，尝试拆分为30-60分钟块分散安排
+                    #Unable to find a day that can accommodate the entire part, try splitting it into 30-60 minute blocks and arranging them separately
                     while remain >= 30 and available_days:
-                        # 优先使用60分钟块，如果剩余不足60或会产生<30尾巴则用30
+                       
                         chunk = 60 if (remain >= 60 and (remain - 60 == 0 or remain - 60 >= 30)) else 30
                         
-                        # 寻找能容纳这个chunk的天
+                        #Find a day that can accommodate this chunk
                         target_day = None
                         for day in available_days:
                             free = day["capacity"] - day["used"]
@@ -246,11 +228,11 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
                             target_day["used"] += chunk
                             remain -= chunk
                             
-                            # 如果这天用完了，从可用天列表中移除
+                            # If the day is used up, remove it from the list of available days
                             if target_day["capacity"] - target_day["used"] < 30:
                                 available_days.remove(target_day)
                         else:
-                            # 没有天能容纳，跳出循环
+                            # No days can accommodate it, break out of the cycle
                             break
 
                 if remain > 0:
@@ -262,9 +244,9 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
                         "dueDate": t.dueDate
                     })
 
-        summary: List[Dict[str, Any]] = []  # 延后统一生成（避免重复），下方生成一次
+        summary: List[Dict[str, Any]] = []  #Delay unified generation (to avoid duplication), generate once below
 
-        # 统一生成 summary（和原实现一致，便于前端渲染）
+        # Unified generation of summary (consistent with the original implementation for easy front-end rendering)
         tasks_sorted = sorted(tasks, key=lambda t: iso_to_date(t.dueDate))
         summary = [{
             "taskId": t.taskId,
@@ -277,40 +259,40 @@ def schedule(tasks: List[TaskWithParts], prefs: Preferences, today: Optional[dat
         out_days = [{"date": day["date"], "blocks": day["blocks"]} for day in days]
         return ok, out_days, summary, unplaced
 
-    # 快速总量可行性估算（粗粒度）：统计规划区间内可用总分钟 vs 需求总分钟
+    # Rapid Total Feasibility Estimation (Coarse grained): Total minutes available within the statistical planning interval vs. total minutes required
     base_daily = int(prefs.daily_hour_cap) * 60
     base_weekly_days = max(1, min(7, int(prefs.weekly_study_days)))
     #base_avoid = set(prefs.avoid_days or [])
     base_avoid = _normalize_avoid_days(prefs.avoid_days)
     
     total_need = sum(int(max(0, p.minutes)) for t in tasks for p in t.parts)
-    # 可用日列表（不考虑 due，仅到全局最晚 due 周日），更严格的 due 约束交给 try_place
+    #List of available days (excluding due, only up to the latest due Sunday globally), with stricter due constraints assigned to try_place
     base_days = build_days(base_daily, base_weekly_days, base_avoid)
     total_avail = sum((d["capacity"]) for d in base_days)
 
-    # 阶梯 0：原偏好
+
     ok0, days0, summary0, unplaced0 = try_place(base_daily, base_weekly_days, base_avoid)
     if ok0:
         return {"ok": True, "relaxation": "none", "weekStart": start.isoformat(), "days": days0, "taskSummary": summary0}
 
-    # 阶梯 1：扩大学习天数（不动 avoid）
+
     non_avoid = set(i for i in range(7) if i not in base_avoid)
     step1_weekly = min(7, max(base_weekly_days, len(non_avoid)))
     ok1, days1, summary1, unplaced1 = try_place(base_daily, step1_weekly, base_avoid)
     if ok1:
         return {"ok": True, "relaxation": "expand-days-per-week", "weekStart": start.isoformat(), "days": days1, "taskSummary": summary1}
 
-    # 阶梯 2：允许使用 avoid days
+
     ok2, days2, summary2, unplaced2 = try_place(base_daily, 7, set())
     if ok2:
         return {"ok": True, "relaxation": "allow-avoid-days", "weekStart": start.isoformat(), "days": days2, "taskSummary": summary2}
 
-    # 阶梯 3：把每日上限提升到 10h/日（在允许 avoid days 的基础上）
+
     ok3, days3, summary3, unplaced3 = try_place(10*60, 7, set())
     if ok3:
         return {"ok": True, "relaxation": "max10h", "weekStart": start.isoformat(), "days": days3, "taskSummary": summary3}
 
-    # 仍不足
+
     return {
         "ok": False,
         "relaxation": "impossible",

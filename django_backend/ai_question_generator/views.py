@@ -1,6 +1,6 @@
 """
 AI Question Generator & Grader Views
-提供API接口用于题目生成和自动评分
+Provide API interface for question generation and automatic grading
 """
 import json
 import uuid
@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.db import models
 from dotenv import load_dotenv
 
-# 加载环境变量
+
 from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
@@ -22,13 +22,12 @@ from .generator import QuestionGenerator
 from .grader import AutoGrader
 
 
-# ==================== AI题目生成 ====================
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def generate_questions(request):
     """
-    AI生成题目
+    AI question generating
     
     POST /api/ai/questions/generate
     Body: {
@@ -71,13 +70,13 @@ def generate_questions(request):
                 'error': 'Missing required fields: course_code, topic'
             }, status=400)
         
-        # 从 courses_admin 的 Question 表获取示例题目
+        # Retrieve sample questions from the Question table of courses_admin
         from courses.models import Question, QuestionChoice, QuestionKeyword, QuestionKeywordMap
         
-        # 首先尝试根据主题关键词查找相关题目
+        # Firstly, try to search for relevant questions based on the keywords of the topic
         topic_lower = topic.lower()
         
-        # 方法1：通过关键词映射查找
+        # Method 1: Search through keyword mapping
         keyword_matches = QuestionKeyword.objects.filter(name__icontains=topic_lower)
         if keyword_matches.exists():
             question_ids = QuestionKeywordMap.objects.filter(
@@ -88,7 +87,7 @@ def generate_questions(request):
                 course_code=course_code
             ).order_by('-created_at')[:10]
         else:
-            # 方法2：通过标题和描述模糊匹配
+            # Method 2: Fuzzy matching through title and description
             sample_questions = Question.objects.filter(
                 course_code=course_code
             ).filter(
@@ -97,11 +96,11 @@ def generate_questions(request):
                 models.Q(text__icontains=topic)
             ).order_by('-created_at')[:10]
         
-        # 如果没有找到相关题目，获取该课程的所有题目
+        # If no relevant questions are found, obtain all questions for the course
         if not sample_questions.exists():
             sample_questions = Question.objects.filter(
                 course_code=course_code
-            ).order_by('-created_at')[:10]  # 最多取10个示例
+            ).order_by('-created_at')[:10]  
         
         if not sample_questions.exists():
             return JsonResponse({
@@ -109,17 +108,17 @@ def generate_questions(request):
                 'error': f'No questions found for course {course_code}. Please upload questions through the admin panel first.'
             }, status=404)
         
-        # 转换为生成器需要的格式
+        # Convert to the format required by the generator
         sample_data = []
         for q in sample_questions:
             q_data = {
                 'type': q.qtype,
                 'question': q.text,
-                'score': 10  # 默认分数
+                'score': 10  
             }
             
             if q.qtype == 'mcq':
-                # 获取选择题选项
+                # Get multiple-choice options
                 choices = QuestionChoice.objects.filter(question=q).order_by('order')
                 options = []
                 correct_answer = ''
@@ -143,7 +142,7 @@ def generate_questions(request):
             
             sample_data.append(q_data)
         
-        # 初始化生成器并生成题目
+        # Initialize the generator and generate questions
         generator = QuestionGenerator()
         generated = generator.generate_questions(
             topic=topic,
@@ -160,7 +159,7 @@ def generate_questions(request):
                 'error': 'Failed to generate questions'
             }, status=500)
         
-        # 创建会话ID并保存到数据库
+        # Create a session ID and save it to the database
         session_id = str(uuid.uuid4())
         
         saved_questions = []
@@ -174,9 +173,9 @@ def generate_questions(request):
                 question_data=q
             )
             
-            # 添加数据库ID到返回的题目中
+            # Add database ID to the returned question
             q['db_id'] = gen_q.id
-            q['question_id'] = idx  # 前端显示用的序号
+            q['question_id'] = idx  
             saved_questions.append(q)
         
         return JsonResponse({
@@ -195,13 +194,11 @@ def generate_questions(request):
         }, status=500)
 
 
-# ==================== 学生答题与评分 ====================
-
 @csrf_exempt
 @require_http_methods(["POST"])
 def submit_answers(request):
     """
-    学生提交答案并获取AI评分
+    Students submit answers and receive AI ratings
     
     POST /api/ai/answers/submit
     Body: {
@@ -266,7 +263,7 @@ def submit_answers(request):
                 'error': 'Missing required fields: session_id, student_id'
             }, status=400)
         
-        # 获取该会话的所有题目
+        # Get all the questions for this session
         questions = GeneratedQuestion.objects.filter(session_id=session_id).order_by('id')
         
         if not questions.exists():
@@ -275,10 +272,10 @@ def submit_answers(request):
                 'error': f'No questions found for session {session_id}'
             }, status=404)
         
-        # 构建题目映射
+        # Build a question mapping
         question_map = {q.id: q for q in questions}
         
-        # 准备评分数据
+        # Prepare rating data
         questions_for_grading = []
         student_answers_dict = {}
         
@@ -294,10 +291,10 @@ def submit_answers(request):
                 questions_for_grading.append(q_data)
                 student_answers_dict[str(q_db_id)] = answer_text
         
-        # 初始化评分器
+        # Initialize Scorer
         grader = AutoGrader()
         
-        # 硬编码的评分细则（与grader.py保持一致）
+        # Hard coded grading criteria (consistent with grader.py)
         rubric = {
             "mcq": {
                 "correct": 10,
@@ -314,14 +311,14 @@ def submit_answers(request):
             }
         }
         
-        # 评分
+        # grading
         grading_result = grader.grade_all(
             questions_for_grading,
             student_answers_dict,
             student_id
         )
         
-        # 保存学生答案和评分结果到数据库
+        # Save student answers and grading results to the database
         graded_at = timezone.now()
         for result in grading_result['grading_results']:
             q_db_id = result['question_id']
@@ -334,16 +331,16 @@ def submit_answers(request):
                 graded_at=graded_at
             )
         
-        # 保存到RecentPracticeSession供AI聊天使用
+        # Save to RecentPracticeSession for AI chat use
         try:
             from ai_chat.models import RecentPracticeSession
             
-            # 获取session信息(课程和主题) - 从模型字段获取,不是question_data
+            # Get session information (course and topic) - obtained from model fields, not question_data
             first_question = questions.first()
             course_code = first_question.course_code if first_question else 'Unknown'
             topic = first_question.topic if first_question else 'General'
             
-            # 构建详细测试数据
+            # Build detailed test data
             test_data_for_ai = {
                 "questions": []
             }
@@ -366,7 +363,7 @@ def submit_answers(request):
                         q_detail['options'] = question_obj.question_data.get('options', [])
                     test_data_for_ai["questions"].append(q_detail)
             
-            # 创建或更新RecentPracticeSession
+            # create/update RecentPracticeSession
             RecentPracticeSession.objects.update_or_create(
                 student_id=student_id,
                 session_id=session_id,
@@ -380,12 +377,12 @@ def submit_answers(request):
                     'test_data': test_data_for_ai,
                 }
             )
-            print(f"[DEBUG] 已保存测试结果到RecentPracticeSession: {student_id} - {session_id}")
+            print(f"[DEBUG] The test results have been saved toRecentPracticeSession: {student_id} - {session_id}")
         except Exception as e:
-            print(f"[WARNING] 保存到RecentPracticeSession失败: {e}")
-            # 不影响主流程,继续返回评分结果
+            print(f"[WARNING] save to RecentPracticeSession失败: {e}")
+            # Does not affect the main process, continue to return the rating results
         
-        # 为每个结果添加question_db_id
+        # Add questiond_db_id for each result
         for result in grading_result['grading_results']:
             result['question_db_id'] = result['question_id']
         
@@ -410,7 +407,7 @@ def submit_answers(request):
 @require_http_methods(["GET"])
 def get_session_questions(request, session_id):
     """
-    获取特定练习会话的题目
+    Obtain questions for specific practice sessions
     
     GET /api/ai/questions/session/{session_id}
     
@@ -430,12 +427,12 @@ def get_session_questions(request, session_id):
         
         question_list = []
         for q in questions:
-            # 返回完整的题目信息,包含 question_type 和 difficulty
+            # Return complete question information, including questionype and difficulty
             question_list.append({
-                'id': q.id,  # 数据库ID
-                'question_type': q.question_type,  # 题目类型
-                'question_data': q.question_data,  # 题目数据(包含question, options等)
-                'difficulty': q.difficulty  # 难度
+                'id': q.id,  
+                'question_type': q.question_type,  
+                'question_data': q.question_data,  
+                'difficulty': q.difficulty 
             })
         
         return JsonResponse({
@@ -454,7 +451,7 @@ def get_session_questions(request, session_id):
 @require_http_methods(["GET"])
 def get_student_results(request):
     """
-    获取学生的答题历史
+    answer history of students
     
     GET /api/ai/results?student_id=z1234567&session_id=uuid-...
     

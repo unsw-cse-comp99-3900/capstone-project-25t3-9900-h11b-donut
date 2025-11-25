@@ -8,7 +8,7 @@ from .pdf_ingest import extract_text_from_pdf
 from .llm_structures import summarize_task_details
 
 
-# 可选：用于“直接让 LLM 拆分成 parts”的兜底模型
+
 load_dotenv()
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 use_gemini: bool = bool(GEMINI_KEY)
@@ -32,14 +32,14 @@ else:
 
 
 def _equal_split(minutes_total: int, parts: int = 3) -> List[int]:
-    """等分拆分，确保每个 part 在 30-60 分钟范围内"""
+    """Divide into equal parts and ensure that each part falls within the range of 30-60 minutes"""
     minutes_total = max(1, int(minutes_total))
     
-    # 根据总时长自动调整 parts 数量，确保每个 part 在 30-60 范围
-    if minutes_total < 60:  # 总时长不足1小时，拆成1个30-60分钟的part
+    #Automatically adjust the number of parts based on the total duration, ensuring that each part falls within the range of 30-60
+    if minutes_total < 60:  # The total duration is less than 1 hour, divided into one part of 30-60 minutes
         return [max(30, min(60, minutes_total))]
     
-    # 计算合适的 parts 数量：总时长 / 45（30-60的中位数）
+    # Calculate the appropriate number of parts: total duration/45 (median of 30-60)
     optimal_parts = max(2, min(6, round(minutes_total / 45)))
     parts = max(2, min(6, parts if parts <= optimal_parts else optimal_parts))
     
@@ -49,13 +49,13 @@ def _equal_split(minutes_total: int, parts: int = 3) -> List[int]:
     for i in range(rem):
         res[-(i + 1)] += 1
     
-    # 调整确保每个part在30-60范围内
+    # Adjust to ensure that each part is within the range of 30-60
     adjusted = []
     for minutes in res:
         if minutes < 30:
             adjusted.append(30)
         elif minutes > 60:
-            # 如果超过60，拆分成多个30-60的块
+            # If it exceeds 60, split it into multiple blocks of 30-60
             while minutes > 60:
                 adjusted.append(60)
                 minutes -= 60
@@ -64,17 +64,17 @@ def _equal_split(minutes_total: int, parts: int = 3) -> List[int]:
         else:
             adjusted.append(minutes)
     
-    return adjusted[:6]  # 最多6个part
+    return adjusted[:6]  # 6 parts at most
 
 def _heuristic_minutes_from_text(txt: str) -> int:
     words = max(1, len(txt.split()))
     read_minutes = words / 200.0
     impl_minutes = read_minutes * 2.0
-    minutes = int(max(180, min(8*60, impl_minutes * 60)))  # 3h~8h，确保能拆成多个60-90分钟块
+    minutes = int(max(180, min(8*60, impl_minutes * 60))) 
     return minutes
 
 def _ai_split_parts(task_title: str, due_date: str, estimated_minutes: int) -> List[Part]:
-    """让 LLM 直接拆 2–6 段；失败回退等比分块。"""
+  
     if not use_gemini or _split_model is None:
         mins = _equal_split(estimated_minutes, 3)
         return [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1} - General Task", minutes=mins[i]) for i in range(len(mins))]
@@ -92,16 +92,15 @@ IMPORTANT:
 Task: "{task_title}"
 Due: {due_date}
 """
-    # 🔥 演示优化：1次尝试 + 15秒超时，快速失败使用fallback
     max_retries = 1
     for attempt in range(max_retries):
         try:
-            print(f"[DEBUG] Gemini API 调用尝试 {attempt + 1}/{max_retries} (plan_generator)")
+            print(f"[DEBUG] Try to call Gemini API  {attempt + 1}/{max_retries} (plan_generator)")
             
-            # 设置超时时间 - 演示模式使用10秒超时
+
             import socket
             original_timeout = socket.getdefaulttimeout()
-            socket.setdefaulttimeout(10)  # 10秒超时 - 演示优化
+            socket.setdefaulttimeout(10) 
             
             try:
                 resp = _split_model.generate_content(prompt)
@@ -116,30 +115,30 @@ Due: {due_date}
                 raw = "\n".join(texts).strip() if texts else None
             if not raw:
                 if attempt < max_retries - 1:
-                    print(f"[DEBUG] 模型返回为空，重试 ({attempt + 2}/{max_retries})...")
+                    print(f"[DEBUG] no response, retry({attempt + 2}/{max_retries})...")
                     continue
                 raise ValueError("Empty model response")
 
-            # 清理 Gemini 返回的 markdown 格式
+           
             clean_json = raw.strip()
             if clean_json.startswith('```json'):
-                clean_json = clean_json[7:]  # 移除 ```json
+                clean_json = clean_json[7:]  
             if clean_json.endswith('```'):
-                clean_json = clean_json[:-3]  # 移除 ```
+                clean_json = clean_json[:-3]  
             clean_json = clean_json.strip()
             
-            # 修复常见的 JSON 格式问题
+            # Fix common JSON formatting issues
             import re
-            # 在 "key":"value" 后面添加逗号（如果后面跟着 "key"）
+            
             clean_json = re.sub(r'(":\s*"[^"]*")\s*("[\w]+":)', r'\1,\2', clean_json)
-            # 在 "key":number 后面添加逗号（如果后面跟着 "key"）
+         
             clean_json = re.sub(r'(":\s*\d+)\s*("[\w]+":)', r'\1,\2', clean_json)
-            # 在对象结束 } 前面添加逗号（如果后面跟着 {）
+
             clean_json = re.sub(r'}\s*{', r'},{', clean_json)
-            # 修复未终止的字符串：如果字符串没有结束引号，尝试添加
+       
             if clean_json.count('"') % 2 != 0:
                 clean_json += '"'
-            # 确保 JSON 对象正确关闭
+       
             open_braces = clean_json.count('{') - clean_json.count('}')
             clean_json += '}' * open_braces
             open_brackets = clean_json.count('[') - clean_json.count(']')
@@ -162,29 +161,27 @@ Due: {due_date}
                 mins = _equal_split(estimated_minutes, 3)
                 out = [Part(partId=f"p{i+1}", order=i+1, title=f"Part {i+1} - General Task", minutes=mins[i]) for i in range(len(mins))]
             
-            # 成功解析，返回结果
-            print(f"[DEBUG] ✅ 成功拆分为 {len(out)} 个parts")
+        
+            print(f"[DEBUG] ✅ Split into {len(out)} parts")
             return out
             
         except (BrokenPipeError, ConnectionError, OSError) as e:
-            print(f"[DEBUG] 网络连接错误: {type(e).__name__} - {e}")
-            print(f"[DEBUG] ❌ API调用失败，使用智能fallback数据")
+            print(f"[DEBUG] network err: {type(e).__name__} - {e}")
+            print(f"[DEBUG] ❌ API call failed, using intelligent fallback data")
             return _intelligent_fallback_split(task_title, estimated_minutes)
         except Exception as e:
-            print(f"[DEBUG] Gemini 调用异常 (尝试 {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
-            # 演示模式：不重试，直接使用 fallback
-            print(f"[DEBUG] ❌ 解析失败，使用智能fallback数据")
+            print(f"[DEBUG] Gemini faile (retry {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
+            print(f"[DEBUG] ❌ fail to decode content，use fall back data")
             return _intelligent_fallback_split(task_title, estimated_minutes)
     
-    # 不应该到达这里，但以防万一
     return _intelligent_fallback_split(task_title, estimated_minutes)
 
 def _parts_from_summary_or_fallback(task_title: str, due_date: str,
                                     est_minutes: int,
                                     summary: Optional[Dict[str, Any]]) -> Tuple[List[Part], str]:
     """
-    优先使用 LLM 摘要的 suggestedParts（含 notes），minutes 用等分分配；
-    否则用 LLM 拆分；再否则等分。返回 (parts, explanation)
+    Prioritize using suggested Parts (including notes) from LLM abstracts, and allocate minutes equally;
+Otherwise, use LLM to split; Otherwise, divide equally. Return (parts, explanation)
     """
     print("summary keys:", list(summary.keys()) if summary else None)
     explanation = "Split into ordered parts to progress from setup to implementation to validation."
@@ -208,12 +205,12 @@ def _parts_from_summary_or_fallback(task_title: str, due_date: str,
         return out, explanation
     else:
         print("[parts] from ai_split or equal_split") 
-    # 没有摘要：尝试 LLM 直接拆分；否则等分
+    # No abstract: Attempt to split LLM directly; Otherwise, divide equally
     parts = _ai_split_parts(task_title, due_date, est_minutes)
     return parts, explanation
 
 def _generate_reason_for_part(label: str, index: int, total_parts: int) -> str:
-    """为每个part生成在计划中的原因"""
+    """Generate reasons for each part in the plan"""
     reasons = [
         "This is foundational and needs to be completed first.",
         "This builds on the previous part and develops core skills.",
@@ -222,7 +219,7 @@ def _generate_reason_for_part(label: str, index: int, total_parts: int) -> str:
         "This finalizes the work and prepares for submission."
     ]
     
-    # 根据label的特定关键词生成更具体的原因
+    # Generate more specific reasons based on specific keywords on the label
     label_lower = label.lower()
     
     if any(word in label_lower for word in ["setup", "research", "planning", "analysis"]):
@@ -240,7 +237,7 @@ def _generate_reason_for_part(label: str, index: int, total_parts: int) -> str:
     elif any(word in label_lower for word in ["backend", "server", "api", "logic"]):
         return "This implements the core business logic and functionality."
     else:
-        # 使用通用原因
+        # general reasons
         return reasons[index % len(reasons)]
 
 def _estimate_minutes(est_hours_meta, summary, detail_text: Optional[str]) -> int:
@@ -251,7 +248,7 @@ def _estimate_minutes(est_hours_meta, summary, detail_text: Optional[str]) -> in
     if detail_text:
         return _heuristic_minutes_from_text(detail_text)
     
-    return 6 * 60  # 兜底 6 小时
+    return 6 * 60  
 
 def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, Any]]:
     """
@@ -262,42 +259,42 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
     }
     """
     
-    # 1) 提取详情文本
+    # 1) Extract detailed text
     detail_text = meta.get("detailText")
     if not detail_text and meta.get("detailPdfPath"):
         detail_text = extract_text_from_pdf(meta["detailPdfPath"])
     
-    # 2) LLM 摘要（可选）
+    # 2) LLM Summary (optional)
     summary = summarize_task_details(meta["task"], meta["dueDate"], detail_text) if detail_text else None
 
-    # 3) 估总分钟
+    # 3) Estimated total minutes
     est_minutes = _estimate_minutes(meta.get("estimatedHours"), summary, detail_text)
 
-    # 4) 生成 parts + explanation
+    # 4) Generate parts+explanation
     parts, explanation = _parts_from_summary_or_fallback(meta["task"], meta["dueDate"], est_minutes, summary)
 
-    # 5) 计算百分比，并构造 aiTaskInfo（包含Explain My Plan需要的字段）
+    # 5) Calculate the percentage and construct aiTaskInfo (including the fields required for Explain My Plan)
     total = sum(max(0, int(p.minutes)) for p in parts) or 1
     ai_parts = []
     for i, p in enumerate(sorted(parts, key=lambda x: x.order)):
-        # 生成描述性标签（移除"Part X - "前缀）
+        # Generate descriptive labels (remove the prefix 'Part X -')
         label = p.title.replace(f"Part {p.order} - ", "") if f"Part {p.order} - " in p.title else p.title
         
-        # 生成详细说明
+        # Generate detailed instructions
         detail = p.notes or f"Work on {label}"
         
-        # 生成在计划中的原因
+        # Reasons generated in the plan
         why_in_plan = _generate_reason_for_part(label, i, len(parts))
         
         ai_parts.append({
             "partId": p.partId,
             "order": p.order,
-            "title": p.title,  # 保留原始标题
-            "label": label,   # 新增：描述性标签
+            "title": p.title,  
+            "label": label,  
             "minutes": int(p.minutes),
             "notes": p.notes or "",
-            "detail": detail,    # 新增：详细说明
-            "why_in_plan": why_in_plan,  # 新增：在计划中的原因
+            "detail": detail,   
+            "why_in_plan": why_in_plan, 
             "percent": round(int(p.minutes) / total * 100, 1)
         })
 
@@ -321,9 +318,9 @@ def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, 
     ), ai_info
 
 def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]], user_timezone: str = 'UTC') -> Dict[str, Any]:
-    # 参数已经从 views.py 正确传入，不需要重新映射
+
     
-    # 预检：必须存在带合法 dueDate 的任务，否则不生成计划
+    # Pre check: There must be a task with a valid dueDate, otherwise no plan will be generated
     from datetime import datetime
     valid_tasks = []
     for m in tasks_meta or []:
@@ -350,20 +347,19 @@ def generate_plan(preferences: Dict[str, Any], tasks_meta: List[Dict[str, Any]],
 
     result = schedule(task_objs, prefs, user_timezone=user_timezone)
     
-    # 合并 AI 解释信息
+    # Merge AI interpretation information
     result["aiSummary"] = {"tasks": ai_summaries}
     return result
 
 def _intelligent_fallback_split(task_title: str, estimated_minutes: int) -> List[Part]:
-    """智能fallback：根据任务类型生成有意义的部分标题"""
+    """Intelligent fallback: Generate meaningful section headings based on task types"""
     mins = _equal_split(estimated_minutes, 3)
     
-    # 根据任务标题判断类型并生成相应的部分标题
+    # Determine the type based on the task title and generate corresponding partial titles
     title_lower = task_title.lower()
     
     if "assignment" in title_lower or "project" in title_lower:
         if "front" in title_lower or "frontend" in title_lower or "ui" in title_lower:
-            # 前端项目
             parts = [
                 Part(partId="p1", order=1, title="Part 1 - Setup & Planning", minutes=mins[0], 
                      notes="Set up development environment, analyze requirements"),
@@ -373,7 +369,7 @@ def _intelligent_fallback_split(task_title: str, estimated_minutes: int) -> List
                      notes="Test functionality, fix bugs, and polish the interface")
             ]
         else:
-            # 通用项目
+
             parts = [
                 Part(partId="p1", order=1, title="Part 1 - Research & Planning", minutes=mins[0], 
                      notes="Research requirements and plan the approach"),
@@ -383,7 +379,7 @@ def _intelligent_fallback_split(task_title: str, estimated_minutes: int) -> List
                      notes="Review work, test, and finalize submission")
             ]
     else:
-        # 默认通用结构
+
         parts = [
             Part(partId="p1", order=1, title="Part 1 - Preparation & Setup", minutes=mins[0], 
                  notes="Prepare materials and understand requirements"),

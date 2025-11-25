@@ -8,7 +8,7 @@ class ChatConversation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='chat_conversations')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    last_activity_at = models.DateTimeField(auto_now=True)  # 用户最后活动时间
+    last_activity_at = models.DateTimeField(auto_now=True)  
     is_active = models.BooleanField(default=True)
     
     class Meta:

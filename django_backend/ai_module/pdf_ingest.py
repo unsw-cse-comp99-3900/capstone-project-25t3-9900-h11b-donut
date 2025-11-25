@@ -4,13 +4,13 @@ from pathlib import Path
 import os
 
 def extract_text_from_pdf(pdf_path: str) -> Optional[str]:
-    """使用多种PDF库提取PDF纯文本，支持fallback机制"""
+    """Extract PDF plain text using multiple PDF libraries and support fallback mechanism"""
     
-    # 路径处理
+    # handle path
     try:
         base_dir = Path(__file__).resolve().parent.parent  # == BASE_DIR
         
-        # 处理相对路径和绝对路径
+        # Handling relative and absolute paths
         if pdf_path.startswith("/task/"):
             pdf_path = os.path.join(base_dir, "task", pdf_path[len("/task/"):])
         elif pdf_path.startswith("/material/"):
@@ -18,49 +18,48 @@ def extract_text_from_pdf(pdf_path: str) -> Optional[str]:
         elif pdf_path.startswith("/media/"):
             pdf_path = os.path.join(base_dir, "media", pdf_path[len("/media/"):])
         elif not os.path.isabs(pdf_path):
-            # 如果是相对路径，相对于base_dir
             pdf_path = os.path.join(base_dir, pdf_path)
         
         path = Path(pdf_path)
-        print(f'[PDF_INGEST] 尝试读取PDF: {path}')
+        print(f'[PDF_INGEST] try to read PDF: {path}')
         
         if not path.exists() or not path.is_file():
-            print(f'[PDF_INGEST] PDF文件不存在: {path}')
+            print(f'[PDF_INGEST] PDF file not found: {path}')
             return None
             
     except Exception as e:
-        print(f'[PDF_INGEST] 路径处理失败: {e}')
+        print(f'[PDF_INGEST] fail to handle path: {e}')
         return None
     
-    # 方法1: 尝试使用 pypdf
+    # try using pypdf
     text = _extract_with_pypdf(str(path))
     if text and len(text.strip()) > 50:
-        print(f'[PDF_INGEST] pypdf提取成功，文本长度: {len(text)}')
+        print(f'[PDF_INGEST] pypdf succeed,length: {len(text)}')
         return text
     
-    # 方法2: 尝试使用 PyPDF2
+    # try using PyPDF2
     text = _extract_with_pypdf2(str(path))
     if text and len(text.strip()) > 50:
-        print(f'[PDF_INGEST] PyPDF2提取成功，文本长度: {len(text)}')
+        print(f'[PDF_INGEST] PyPDF2 succeed,length: {len(text)}')
         return text
     
-    # 方法3: 尝试使用 pdfplumber
+    #try using pdfplumber
     text = _extract_with_pdfplumber(str(path))
     if text and len(text.strip()) > 50:
-        print(f'[PDF_INGEST] pdfplumber提取成功，文本长度: {len(text)}')
+        print(f'[PDF_INGEST] pdfplumber succeed,length: {len(text)}')
         return text
     
-    # 方法4: 尝试使用 fitz (PyMuPDF)
+    # try using fitz (PyMuPDF)
     text = _extract_with_fitz(str(path))
     if text and len(text.strip()) > 50:
-        print(f'[PDF_INGEST] PyMuPDF提取成功，文本长度: {len(text)}')
+        print(f'[PDF_INGEST] PyMuPDF succeed,length: {len(text)}')
         return text
     
-    print(f'[PDF_INGEST] 所有PDF提取方法都失败了')
+    print(f'[PDF_INGEST] All PDF extraction methods have failed')
     return None
 
 def _extract_with_pypdf(pdf_path: str) -> Optional[str]:
-    """使用pypdf提取文本"""
+    """Extract text using pypdf"""
     try:
         from pypdf import PdfReader
         reader = PdfReader(pdf_path)
@@ -74,11 +73,11 @@ def _extract_with_pypdf(pdf_path: str) -> Optional[str]:
         result = "\n\n".join(t for t in texts if t)
         return result if result.strip() else None
     except Exception as e:
-        print(f'[PDF_INGEST] pypdf失败: {e}')
+        print(f'[PDF_INGEST] pypdf fail: {e}')
         return None
 
 def _extract_with_pypdf2(pdf_path: str) -> Optional[str]:
-    """使用PyPDF2提取文本"""
+    """Extracting Text with PyPDF2"""
     try:
         import PyPDF2
         with open(pdf_path, 'rb') as file:
@@ -93,11 +92,11 @@ def _extract_with_pypdf2(pdf_path: str) -> Optional[str]:
             result = "\n\n".join(t for t in texts if t)
             return result if result.strip() else None
     except Exception as e:
-        print(f'[PDF_INGEST] PyPDF2失败: {e}')
+        print(f'[PDF_INGEST] PyPDF2 fail: {e}')
         return None
 
 def _extract_with_pdfplumber(pdf_path: str) -> Optional[str]:
-    """使用pdfplumber提取文本"""
+    """Extracting Text with PDF Lumber"""
     try:
         import pdfplumber
         texts = []
@@ -111,11 +110,11 @@ def _extract_with_pdfplumber(pdf_path: str) -> Optional[str]:
         result = "\n\n".join(t for t in texts if t)
         return result if result.strip() else None
     except Exception as e:
-        print(f'[PDF_INGEST] pdfplumber失败: {e}')
+        print(f'[PDF_INGEST] pdfplumber fail: {e}')
         return None
 
 def _extract_with_fitz(pdf_path: str) -> Optional[str]:
-    """使用PyMuPDF (fitz)提取文本"""
+    """Extract text using PyMuPDF (fitz)"""
     try:
         import fitz  # PyMuPDF
         doc = fitz.open(pdf_path)

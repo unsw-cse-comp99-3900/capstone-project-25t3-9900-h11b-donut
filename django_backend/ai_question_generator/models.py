@@ -1,14 +1,9 @@
-"""
-AI Question Generator Models
-用于存储AI生成的题目和学生答案
-"""
+
 from django.db import models
 
 
 class GeneratedQuestion(models.Model):
-    """
-    AI生成的题目 - 用于记录和复用
-    """
+
     TYPE_CHOICES = (
         ('mcq', 'Multiple Choice'),
         ('short_answer', 'Short Answer'),
@@ -20,31 +15,29 @@ class GeneratedQuestion(models.Model):
     topic = models.CharField(max_length=255)
     difficulty = models.CharField(max_length=10)
     
-    # 题目类型
+
     question_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
-    
-    # 题目内容（JSON格式存储完整题目数据）
+
     question_data = models.JSONField()
     """
-    MCQ格式:
+    MCQ format:
     {
-        "question": "题目文本",
+        "question": "content",
         "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
         "correct_answer": "A",
-        "explanation": "解释",
+        "explanation": "explanation",
         "score": 10
     }
     
-    Short Answer格式:
+    Short Answer format:
     {
-        "question": "题目文本",
-        "sample_answer": "参考答案",
-        "grading_points": ["要点1", "要点2"],
+        "question": "content",
+        "sample_answer": "sample answer",
+        "grading_points": ["keypoint1", "keypoint2"],
         "score": 10
     }
     """
-    
-    # 元数据
+
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
@@ -60,18 +53,16 @@ class GeneratedQuestion(models.Model):
 
 
 class StudentAnswer(models.Model):
-    """
-    学生答案记录
-    """
+
     id = models.AutoField(primary_key=True)
     session_id = models.CharField(max_length=64, db_index=True)
     student_id = models.CharField(max_length=64, db_index=True)
     question = models.ForeignKey(GeneratedQuestion, on_delete=models.CASCADE, related_name='answers')
     
-    # 学生答案
+
     answer_text = models.TextField()
     
-    # 评分结果（JSON格式）
+
     grading_result = models.JSONField(null=True, blank=True)
     """
     {
@@ -83,13 +74,13 @@ class StudentAnswer(models.Model):
             "Completeness": 3,
             "Clarity": 2
         },
-        "feedback": "详细反馈",
-        "hint": "个性化提示",
-        "solution": "完整解答"
+        "feedback": "feedback",
+        "hint": "personalized hint",
+        "solution": "full answer"
     }
     """
     
-    # 元数据
+
     submitted_at = models.DateTimeField(auto_now_add=True)
     graded_at = models.DateTimeField(null=True, blank=True)
     

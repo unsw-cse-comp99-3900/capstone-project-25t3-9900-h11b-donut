@@ -7,7 +7,7 @@ class Part:
     order: int
     title: str
     minutes: int
-    notes: Optional[str] = None  # “要做什么”描述
+    notes: Optional[str] = None  # what to do
 
 @dataclass
 class TaskWithParts:
@@ -18,6 +18,6 @@ class TaskWithParts:
 
 @dataclass
 class Preferences:
-    daily_hour_cap: int            # 每天学习小时数（整数小时）
-    weekly_study_days: int         # 每周学习天数（1~7）
-    avoid_days: Optional[list] = None   # 不学习日，0=Mon … 6=Sun
+    daily_hour_cap: int            
+    weekly_study_days: int         
+    avoid_days: Optional[list] = None   
