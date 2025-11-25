@@ -1,4 +1,4 @@
-// API服务层 - 后端集成接口
+// API Service Layer - Backend Integration Interface
 import type { WeeklyPlan } from '../store/preferencesStore';
 import {
   validateEmail, validateId, validateName, validatePassword
@@ -86,7 +86,7 @@ class ApiService {
     : null);;
 
   public async get<T>(endpoint: string, params?: Record<string, string | number>): Promise<ApiResponse<T>> {
-    // 构建查询参数
+    // Build query parameters
     const queryParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -112,23 +112,21 @@ class ApiService {
   protected async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   const url = `${API_BASE}${endpoint}`;
 
-  // 先把调用方传入的 headers 标准化
   const headers = new Headers(options.headers as HeadersInit | undefined);
  
-  //  兜底同步 token：优先 this.token，没有则从 localStorage 取
+  // Token: Prioritize this.token, if not available, retrieve from localStorage
   let token = this.token;
   if (!token) {
     try { token = localStorage.getItem('auth_token') || ''; } catch { token = ''; }
-    // 可选：把兜底到的 token 回写到实例，后续就不用每次 localStorage 了
     if (token) this.token = token;
   }
 
-  // 统一补充鉴权头（如果有且没被显式覆盖）
+  // Unified supplementary authentication header
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  // 根据 body 类型**有条件地**设置 Content-Type（你原逻辑保留）
+  // Set Content Type conditionally based on body type
   const body = options.body as any;
   if (body === undefined || body === null) {
     headers.delete('Content-Type');
@@ -139,51 +137,47 @@ class ApiService {
       headers.set('Content-Type', 'application/json');
     }
   } else {
-    // 其它情况（比如直接传对象）不建议；如果要支持，可在这里 JSON 化
   }
 
   const config: RequestInit = {
     ...options,
-    headers,                 // 用整理过的 headers
+    headers,                 
   };
 
   try {
     const response = await fetch(url, config);
-
-    //  先尝试拿文本→JSON（避免二次读取 body）
     const text = await response.text();
     let payload: ApiResponse<T> | null = null;
     try { payload = text ? JSON.parse(text) : null; } catch { payload = null; }
 
-    //  统一拦截 401（未登录/过期/被挤下线）
+    //  Unified interception of 401 (not logged in/expired/squeezed offline)
     if (response.status === 401) {
       const code = (payload as any)?.code || 'UNAUTHORIZED';
 
-      // 清空本地会话态
       try {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user');
         localStorage.removeItem('current_user_id');
       } catch {}
 
-      // 若是被挤下线给出提示
+      // If squeezed offline, give a prompt
       if (code === 'KICKED') {
         try { alert('你的账号在另一处登录，你已下线'); } catch {}
       }
 
-      // 回到登录页
+
       try { window.location.href = '#/login'; } catch {}
 
-      // 返回统一失败对象，防止上层崩
+
       return { success: false, message: 'Unauthorized', data: null as unknown as T };
     }
 
-    // [改5] 如果后端本来就返回 ApiResponse 结构，直接返回
+ 
     if (payload && typeof (payload as any).success === 'boolean') {
       return payload as ApiResponse<T>;
     }
 
-    // [改6] 兜底：按 HTTP 状态构造一个 ApiResponse
+  
     return {
       success: response.ok,
       message: response.ok ? 'OK' : `HTTP ${response.status}`,
@@ -191,13 +185,13 @@ class ApiService {
     };
   } catch (error) {
     console.error('API request failed:', error);
-    throw error; // 网络级错误保留抛出
+    throw error; 
   }
 }
 
   async searchCourses(q: string): Promise<ApiCourse[]> {
     const res = await this.request<ApiCourse[]>('/courses/search?q=' + encodeURIComponent(q));
-    // 后端返回的是 {code,title,description,illustration}
+    // return  {code,title,description,illustration} from backend
     const raw = (res.data ?? []) as any[];
     return raw.map(r => ({
       id: r.code,
@@ -206,7 +200,7 @@ class ApiService {
       illustration: r.illustration as 'orange'|'student'|'admin',
     }));
   }
-  // 用户认证
+  // user validate
   async stu_register(student_id: string, name: string,email: string, password: string, avatarFile?: File) {
     if (!validateId(student_id)) {
     throw new Error("Wrong ID Format(eg:z1234567)");
@@ -228,12 +222,12 @@ class ApiService {
   formData.append("name", name);     
   formData.append("password", password);
   if (avatarFile) {
-    formData.append("avatar", avatarFile); // 后端用 request.FILES.get("avatar")
+    formData.append("avatar", avatarFile); // backend: request.FILES.get("avatar")
   }
 
   const result = await this.request<ApiResponse<any>>("/auth/register", {
     method: "POST",
-    body: formData, //  不再用 JSON.stringify
+    body: formData,
   });
 
   if (!result.success) {
@@ -333,28 +327,26 @@ async login_adm(adminId: string, password: string): Promise<{ token: string; use
   throw new Error(result.message || 'Invalid admin ID or password');
 }
 async logout(): Promise<void> {
-  // 后端会话登出
+  // Backend session logout
   try { await this.request('/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
-  // 清空鉴权态
+  // clear
   this.token = null;
   localStorage.removeItem('auth_token');
   localStorage.removeItem('login_time');
-  //记录并清理当前用户 ID（关键）
+  //Record and clean up the current user ID (important)
   localStorage.removeItem('current_user_id');
-  // 清空前端"内存"状态（避免下个账号看到旧内存）
- 
 }
 
 async logout_adm(): Promise<void> {
   try { await this.request('/admin/logout', { method: 'POST' }); } catch { /* ignore */ }
-  // 清空鉴权态
+
   this.token = null;
   localStorage.removeItem('auth_token');
   localStorage.removeItem('login_time');
   localStorage.removeItem('current_user_id');
 }
 
-  // 课程管理
+
 async getAvailableCourses(): Promise<ApiCourse[]> {
   const res = await this.request<ApiCourse[]>('/courses/available');
   return res.data ?? [];
@@ -374,7 +366,7 @@ async adminGetMyCourses(): Promise<ApiCourse[]> {
     return res.data ?? [];
 
   }
-//这个删除函数要改，不完善
+
 async adminDeleteCourse(code: string) {
   const adminId = localStorage.getItem('current_user_id') || '';
   const form = new FormData();
@@ -453,7 +445,7 @@ async uploadMaterialFile(file: File, courseId: string) {
   // token
   let token = this.token || '';
   try { token = token || localStorage.getItem('auth_token') || ''; } catch {}
-  // 发请求
+  // send request
   const res = await fetch(`${API_BASE}/courses_admin/upload/material-file`, {
     method: 'POST',
     headers: {
@@ -468,12 +460,12 @@ async uploadMaterialFile(file: File, courseId: string) {
   }
 
   const json = await res.json();
-  // 预期返回 { success: true, data: { url: "..." } }
+  // expect: { success: true, data: { url: "..." } }
   if (!json?.success || !json?.data?.url) {
     throw new Error(json?.message || 'fail!');
   }
 
-  // 返回文件可访问路径
+  // return Effective URL
   return json.data.url as string;
 }
 async adminCreateMaterial(
@@ -519,7 +511,7 @@ async adminGetCourseQuestions(courseId: string): Promise<ApiQuestion[]> {
   return res.data ?? [];
 }
 async adminCreateCourseQuestion(courseId: string, payload: Omit<ApiQuestion,'id'>) {
-  // 映射到服务端字段
+  // Map to server-side fields
   const serverBody =
     payload.qtype === 'mcq'
       ? {
@@ -693,7 +685,7 @@ async adminGetStudentRisk(
     });
   }
 
-  // 获取学生所有任务的进度
+  // get  the progress of all tasks for students
   async getStudentTaskProgress(): Promise<Array<{
     task_id: number;
     progress: number;
@@ -707,7 +699,7 @@ async adminGetStudentRisk(
     return res.data ?? [];
   }
 
-  // 获取特定课程下所有任务的进度
+  //get the progress of all tasks under a specific course
   async getCourseTasksProgress(courseCode: string): Promise<Array<{
     task_id: number;
     task_title: string;
@@ -723,7 +715,7 @@ async adminGetStudentRisk(
     return res.data ?? [];
   }
 
-  // 获取单个任务进度详情
+  // Get individual task progress details
   async getTaskProgressDetail(taskId: string): Promise<{
     task_id: number;
     progress: number;
@@ -763,7 +755,7 @@ async addBonus(delta: number = 0.1): Promise<number> {
   throw new Error(result.message || 'Failed to update bonus');
 }
 
-  // 用户偏好
+
   async getPreferences(): Promise<ApiPreferences> {
     const res = await this.request<ApiPreferences>('/preferences');
     return res.data ?? {
@@ -782,7 +774,7 @@ async addBonus(delta: number = 0.1): Promise<number> {
     });
   }
 
-  // 学习计划
+
   async getWeeklyPlan(weekOffset: number): Promise<ApiPlanItem[]> {
     const res = await this.request<ApiPlanItem[]>(`/plans/weekly/${weekOffset}`);
     return res.data ?? [];
@@ -804,7 +796,6 @@ async addBonus(delta: number = 0.1): Promise<number> {
 
 
   
-  // 学习材料下载
   async downloadMaterial(materialId: string): Promise<Blob> {
     const response = await fetch(`${API_BASE}/materials/${materialId}/download`, {
       headers: {
@@ -823,42 +814,39 @@ async addBonus(delta: number = 0.1): Promise<number> {
   try {
     const res = await this.request<any>('/generate', { method: 'POST' });
 
-    console.log("✅ AI 计划原始响应:", res);
+    console.log("✅ Original response of AI plan:", res);
     
-    // 检查响应格式
     if (!res) {
-      console.error("❌ 后端返回空响应");
+      console.error("❌ The backend returns an empty response");
       return null;
     }
     
     if (!res.success) {
-      console.error("❌ 后端返回失败:", res.message);
+      console.error("❌ Backend return failed:", res.message);
       return null;
     }
     
-    // 提取实际的AI计划数据，并保存整个响应的元数据
+    // Extract actual AI plan data and save the metadata of the entire response
     const aiPlan = res.data;
-    // 保存后端响应的元数据（saved, plan_id等）- 这些可能在根级别或aiPlan内部
     aiPlan.saved = res.saved !== undefined ? res.saved : aiPlan.saved;
     aiPlan.plan_id = res.plan_id !== undefined ? res.plan_id : aiPlan.plan_id;
     
-    console.log("🧩 提取的 AI 计划数据:", aiPlan);
+    console.log("🧩 Extracted AI plan data:", aiPlan);
     
     if (!aiPlan) {
-      console.error("❌ AI计划数据为空");
+      console.error("❌ AI plan data is empty");
       return null;
     }
     
     return aiPlan;
 
   } catch (err) {
-    console.error("❌ 获取 AI 学习计划失败:", err);
+    console.error("❌ Failed to obtain AI learning plan", err);
     return null;
   }
 }
 
 async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
-  // 你的 request<T> 返回的是 ApiResponse<T>（{ success, data, message? }）
   const res = await this.request<unknown[]>(
     `/courses/${encodeURIComponent(courseCode)}/tasks`,
     { method: 'GET', headers: { 'Content-Type': 'application/json' } }
@@ -869,8 +857,6 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
   }
 
   const list = Array.isArray(res.data) ? res.data : [];
-
-  // 在 api 层做一次 snake_case -> camelCase 的映射，外部只用 ApiTask
   return list.map((t: any): ApiTask => ({
     id: String(t.id),
     title: t.title,
@@ -880,7 +866,8 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
     url: t.url ?? null, 
   }));
 }
-  // 获取学习材料列表
+  // Obtain a list of learning materials
+
   async getCourseMaterials(courseId: string): Promise<Array<{
     id: string;
     title: string;
@@ -900,125 +887,18 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
     return res.data ?? [];
   }
 
-  // 检查认证状态
+  // Check the authentication status
   isAuthenticated(): boolean {
     return !!this.token || !!localStorage.getItem('auth_token');
   }
 
-  // 初始化（从localStorage恢复token）
+  // Initialization (restoring token from localStorage)
   initialize(): void {
     const storedToken = localStorage.getItem('auth_token');
     if (storedToken) {
       this.token = storedToken;
     }
   }
-
-  // 消息功能 - 模拟数据
-  // async getMessages(): Promise<Message[]> {
-  //   const now = new Date();
-  //   const mockMessages: Message[] = [
-  //     // Due Alerts - 与现有作业相关
-  //     {
-  //       id: '1',
-  //       type: 'due_alert',
-  //       title: 'Assignment Due Soon',
-  //       preview: 'Assignment "Final Project Report" for COMP1234 is due in 2 days',
-  //       timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2小时前
-  //       isRead: false,
-  //       courseId: 'COMP1234',
-  //       dueTime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2天后
-  //     },
-  //     {
-  //       id: '2',
-  //       type: 'due_alert',
-  //       title: 'Quiz Reminder',
-  //       preview: 'Quiz "Week 5 Assessment" for MATH5678 is due tomorrow',
-  //       timestamp: new Date(now.getTime() - 6 * 60 * 60 * 1000).toISOString(), // 6小时前
-  //       isRead: true,
-  //       courseId: 'MATH5678',
-  //       dueTime: new Date(now.getTime() + 1 * 24 * 60 * 60 * 1000).toISOString() // 1天后
-  //     },
-      
-  //     // Admin DDL Updates - 管理员修改DDL提醒
-  //     {
-  //       id: '9',
-  //       type: 'due_alert',
-  //       title: 'Deadline Updated',
-  //       preview: 'Admin has extended the deadline for "Midterm Exam" in COMP1234 to next Friday',
-  //       timestamp: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), // 30分钟前
-  //       isRead: false,
-  //       courseId: 'COMP1234',
-  //       dueTime: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() // 7天后
-  //     },
-  //     {
-  //       id: '10',
-  //       type: 'due_alert',
-  //       title: 'Deadline Changed',
-  //       preview: 'Admin has moved up the deadline for "Lab Report" in PHYS101 to this Wednesday',
-  //       timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), // 2小时前
-  //       isRead: false,
-  //       courseId: 'PHYS101',
-  //       dueTime: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2天后
-  //     },
-      
-  //     // Nightly Notices - 模拟数据
-  //     {
-  //       id: '3',
-  //       type: 'nightly_notice',
-  //       title: 'Yesterday\'s Plan Incomplete',
-  //       preview: 'You didn\'t complete all tasks from yesterday\'s study plan. The system has automatically rescheduled your plan at 00:00.',
-  //       timestamp: new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString(), // 12小时前
-  //       isRead: false
-  //     },
-  //     {
-  //       id: '4',
-  //       type: 'nightly_notice',
-  //       title: 'Auto-reschedule Completed',
-  //       preview: 'Your unfinished tasks from yesterday have been automatically rescheduled to today\'s plan at 00:00.',
-  //       timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), // 1天前
-  //       isRead: true
-  //     },
-      
-  //     //  Bonuses - 模拟数据
-  //     {
-  //       id: '5',
-  //       type: 'bonus',
-  //       title: 'Weekly Achievement',
-  //       preview: 'Great job! You completed all tasks on time this week',
-  //       timestamp: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3天前
-  //       isRead: false
-  //     },
-  //     {
-  //       id: '6',
-  //       type: 'bonus',
-  //       title: 'Bonus Points Awarded',
-  //       preview: 'You earned 0.01 bonus points for perfect weekly completion',
-  //       timestamp: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7天前
-  //       isRead: true
-  //     },
-      
-  //     // System Notifications - 模拟数据
-  //     {
-  //       id: '7',
-  //       type: 'system_notification',
-  //       title: 'System Update',
-  //       preview: 'New features have been added to your study planner',
-  //       timestamp: new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(), // 1小时前
-  //       isRead: false
-  //     },
-  //     {
-  //       id: '8',
-  //       type: 'system_notification',
-  //       title: 'Welcome Message',
-  //       preview: 'Welcome to Study Planner! Start by setting up your preferences',
-  //       timestamp: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10天前
-  //       isRead: true
-  //     }
-  //   ];
-
-  //   return mockMessages;
-  // }
-
 
   async getMessages(): Promise<Message[]> {
     const studentId = localStorage.getItem('current_user_id');
@@ -1035,18 +915,6 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
     return res.data ?? [];
   }
 
-
-  // async markMessageAsRead(messageId: string): Promise<void> {
-  //   // 模拟API调用延迟
-  //   await new Promise(resolve => setTimeout(resolve, 200));
-  //   console.log(`Message ${messageId} marked as read`);
-  // }
-
-  // async markMessagesAsRead(messageIds: string[]): Promise<void> {
-  //   // 模拟API调用延迟
-  //   await new Promise(resolve => setTimeout(resolve, 300));
-  //   console.log(`Messages ${messageIds.join(', ')} marked as read`);
-  // }
 
   async markMessageAsRead(messageId: string): Promise<void> {
     await this.request(`/reminders/${messageId}/mark-as-read`, { method: 'POST' });
