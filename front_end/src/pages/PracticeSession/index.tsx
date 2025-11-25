@@ -5,8 +5,8 @@ interface PracticeSessionProps {
   course: string
   topic: string
   sessionId: string
-  onSubmitSuccess?: (sessionId: string) => void // 提交成功后的回调
-  onClose?: () => void // 关闭弹窗的回调
+  onSubmitSuccess?: (sessionId: string) => void //Callback after successful submission
+  onClose?: () => void //Close the callback of the pop-up window
 }
 
 export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onClose }: PracticeSessionProps) {
@@ -19,7 +19,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // 先检查是否已经提交过答案
+   //First, check if the answer has been submitted
     const checkSubmissionStatus = async () => {
       try {
         const studentId = localStorage.getItem('current_user_id');
@@ -29,7 +29,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
           throw new Error('User not logged in');
         }
 
-        // 查询该 session 的提交记录
+        //Query the submission records of this session
         const resultsResponse = await fetch(
           `/api/ai/results?student_id=${studentId}&session_id=${sessionId}`,
           {
@@ -45,21 +45,21 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
           const resultsData = await resultsResponse.json();
           
           if (resultsData.success && resultsData.results && resultsData.results.length > 0) {
-            // 已经提交过，重建结果数据
-            console.log('✅ 检测到已提交的答案，加载结果:', resultsData.results);
+          //Already submitted, reconstructed result data
+            console.log('✅ Detected submitted answer, loading result:', resultsData.results);
             
-            // 🔥 关键修复：即使已提交，也要加载题目数据，以便显示完整的题干
+            // Key fix: Even if submitted, the question data must still be loaded to display the complete question stem
             await fetchQuestions();
             
-            // 从提交记录中提取评分结果
+            // Extract rating results from submission records
             const gradingResults = resultsData.results.map((r: any) => r.grading_result);
             
-            // 计算总分
+            // Calculate the total score
             const totalScore = gradingResults.reduce((sum: number, r: any) => sum + (r.score || 0), 0);
             const totalMaxScore = gradingResults.reduce((sum: number, r: any) => sum + (r.max_score || 0), 0);
             const percentage = totalMaxScore > 0 ? (totalScore / totalMaxScore * 100) : 0;
             
-            // 设置结果状态，直接显示结果页面
+            // Set the result status and directly display the result page
             setResults({
               success: true,
               student_id: studentId,
@@ -69,25 +69,24 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
               percentage: percentage
             });
             
-            // isLoading 会在 fetchQuestions 中设置为 false
+            // IsLoading will be set to false in fetchQuestions
             return;
           }
         }
         
-        // 没有提交记录，继续加载题目
+        // No submission record, continue loading questions
         await fetchQuestions();
         
       } catch (err) {
         console.error('Error checking submission status:', err);
-        // 出错时仍然尝试加载题目
+        // Attempting to load questions even when errors occur
         await fetchQuestions();
       }
     };
 
-    // 从API获取题目
+    // Retrieve the title from the API
     const fetchQuestions = async () => {
       try {
-        // 从后端获取生成的题目，带上认证token
         const token = localStorage.getItem('auth_token');
         const response = await fetch(`/api/ai/questions/session/${sessionId}`, {
           headers: {
@@ -103,10 +102,10 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
         
         const data = await response.json()
         
-        console.log('🔍 [PracticeSession] 原始API响应:', data)
+        console.log('🔍 [PracticeSession] Original API response:', data)
         
         if (data.success) {
-          // 转换数据格式以匹配前端接口
+          // Convert data format to match front-end interface
           const formattedQuestions: GeneratedQuestion[] = data.questions.map((q: any) => ({
             id: q.id,
             question_type: q.question_type,
@@ -114,9 +113,9 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
             difficulty: q.difficulty || 'medium'
           }))
           
-          console.log('✅ [PracticeSession] 格式化后的题目数组:', formattedQuestions)
-          console.log('📊 [PracticeSession] 题目数量:', formattedQuestions.length)
-          console.log('📝 [PracticeSession] 第一题详情:', formattedQuestions[0])
+          console.log('✅ [PracticeSession] Formatted question array:', formattedQuestions)
+          console.log('📊 [PracticeSession] number of questions:', formattedQuestions.length)
+          console.log('📝 [PracticeSession] Details of the first question:', formattedQuestions[0])
           
           setQuestions(formattedQuestions)
         } else {
@@ -151,7 +150,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
     setError(null)
 
     try {
-      // 获取学生ID（学号，如 z1234567）
+
       const studentId = localStorage.getItem('current_user_id');
       console.log('🔍 localStorage 中的 current_user_id:', studentId);
       
@@ -161,34 +160,32 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
         return;
       }
       
-      // 提交答案到后端
+      // Submit the answer to the backend
       const submitData = {
         session_id: sessionId,
-        student_id: studentId,  // 直接使用字符串学号
+        student_id: studentId, 
         answers: Object.entries(answers).map(([questionId, answer]) => ({
-          question_db_id: parseInt(questionId, 10),  // 后端期望 question_db_id
+          question_db_id: parseInt(questionId, 10), 
           answer: answer,
-          time_spent: 30 // 默认30秒
+          time_spent: 30 
         }))
       }
 
-      console.log('📤 提交答案数据:', submitData)
+      console.log('📤 Submit answer data:', submitData)
       const response = await aiQuestionService.submitAnswers(submitData as any)
-      console.log('📥 提交答案响应:', response)
+      console.log('📥 Submit answer response:', response)
       
       if (response.success) {
-        // 后端直接返回数据在顶层，不在 data 字段中
         setResults(response)
-        // 通知父组件提交成功
         if (onSubmitSuccess) {
           onSubmitSuccess(sessionId)
         }
       } else {
-        console.error('❌ 提交失败:', response.error || response.message)
+        console.error('❌ submit fail:', response.error || response.message)
         setError(response.message || 'Failed to submit answers')
       }
     } catch (err) {
-      console.error('❌ 提交答案异常:', err)
+      console.error('❌ Abnormal submission of answers:', err)
       setError('Failed to submit answers')
     } finally {
       setIsSubmitting(false)
@@ -207,8 +204,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
     }
   }
 
-  // Loading state - 单层卡片
-  // 🔥 修复：如果已经有结果数据，即使 isLoading 也不显示 Loading（避免闪烁）
+
   if (isLoading && !results) {
     return (
       <div style={{
@@ -240,7 +236,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
     )
   }
 
-  // Error state - 单层卡片
+  // Error state 
   if (error && !results) {
     return (
       <div style={{
@@ -257,9 +253,9 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
         <button 
           onClick={() => {
             if (onClose) {
-              onClose(); // 关闭弹窗
+              onClose(); // close pop-up
             } else {
-              window.location.hash = '#/chat-window'; // 备用方案
+              window.location.hash = '#/chat-window'; //Backup plan
             }
           }}
           style={{
@@ -280,9 +276,9 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
     )
   }
 
-  // Results state - 单层卡片
+  // Results state
   if (results) {
-    // 🔥 如果 results 有值但 questions 还没加载完，显示 Loading
+    // If the results have values but the questions have not been loaded yet, display 'Loading'
     if (questions.length === 0) {
       return (
         <div style={{
@@ -314,15 +310,15 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
       );
     }
     
-    // 🔥 修复：不再区分 isReviewMode，因为现在总是会加载 questions 数据
+    //  Fix: no longer distinguishing isReviewMode, as question data is always loaded now
     
-    // 🔍 计算总分和百分比
+    //  Calculate the total score and percentage
     const totalScore = results.total_score || 0;
     const totalMaxScore = results.total_max_score || 0;
     const percentage = totalMaxScore > 0 ? (totalScore / totalMaxScore * 100) : 0;
     
-    // 🔍 调试：查看 results 数据结构
-    console.log('🔍 [Results Page] 结果数据:', {
+    // Debugging: View the results data structure
+    console.log('🔍 [Results Page] result data:', {
       results,
       grading_results: results.grading_results,
       total_score: totalScore,
@@ -367,13 +363,13 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
           <div style={{ marginBottom: '32px' }}>
             <h2 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '16px', color: '#172239' }}>Detailed Results</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* 🔥 统一显示逻辑：总是使用 questions 数组（现在已确保加载） */}
+              {/*  Unified display logic: always use the questions array (now ensured to load) */}
               {questions.map((question, index) => {
-                // 根据 question.id 找到对应的评分结果
+                // Find the corresponding rating result based on the question.id
                 const result = results.grading_results?.find((r: any) => r.question_id === question.id)
                 
                 if (!result) {
-                  console.warn(`⚠️ 找不到题目 ${question.id} 的评分结果`)
+                  console.warn(`⚠️ cannot find ${question.id} grading result`)
                   return null
                 }
                 
@@ -385,10 +381,10 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                 const sampleAnswer = questionData?.sample_answer
                 const correctAnswer = questionData?.correct_answer
                 
-                // 🔥 选择题的解析在 questionData.explanation，简答题的在 result.solution
+                //  The analysis of multiple-choice questions can be found in questionData.exe, while the analysis of short answer questions can be found in result.solution
                 const explanation = isMCQ ? questionData?.explanation : result.solution
                 
-                // 🎯 根据分数段判断等级
+                //  Determine the level based on the score range
                 const score = result.score || 0;
                 const maxScore = result.max_score || 10;
                 let label = 'Incorrect';
@@ -396,17 +392,17 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                 let textColor = '#991B1B';
                 
                 if (score >= maxScore) {
-                  // 满分：Correct
+                  // fullmark：Correct
                   label = 'Correct';
                   bgColor = '#D1FAE5';
                   textColor = '#065F46';
                 } else if (score >= 4) {
-                  // 4-9分：Partly Correct
+                  // 4-9：Partly Correct
                   label = 'Partly Correct';
                   bgColor = '#FEF3C7';
                   textColor = '#92400E';
                 }
-                // 0-3分：Incorrect（默认值）
+                // 0-3：Incorrect（default mark）
                 
                 return (
                   <div key={question.id} style={{
@@ -430,7 +426,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                       </span>
                     </div>
                     
-                    {/* 🔥 题目文本 - 始终显示 */}
+                    {/* shortanswer - always display*/}
                     <div style={{
                       fontSize: '15px',
                       fontWeight: 600,
@@ -441,7 +437,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                       {questionText}
                     </div>
                     
-                    {/* 🔥 选择题：显示选项 */}
+                    {/* Multiple Choice Question: Display Options */}
                     {isMCQ && options && options.length > 0 && (
                       <div style={{
                         marginBottom: '12px',
@@ -459,7 +455,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                             const displayText = hasLetterPrefix ? option : `${String.fromCharCode(65 + i)}. ${option}`
                             const isStudentAnswer = result.student_answer === option
                             
-                            // 🔥 修复：正确答案是字母(如"B")，需要转换成索引来比较
+                            // Fix: The correct answer is a letter (such as "B"), which needs to be converted into an index for comparison
                             const correctAnswerLetter = String.fromCharCode(65 + i) // 'A', 'B', 'C', 'D'
                             const isCorrect = correctAnswer === correctAnswerLetter || correctAnswer === option
                             
@@ -487,10 +483,10 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                       </div>
                     )}
                     
-                    {/* 🔥 简答题：显示学生答案和参考答案 */}
+                    {/* Short answer: Display student answers and reference answers */}
                     {isShortAnswer && (
                       <div>
-                        {/* 学生的答案 */}
+                        {/* answer*/}
                         {result.student_answer && (
                           <div style={{
                             marginBottom: '12px',
@@ -508,7 +504,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                           </div>
                         )}
                         
-                        {/* 参考答案 */}
+                        {/* standard answer */}
                         {sampleAnswer && (
                           <div style={{
                             marginBottom: '12px',
@@ -528,7 +524,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
                       </div>
                     )}
                     
-                    {/* 🔥 显示解析 (对所有题型) */}
+                    {/* analysis */}
                     {explanation && (
                       <div style={{
                         marginTop: '12px',
@@ -554,9 +550,9 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
             <button 
               onClick={() => {
                 if (onClose) {
-                  onClose(); // 关闭弹窗
+                  onClose(); 
                 } else {
-                  window.location.hash = '#/chat-window'; // 备用方案
+                  window.location.hash = '#/chat-window'; 
                 }
               }}
               style={{
@@ -580,9 +576,9 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
 
   const question = questions[currentQuestion]
   
-  // 🔥 修复字段映射：使用新的字段名
+
   const currentQuestionData = question?.question_data
-  const questionText = currentQuestionData?.question  // 使用 question 而不是 question_text
+  const questionText = currentQuestionData?.question  
   const options = currentQuestionData?.options
   const sampleAnswer = currentQuestionData?.sample_answer
   const hasQuestionData = !!questionText
@@ -598,7 +594,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
     sampleAnswer
   })
 
-  // Main quiz UI - 单层卡片
+  // Main quiz UI 
   return (
     <div style={{
       maxWidth: '100%',
@@ -650,8 +646,8 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
             {hasQuestionData ? questionText : 'Loading question...'}
           </h2>
 
-          {/* 🔍 调试信息 */}
-          {console.log('🔍 [题目类型判断]', {
+          {/* 🔍 adjustment */}
+          {console.log('🔍 [Determination of question type]', {
             question_type: question.question_type,
             isMCQ: question.question_type === 'mcq',
             isShort: question.question_type === 'short',
@@ -662,7 +658,7 @@ export function PracticeSession({ course, topic, sessionId, onSubmitSuccess, onC
           {question.question_type === 'mcq' && options && options.length > 0 && (
             <div style={{ display: 'grid', gap: '12px' }}>
               {options.map((option, i) => {
-                // 检查选项是否已经包含字母前缀（如 "A. "）
+                // Check if the option already contains a letter prefix (such as "A.")
                 const hasLetterPrefix = /^[A-D]\.\s*/.test(option)
                 const displayText = hasLetterPrefix ? option : `${String.fromCharCode(65 + i)}. ${option}`
                 const isSelected = answers[question.id] === option
