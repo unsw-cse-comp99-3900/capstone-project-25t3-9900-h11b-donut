@@ -2,15 +2,15 @@ import { coursesStore } from './coursesStore';
 import { apiService } from '../services/api';
 
 export interface Preferences {
-  dailyHours: number;          // 每日学习时长（小时）
-  weeklyStudyDays: number;     // 每周学习天数（1-7）
-  avoidDays: string[];         // 需要规避的星期（如 ['Sat','Sun']）
-  saveAsDefault: boolean;      // 是否保存为默认
-  description?: string;        // 学生对课程基础的自我描述
+  dailyHours: number;          // hours per day
+  weeklyStudyDays: number;     // days per week
+  avoidDays: string[];         // avoid study days ['Sat','Sun']
+  saveAsDefault: boolean;      // set as default or not
+  description?: string;        
 }
 
 export interface PlanItem {
-  id: string;           // `${courseId}-${taskId}` 与 deadlines id 对齐（同一任务的多个 part 共享同一 id）
+  id: string;           // `${courseId}-${taskId}` 
   courseId: string;
   courseTitle: string;  // course code + task title (deadline title)
   partTitle: string;
@@ -18,13 +18,12 @@ export interface PlanItem {
   date: string;         // YYYY-MM-DD
   color: string;
   completed?: boolean;
-  // 新增：用于表示任务拆分的子步骤索引与总数
   partIndex?: number;
   partsCount?: number;
 }
 
 export interface WeeklyPlan {
-  [weekOffset: number]: PlanItem[];  // 按周偏移存储计划
+  [weekOffset: number]: PlanItem[];  // store the plan base on weekoffset
 }
 
 type Listener = () => void;
@@ -37,20 +36,15 @@ class PreferencesStore {
     saveAsDefault: false,
     description: ''
   };
-  private weeklyPlans: WeeklyPlan = {};  // 存储每周学习计划
+  private weeklyPlans: WeeklyPlan = {};  
   private listeners: Listener[] = [];
 
 
   constructor() {
-  //   const token = localStorage.getItem('auth_token');
-  // if (token) {
-  //   this.loadPreferencesFromAPI();
-  // } else {
-  //   console.log('not login yet!');
-  // } 避免未登录就获取preference
+
   }
 
-  // 从API加载偏好设置
+  // load pref
   async loadPreferencesFromAPI(): Promise<void> {
     try {
       const preferences = await apiService.getPreferences();
@@ -70,7 +64,7 @@ class PreferencesStore {
     }
   }
 
-  // 保存偏好设置到API
+  // save pref to db
   private async savePreferencesToAPI(): Promise<void> {
     try {
       await apiService.savePreferences(this.prefs);
@@ -80,7 +74,7 @@ class PreferencesStore {
     }
   }
 
-  // 保存偏好设置到localStorage
+  // save pref to local storage
   private savePreferences() {
     try {
       const uid = localStorage.getItem('current_user_id');
@@ -114,32 +108,30 @@ class PreferencesStore {
 }
 
 async loadAllPlansSmart(uid: string): Promise<Record<string, PlanItem[]>> {
-  // 仅在函数内部用到的局部类型，不影响你的 WeeklyPlan
   type WeeklyPlansMap = Record<string, PlanItem[]>;
 
   const key = `u:${uid}:ai-web-weekly-plans`;
 
-  // 1) 先读本地
+  // 1) read local storage
   const raw = localStorage.getItem(key);
   if (raw) {
     try {
-      const parsed = JSON.parse(raw) as WeeklyPlansMap;     // ← 返回需要的 Map
-      this.weeklyPlans = parsed as unknown as WeeklyPlan;   // ← 写入字段时转成 WeeklyPlan
+      const parsed = JSON.parse(raw) as WeeklyPlansMap;     
+      this.weeklyPlans = parsed as unknown as WeeklyPlan;   
       this.notify?.();
-      return parsed;                                        // ← 返回 Map，不影响字段类型
+      return parsed;                                        
     } catch {}
   }
 
-  // 2) 本地没有 → 走后端（已用方案A返回 ApiResponse<T>）
+  // 2) not in localstorage → backend db
   const map = (await apiService.getAllWeeklyPlans()) as WeeklyPlansMap;
 
-  this.weeklyPlans = map as unknown as WeeklyPlan;          // ← 存到字段仍按 WeeklyPlan
+  this.weeklyPlans = map as unknown as WeeklyPlan;         
   localStorage.setItem(key, JSON.stringify(map));
   this.notify?.();
-  return map;                                               // ← 对外返回 Map
+  return map;                                             
 }
 
-  // 保存学习计划到localStorage
   
 private async saveWeeklyPlans() {
   try {
@@ -175,7 +167,6 @@ private async saveWeeklyPlans() {
   }
 
   getPreferences(): Preferences {
-    // 返回拷贝，避免外部直接修改内部状态
     return { ...this.prefs, avoidDays: [...this.prefs.avoidDays] };
   }
 
@@ -190,45 +181,45 @@ private async saveWeeklyPlans() {
   });
   }
 
-  // 获取指定周的学习计划
+  // get specific week's plan
   getWeeklyPlan(weekOffset: number): PlanItem[] {
     return this.weeklyPlans[weekOffset] || [];
   }
 
-  // 设置指定周的学习计划
+  // set specific week's plan
   setWeeklyPlan(weekOffset: number, plan: PlanItem[]) {
     this.weeklyPlans[weekOffset] = plan;
     this.saveWeeklyPlans();
     this.notify();
   }
 
-  // 清除所有学习计划数据
+  // clear plans
   clearWeeklyPlans() {
     this.weeklyPlans = {};
     this.saveWeeklyPlans();
     this.notify();
   }
 
-  // 获取当前周的学习计划（默认本周）
+
   getCurrentWeeklyPlan(): PlanItem[] {
     return this.getWeeklyPlan(0);
   }
 
-  // 验证偏好设置约束
+  // validate pref
   validatePreferences(preferences: Preferences): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
     
-    // 验证每日学习时长
+    // hours/day
     if (preferences.dailyHours < 1 || preferences.dailyHours > 12) {
       errors.push('Daily study hours must be between 1 and 12.');
     }
     
-    // 验证每周学习天数
+    // days/week
     if (preferences.weeklyStudyDays < 1 || preferences.weeklyStudyDays > 7) {
       errors.push('Weekly study days must be between 1 and 7.');
     }
     
-    // 验证避免天数不冲突
+    // Verify that the number of days avoided does not conflict
     const allDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const availableDays = allDays.filter(day => !preferences.avoidDays.includes(day));
     
@@ -242,12 +233,14 @@ private async saveWeeklyPlans() {
     };
   }
 
-  // 应用约束条件到学习计划
+  // Applying constraints to learning plans
+
   applyConstraints(preferences: Preferences, planItems: PlanItem[]): PlanItem[] {
     const dailyMinutesLimit = preferences.dailyHours * 60;
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
-    // 按日期分组计划项
+    // Group plan items by date
+
     const dailyPlans: { [date: string]: PlanItem[] } = {};
     planItems.forEach(item => {
       if (!dailyPlans[item.date]) {
@@ -256,26 +249,26 @@ private async saveWeeklyPlans() {
       dailyPlans[item.date].push(item);
     });
     
-    // 检查每日时长限制
+    // check daily studying hours
     const constrainedPlan: PlanItem[] = [];
     
     Object.entries(dailyPlans).forEach(([date, items]) => {
       const studyDate = new Date(date);
       const dayName = dayNames[studyDate.getDay()];
       
-      // 检查是否在避免天数中
+      // Check if it is within the number of days to avoid
+
       if (preferences.avoidDays.includes(dayName)) {
-        console.warn(`计划项被分配到避免的天数: ${date} (${dayName})`);
-        return; // 跳过这个日期的所有计划项
+        console.warn(`Plan items are assigned to avoid days: ${date} (${dayName})`);
+        return; 
       }
       
-      // 计算当日总时长
+      // Calculate the total duration of the day
       const totalMinutes = items.reduce((sum, item) => sum + item.minutes, 0);
-      
       if (totalMinutes > dailyMinutesLimit) {
-        // 如果超时，按优先级重新分配
+        // If timeout occurs, reassign according to priority
         const sortedItems = [...items].sort((a, b) => {
-          // 简单的优先级排序：按课程ID和任务ID排序
+          // Simple priority sorting: Sort by course ID and task ID
           return a.id.localeCompare(b.id);
         });
         
@@ -300,55 +293,53 @@ private async saveWeeklyPlans() {
     return constrainedPlan;
   }
 
-  // 生成学习计划（使用AI功能）
+  //Generate learning plan (using AI functionality)
   async generateWeeklyPlan(): Promise<PlanItem[]> {
     const preferences = this.getPreferences();
-    console.log('[DEBUG] 当前获取的偏好:', preferences);
-    // 验证偏好设置
+    console.log('[DEBUG] get current pref:', preferences);
     const validation = this.validatePreferences(preferences);
-    console.log('[DEBUG] 校验结果:', validation);
+    console.log('[DEBUG] validation res:', validation);
     if (!validation.isValid) {
-      console.error('偏好设置验证失败:', validation.errors);
+      console.error('fail to validate:', validation.errors);
       return [];
     }
     else{
-      console.log('偏好设置验证通过:', preferences);
+      console.log('validate pass:', preferences);
     }
     
-    // 获取用户的所有课程和任务
     const myCourses = await apiService.getUserCourses();
-    console.log('课程信息列表:', myCourses);
+    console.log('courses list:', myCourses);
 
     //const myCourses = coursesStore.myCourses;
     const planItems: PlanItem[] = [];
     
-    // 如果没有课程，返回空计划
+    // no course , no plan
     if (myCourses.length === 0) {
       return [];
     }
     
-    // 获取当前周的周一日期
+
     const now = new Date();
-    const day = now.getDay() || 7; // 周一=1
+    const day = now.getDay() || 7; 
     const currentMonday = new Date(now);
     currentMonday.setDate(now.getDate() - (day - 1));
     
-    // 计算可用的学习天数（排除avoid days，并限制每周学习天数）
+    //Calculate the available learning days (excluding avoidance days and limiting the number of learning days per week)
     const availableDays = this.getAvailableStudyDays(preferences, currentMonday);
     
-    // 收集所有任务
+    // collect all tasks
     const allTasks: Array<{courseId: string, taskId: string, title: string, deadline: Date, color: string, priority: number, totalMinutes: number, parts: Array<{title: string, minutes: number}>}> = [];
     
     myCourses.forEach(course => {
       const tasks = coursesStore.getCourseTasks(course.id);
       console.log('tasks:',tasks)
       tasks.forEach(task => {
-        // 计算任务优先级（基于截止日期）
+        // Calculate task priority (based on deadline)
         const deadline = new Date(task.deadline);
         const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         const priority = daysUntilDeadline <= 7 ? 1 : daysUntilDeadline <= 14 ? 2 : 3;
         
-        // 使用AI智能拆分任务
+        // Using AI to intelligently split tasks
         const taskParts = this.generateAITaskParts({
           courseId: course.id,
           taskId: task.id,
@@ -373,7 +364,7 @@ private async saveWeeklyPlans() {
       });
     });
     
-    // 按优先级和截止日期排序（高优先级和近截止日期的优先）
+    // Sort by priority and deadline (high priority and near deadline priority)
     allTasks.sort((a, b) => {
       if (a.priority !== b.priority) {
         return a.priority - b.priority;
@@ -381,27 +372,23 @@ private async saveWeeklyPlans() {
       return a.deadline.getTime() - b.deadline.getTime();
     });
     
-    // 按天分配任务，严格应用daily hours限制
     const dailyMinutesLimit = preferences.dailyHours * 60;
     const dayAssignments: {[date: string]: {totalMinutes: number, tasks: Array<{task: any, partIndex: number, part: any}>}} = {};
-    // 额外防护：在分配阶段再次检查避开日期
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
-    // 为每个任务分配日期（严格应用每日时长限制、避免日与每周学习天数，并在必要时跨天拆分part）
     allTasks.forEach(task => {
       task.parts.forEach((part, partIndex) => {
         let remaining = part.minutes;
         
-        // 优先在截止日期之前分配
+        // Prioritize allocation before the deadline
         for (let i = 0; i < availableDays.length && remaining > 0; i++) {
           const studyDate = availableDays[i];
           const dateStr = studyDate.toISOString().split('T')[0];
           
-          // 只在截止日期当天或之前分配，若仍有剩余，后续会尝试截止日之后直到最晚截止日期
+          //Allocate only on or before the deadline. If there are still leftovers, attempts will be made after the deadline until the latest deadline
           if (studyDate > task.deadline) break;
           
           const currentAssignment = dayAssignments[dateStr] || { totalMinutes: 0, tasks: [] };
-          // 避开日期二次校验
           const dayName = dayNames[studyDate.getDay()];
           if (preferences.avoidDays.includes(dayName)) continue;
           const capacity = Math.max(0, dailyMinutesLimit - currentAssignment.totalMinutes);
@@ -409,12 +396,11 @@ private async saveWeeklyPlans() {
           
           const chunk = Math.min(remaining, capacity);
           
-          // 初始化当日记录
+          // Initialize daily records
           if (!dayAssignments[dateStr]) {
             dayAssignments[dateStr] = { totalMinutes: 0, tasks: [] };
           }
           
-          // 创建计划项（可能是该part的一个切片）
           const planItem: PlanItem = {
             id: `${task.courseId}-${task.taskId}-${partIndex}`,
             courseId: task.courseId,
@@ -429,21 +415,20 @@ private async saveWeeklyPlans() {
           };
           planItems.push(planItem);
           
-          // 更新当日负载
+          // update today's load
           dayAssignments[dateStr].totalMinutes += chunk;
           dayAssignments[dateStr].tasks.push({ task, partIndex, part });
           
           remaining -= chunk;
         }
         
-        // 如果还有剩余，允许在截止日期之后继续分配（直到全局最新截止日期），以便全局计划覆盖多周
+        //if there is still surplus, it is allowed to continue allocation after the deadline (until the latest global deadline), so that the global plan covers multiple weeks
         if (remaining > 0) {
           for (let i = 0; i < availableDays.length && remaining > 0; i++) {
             const studyDate = availableDays[i];
             const dateStr = studyDate.toISOString().split('T')[0];
             
             const currentAssignment = dayAssignments[dateStr] || { totalMinutes: 0, tasks: [] };
-            // 避开日期二次校验
             const dayName2 = dayNames[studyDate.getDay()];
             if (preferences.avoidDays.includes(dayName2)) continue;
             const capacity = Math.max(0, dailyMinutesLimit - currentAssignment.totalMinutes);
@@ -478,18 +463,17 @@ private async saveWeeklyPlans() {
       });
     });
     
-    // 应用约束条件进行最终验证和调整
+    // Apply constraints for final validation and adjustment
     const constrainedPlan = this.applyConstraints(preferences, planItems);
     return constrainedPlan;
   }
   
-  // 获取可用的学习天数（基于最晚截止日期，应用avoid days和weekly study days限制）
   private getAvailableStudyDays(preferences: Preferences, startDate: Date): Date[] {
     const availableDays: Date[] = [];
     const avoidSet = new Set(preferences.avoidDays);
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
-    // 获取所有课程的最晚截止日期
+    // Obtain the latest deadline for all courses
     const myCourses = coursesStore.myCourses;
     let latestDeadline = new Date(startDate);
     
@@ -503,28 +487,30 @@ private async saveWeeklyPlans() {
       });
     });
     
-    // 计算需要生成的天数（从startDate到最晚截止日期）
+    // Calculate the number of days to be generated (from startDate to the latest deadline)
     const daysNeeded = Math.ceil((latestDeadline.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     
-    // 按周分组，确保每周不超过指定的学习天数
+    // Group by week to ensure that the number of study days per week does not exceed the specified limit
     const weeks: Date[][] = [];
     let currentWeek: Date[] = [];
     
     for (let i = 0; i < daysNeeded; i++) {
-      // 创建新的日期对象，避免修改原始startDate
+      // Create a new date object to avoid modifying the original startDate
       const studyDate = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
-      const dayIndex = studyDate.getDay(); // 0-6 (周日=0, 周一=1, ..., 周六=6)
+      const dayIndex = studyDate.getDay(); // 0-6 (sun=0, mon=1, ..., sat=6)
       const dayName = dayNames[dayIndex];
       
-      // 检查是否在avoid days中
+
       if (!avoidSet.has(dayName)) {
         currentWeek.push(studyDate);
       }
       
-      // 如果是周六或最后一天，结束当前周并应用weeklyStudyDays限制
+      // If it is Saturday or the last day, end the current week and apply the weeklyStudyDays restriction
+
       if (dayIndex === 6 || i === daysNeeded - 1) {
         if (currentWeek.length > 0) {
-          // 应用weeklyStudyDays限制：取前N个可用天数（按日期排序）
+          // Apply weeklyStudyDays restriction: select the top N available days (sorted by date)
+
           const sortedWeek = [...currentWeek].sort((a, b) => a.getTime() - b.getTime());
           const limitedWeek = sortedWeek.slice(0, preferences.weeklyStudyDays);
           weeks.push(limitedWeek);
@@ -533,26 +519,26 @@ private async saveWeeklyPlans() {
       }
     }
     
-    // 合并所有周的可用天数
+    // Merge the available days of all weeks
     weeks.forEach(week => {
       availableDays.push(...week);
     });
     
-    // 按日期排序
+    // Sort by date
     availableDays.sort((a, b) => a.getTime() - b.getTime());
     
     return availableDays;
   }
   
-  // 使用AI智能生成任务拆分
+  // Using AI to intelligently generate task splitting
   private generateAITaskParts(task: {courseId: string, taskId: string, title: string, deadline: Date, color: string, priority: number}): Array<{title: string, minutes: number}> {
-    // 基于任务类型和优先级智能拆分
-    const baseMinutes = 30; // 调整为更易测试的基础时长
+    // Intelligent splitting based on task type and priority
+    const baseMinutes = 30; // Adjust to a more easily testable base duration
     
-    // 根据优先级调整任务复杂度
+    // Adjust task complexity based on priority
     const complexityMultiplier = task.priority === 1 ? 1.3 : task.priority === 2 ? 1.1 : 0.9;
     
-    // 分析任务类型
+    // Analyze task types
     const taskType = this.analyzeTaskType(task.title);
     
     switch (taskType) {
@@ -590,7 +576,7 @@ private async saveWeeklyPlans() {
     }
   }
   
-  // 分析任务类型
+  // Analyze task types
   private analyzeTaskType(title: string): string {
     const lowerTitle = title.toLowerCase();
     

@@ -55,7 +55,7 @@ async getMyTasks(force = false) {
       return;
     }
 
-    // 确保课程数据已加载
+    // make sure data has been loaded
     if (!this.all || this.all.length === 0) {
       await this.getMyCourses(true);
     }
@@ -77,7 +77,7 @@ async getMyTasks(force = false) {
         allTasks[course.id] = normalized;
         countsByCourse[course.id] = normalized.length; 
 
-        // 每门课单独缓存
+        // store into localstorage for each course
         localStorage.setItem(
           `admin:${adminId}:course_tasks_${course.id}`,
           JSON.stringify(normalized)
@@ -117,7 +117,7 @@ async getMyMaterials(force = false) {
     if (!adminId) return;
 
     if (!this.all || this.all.length === 0) {
-      await this.getMyCourses(true); // 确保有课程列表
+      await this.getMyCourses(true); // make sure coruse list exist
     }
 
     const allMaterials: Record<string, any[]> = {};
@@ -131,14 +131,13 @@ async getMyMaterials(force = false) {
         description: m.description ?? '',  
       }));
 
-      // 单课缓存（带 adminId）
+
       localStorage.setItem(
         `admin:${adminId}:course_materials_${course.id}`,
         JSON.stringify(allMaterials[course.id])
       );
     }
 
-    // 汇总缓存
     localStorage.setItem(`admin:${adminId}:materials`, JSON.stringify(allMaterials));
     this.notify();
   } catch (err) {

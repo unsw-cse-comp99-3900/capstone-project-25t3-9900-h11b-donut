@@ -63,7 +63,6 @@ function App() {
     if (!window.location.hash) window.location.hash = '#/signup'
   }, [])
 
-  //  路由保护：受保护页但未登录 -> 跳转登录页
   if (isProtectedHash(hash) && !isAuthed()) {
     
     localStorage.removeItem('auth_token')
@@ -71,7 +70,6 @@ function App() {
     localStorage.removeItem('current_user_id')
     localStorage.removeItem('user')
 
-    // 跳转到登录页
     window.location.hash = '#/login-student'
     return null
   }
@@ -89,7 +87,6 @@ function App() {
   if (hash.startsWith('#/student-plan')) return <StudentPlan />
   if (hash.startsWith('#/chat-window')) return <ChatWindow />
   if (hash.startsWith('#/practice-session/')) {
-    // 解析URL参数: /practice-session/{course}/{topic}/{sessionId}
     const parts = hash.replace('#/practice-session/', '').split('/')
     if (parts.length >= 3) {
       const [course, topic, sessionId] = parts

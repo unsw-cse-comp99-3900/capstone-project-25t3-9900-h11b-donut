@@ -1,7 +1,7 @@
 import { apiService } from '../services/api';
 
 export type Course = {
-  id: string;            // 对应后端 CourseCatalog.code
+  id: string;            // CourseCatalog.code
   title: string;         // CourseCatalog.title
   desc: string;          // CourseCatalog.description
   illustration: 'orange' | 'student' | 'admin';
@@ -29,11 +29,9 @@ export type Deadline = {
 type Listener = () => void;
 
 class CoursesStore {
-  // 来自后端的可搜索课程与我的课程
   availableCourses: Course[] = [];
   myCourses: Course[] = [];
 
-  // 缓存：任务与进度
   private tasksByCourse: Record<string, Task[]> = {};
   private deadlines: Deadline[] = [];
   private progressByDeadline: Record<string, number> = {};
@@ -43,7 +41,7 @@ class CoursesStore {
   private _loading = false;
   constructor() {
     // const token = localStorage.getItem('auth_token');
-    // 启动时拉取我的课程与可用课程
+    // get my course and available course
     const uid = localStorage.getItem('current_user_id');
   if (uid) {
     const raw = localStorage.getItem(`u:${uid}:myCourses:v1`);
@@ -63,9 +61,7 @@ async ensureLoaded() {
     this._loading = true;
     const token = localStorage.getItem('auth_token');
 
-    // 先拉可选课程
     await this.loadAvailableCourses();
-    // 如果当前有 token，就顺便拉“我的课程”
     if (token) {
       await this.loadMyCoursesFromAPI();
     }
@@ -111,21 +107,21 @@ async ensureLoaded() {
         illustration: c.illustration
       }));
       
-      await this.syncDeadlinesFromCourses(); // 拉取任务再生成 deadlines
+      await this.syncDeadlinesFromCourses(); // load task then load deadlines
       const uid = (typeof window !== 'undefined') ? localStorage.getItem('current_user_id') : null;
       if (uid) {
         localStorage.setItem(`u:${uid}:myCourses:v1`, JSON.stringify(this.myCourses));
-        // 把 deadlines 也缓存起来
+        
         try {
           localStorage.setItem(`u:${uid}:deadlines:v1`, JSON.stringify(this.deadlines));
-        } catch { /* 存储满了可忽略 */ }
+        } catch {  }
       }
       this.notify();
     } catch (error) {
       console.warn('Failed to load my courses from API:', error);
     }
   }
-  //這裡解決了重新登錄後出現前一個賬戶的課程！！！
+  //This solves the problem of courses appearing in the previous account after logging in again!!!
   public async refreshMyCourses(): Promise<void> {
   await this.loadMyCoursesFromAPI();
   }
@@ -156,13 +152,12 @@ async ensureLoaded() {
   }
 
   async addCourse(courseId: string) {
-    // 若已存在则不重复添加
+    // if exist return
     const exists = this.myCourses.find(c => c.id.toLowerCase() === courseId.toLowerCase());
     if (exists) return;
     const found = this.availableCourses.find(c => c.id.toLowerCase() === courseId.toLowerCase());
     if (!found) return;
 
-    // 立即加入 UI 并通知渲染
     this.myCourses = [...this.myCourses, found];
     this.notify();
     (async () => {
@@ -187,7 +182,7 @@ async ensureLoaded() {
         this.notify();
       } catch (error) {
         console.warn('Failed to add course via API:', error);
-        // 后端失败时保留乐观结果（可按需提示用户）
+
         await this.syncDeadlinesFromCourses();
         const uid = (typeof window !== 'undefined') ? localStorage.getItem('current_user_id') : null;
         if (uid) {
@@ -200,15 +195,14 @@ async ensureLoaded() {
   }
 
   async removeCourse(courseId: string) {
-  await apiService.removeCourse(courseId);  // 1) 先删后端
+  await apiService.removeCourse(courseId);  // 1) delete backend data
 
   const uid = localStorage.getItem('current_user_id');
 
-  // 2) 清本地内存
+  // 2) delete localstorage
   delete this.tasksByCourse[courseId];
   this.myCourses = this.myCourses.filter(c => c.id !== courseId);
 
-  // 3) 立刻落盘 myCourses
   if (uid) {
     localStorage.setItem(`u:${uid}:myCourses:v1`, JSON.stringify(this.myCourses));
     localStorage.removeItem(`u:${uid}:ai-web-weekly-plans`);
@@ -227,7 +221,7 @@ async ensureLoaded() {
   this.notify();
 }
 
-  // 按需加载任务（首次从后端获取并缓存）
+  // Load tasks on demand (first retrieved and cached from the backend)
   async getCourseTasksAsync(courseId: string): Promise<Task[]> {
     if (!this.tasksByCourse[courseId]) {
       const apiTasks = await apiService.getCourseTasks(courseId);
@@ -246,10 +240,12 @@ async ensureLoaded() {
     return this.tasksByCourse[courseId];
   }
 
-  // 同步 deadlines（依赖 tasks 缓存）
+  // Synchronize deadlines (dependent on tasks cache)
+
   private async syncDeadlinesFromCourses() {
     const list: Deadline[] = [];
-    // 为每门课确保任务缓存
+    // Ensure task caching for each course
+
     for (const course of this.myCourses) {
       if (!this.tasksByCourse[course.id]) {
         try { await this.getCourseTasksAsync(course.id); } catch { /* ignore */ }
@@ -290,7 +286,6 @@ async ensureLoaded() {
   }
 
   async setProgress(id: string, progress: number) {
-    // id 形如 `${courseId}-${taskId}`，taskId 内可能包含连字符，不要用固定 split 取第二段
     const firstDash = id.indexOf('-');
     const taskId = firstDash >= 0 ? id.substring(firstDash + 1) : id;
     try {
@@ -301,10 +296,11 @@ async ensureLoaded() {
       console.warn('updateTaskProgress failed, continue locally:', e);
     }
 
-    // 1) 写入内存映射
+    // 1) Write memory mapping
     this.progressByDeadline[id] = progress;
 
-    // 2) 若现有 deadlines 中有对应项，直接就地更新；否则重建一次 deadlines 以带入最新进度
+    // 2) If there are corresponding items in the existing deadlines, update them directly on-site; Otherwise, rebuild the deadlines to bring in the latest progress
+
     const idx = this.deadlines.findIndex(d => d.id === id);
     if (idx !== -1) {
       this.deadlines[idx] = { ...this.deadlines[idx], progress };
@@ -312,7 +308,6 @@ async ensureLoaded() {
       await this.syncDeadlinesFromCourses();
     }
 
-    // 3) 通知订阅者（StudentHome 会据此刷新右栏）
     this.notify();
   }
 
@@ -326,7 +321,8 @@ async ensureLoaded() {
     return `${diffDays}d ${diffHours}h ${diffMins}m`;
   }
 
-  // 计算课程整体进度（按任务权重加权）
+  // Calculate the overall progress of the course (weighted by task weight)
+
   getCourseProgress(courseId: string): number {
     const tasks = this.tasksByCourse[courseId] || [];
     if (tasks.length === 0) return 0;

@@ -38,7 +38,7 @@ class AIChatService {
   private baseUrl = '/api/ai';
 
   /**
-   * 发送消息到AI并获取回复
+   * Send a message to AI and receive a reply
    */
   async sendMessage(message: string): Promise<ChatResponse> {
     try {
@@ -47,20 +47,20 @@ class AIChatService {
         'X-CSRFToken': this.getCsrfToken(),
       };
       
-      // 添加认证token
+      // Add authentication token
       const token = localStorage.getItem('auth_token');
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      // 获取当前用户ID - 不使用默认值，必须有真实用户ID
+      // Get current user ID - Do not use default value, there must be a real user ID
       const currentUserId = localStorage.getItem('current_user_id');
       if (!currentUserId) {
-        throw new Error('用户未登录，无法发送消息');
+        throw new Error('User not logged in, unable to send messages');
       }
       const url = `${this.baseUrl}/chat/?user_id=${encodeURIComponent(currentUserId)}`;
       
-      console.log('📡 发送AI请求:', { message, currentUserId, url, token: token ? 'exists' : 'missing' });
+      console.log('📡 Send AI request:', { message, currentUserId, url, token: token ? 'exists' : 'missing' });
       
       const response = await fetch(url, {
         method: 'POST',
@@ -70,12 +70,12 @@ class AIChatService {
       });
 
       if (!response.ok) {
-        console.error('❌ AI请求失败:', { status: response.status, statusText: response.statusText });
+        console.error('❌ AI request failed:', { status: response.status, statusText: response.statusText });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ AI响应成功:', data);
+      console.log('✅ AI response successful:', data);
       return data;
     } catch (error) {
       console.error('Error sending message:', error);
@@ -87,7 +87,7 @@ class AIChatService {
   }
 
   /**
-   * 获取对话历史
+   * Get conversation history
    */
   async getChatHistory(limit: number = 50, days?: number): Promise<ChatHistoryResponse> {
     try {
@@ -95,34 +95,32 @@ class AIChatService {
         'Content-Type': 'application/json',
       };
       
-      // 添加认证token
       const token = localStorage.getItem('auth_token');
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-      
-      // 获取当前用户ID - 不使用默认值，必须有真实用户ID
+
       const currentUserId = localStorage.getItem('current_user_id');
       if (!currentUserId) {
-        console.error('❌ 用户未登录');
-        throw new Error('用户未登录，无法获取历史消息');
+        console.error('❌ User not logged in');
+        throw new Error('User not logged in, unable to retrieve historical messages');
       }
       
-      // 构建URL参数
+      // Build URL parameters
       const params = new URLSearchParams({
         limit: limit.toString(),
         user_id: currentUserId
       });
       
-      // 如果指定了天数，添加days参数
+      // if days are specified, add the days parameter
       if (days !== undefined) {
         params.append('days', days.toString());
       }
       
       const url = `${this.baseUrl}/chat/?${params.toString()}`;
       
-      console.log('📡 获取历史消息请求:', { currentUserId, url, limit, days, headers });
-      console.log('🔍 完整URL:', url);
+      console.log('📡 Retrieve historical message requests:', { currentUserId, url, limit, days, headers });
+      console.log('🔍 completed URL:', url);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -130,7 +128,7 @@ class AIChatService {
         credentials: 'include',
       });
 
-      console.log('📡 响应状态:', { 
+      console.log('📡 response status:', { 
         ok: response.ok, 
         status: response.status, 
         statusText: response.statusText,
@@ -139,7 +137,7 @@ class AIChatService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ AI请求失败:', { 
+        console.error('❌ AI request failed:', { 
           status: response.status, 
           statusText: response.statusText,
           errorBody: errorText
@@ -148,7 +146,7 @@ class AIChatService {
       }
 
       const data = await response.json();
-      console.log('✅ 历史消息响应:', { 
+      console.log('✅ Historical message response:', { 
         success: data.success, 
         messageCount: data.messages?.length || 0,
         userId: currentUserId
@@ -157,10 +155,10 @@ class AIChatService {
     } catch (error) {
       console.error('❌ Error fetching chat history:', error);
       if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        console.error('🔥 网络连接失败 - 可能原因:');
-        console.error('  1. 后端服务未启动');
-        console.error('  2. CORS 配置问题');
-        console.error('  3. 代理配置问题');
+        console.error('🔥 Network connection failure - possible reasons:');
+        console.error('  1. Backend service not started');
+        console.error('  2. CORS configuration issue');
+        console.error('  3. Proxy configuration issue');
       }
       return {
         success: false,
@@ -173,7 +171,7 @@ class AIChatService {
   }
 
   /**
-   * 保存学习计划数据到AI对话模块
+   * Save learning plan data to AI dialogue module
    */
   async saveStudyPlan(planData: any): Promise<{ success: boolean; error?: string }> {
     try {
@@ -182,21 +180,19 @@ class AIChatService {
         'X-CSRFToken': this.getCsrfToken(),
       };
       
-      // 添加认证token
       const token = localStorage.getItem('auth_token');
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
       
-      // 获取当前用户ID
       const currentUserId = localStorage.getItem('current_user_id');
       if (!currentUserId) {
-        throw new Error('用户未登录，无法保存学习计划');
+        throw new Error('User not logged in, unable to save study plan');
       }
       
       const url = `${this.baseUrl}/study-plan/?user_id=${encodeURIComponent(currentUserId)}`;
       
-      console.log('📡 保存学习计划请求:', { currentUserId, url });
+      console.log('📡 Save study plan request:', { currentUserId, url });
       
       const response = await fetch(url, {
         method: 'POST',
@@ -206,12 +202,12 @@ class AIChatService {
       });
 
       if (!response.ok) {
-        console.error('❌ AI请求失败:', { status: response.status, statusText: response.statusText });
+        console.error('❌ AI request failed:', { status: response.status, statusText: response.statusText });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ AI响应成功:', data);
+      console.log('✅ AI response successful:', data);
       return data;
     } catch (error) {
       console.error('Error saving study plan:', error);
@@ -223,7 +219,7 @@ class AIChatService {
   }
 
   /**
-   * 获取当前学习计划
+   * get currenct plan
    */
   async getStudyPlan(): Promise<{ success: boolean; plan_data?: any; error?: string }> {
     try {
@@ -236,12 +232,12 @@ class AIChatService {
       });
 
       if (!response.ok) {
-        console.error('❌ AI请求失败:', { status: response.status, statusText: response.statusText });
+        console.error('❌ AI request failed:', { status: response.status, statusText: response.statusText });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ AI响应成功:', data);
+      console.log('✅ AI response successful:', data);
       return data;
     } catch (error) {
       console.error('Error fetching study plan:', error);
@@ -253,7 +249,7 @@ class AIChatService {
   }
 
   /**
-   * 清理旧的对话记录
+   * Clean up old conversation records
    */
   async cleanupOldData(): Promise<{ success: boolean; error?: string }> {
     try {
@@ -267,12 +263,12 @@ class AIChatService {
       });
 
       if (!response.ok) {
-        console.error('❌ AI请求失败:', { status: response.status, statusText: response.statusText });
+        console.error('❌ AI request failed:', { status: response.status, statusText: response.statusText });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ AI响应成功:', data);
+      console.log('✅ AI response successful:', data);
       return data;
     } catch (error) {
       console.error('Error cleaning up old data:', error);
@@ -284,7 +280,7 @@ class AIChatService {
   }
 
   /**
-   * 检查是否需要发送问候消息（6小时后重新进入）
+   * Check if a greeting message needs to be sent (re-enter after 6 hours)
    */
   async shouldSendGreeting(): Promise<boolean> {
     try {
@@ -292,7 +288,7 @@ class AIChatService {
         'Content-Type': 'application/json',
       };
       
-      // 添加认证token
+
       const token = localStorage.getItem('auth_token');
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -305,19 +301,19 @@ class AIChatService {
       });
 
       if (!response.ok) {
-        return true; // 出错时默认发送问候
+        return true; // Default greeting sent when an error occurs
       }
 
       const data = await response.json();
       return data.should_send_greeting === true;
     } catch (error) {
       console.error('Greeting check failed:', error);
-      return true; // 出错时默认发送问候
+      return true; // Default greeting sent when an error occurs
     }
   }
 
   /**
-   * 检查AI服务健康状态
+   * Check the health status of AI services
    */
   async healthCheck(): Promise<boolean> {
     try {
@@ -325,7 +321,6 @@ class AIChatService {
         'Content-Type': 'application/json',
       };
       
-      // 添加认证token
       const token = localStorage.getItem('auth_token');
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -350,7 +345,7 @@ class AIChatService {
   }
 
   /**
-   * 获取CSRF Token
+   * get CSRF Token
    */
   private getCsrfToken(): string {
     const name = 'csrftoken';
@@ -368,12 +363,12 @@ class AIChatService {
     return cookieValue;
   }
 
-  /**
-   * 格式化时间戳为可读格式
-   */
-  /**
-   * 获取日期标签（用于分组）
-   */
+/**
+*Format timestamp to readable format
+*/
+/**
+*Get date label (for grouping)
+*/
   getDateLabel(timestamp: string): string {
     try {
       const date = new Date(timestamp);
@@ -401,7 +396,7 @@ class AIChatService {
   }
 
   /**
-   * 按日期分组消息
+   * Group messages by date
    */
   groupMessagesByDate(messages: ChatMessage[]): { date: string; messages: ChatMessage[] }[] {
     const groups: { [key: string]: ChatMessage[] } = {};
@@ -414,13 +409,13 @@ class AIChatService {
       groups[dateLabel].push(message);
     });
     
-    // 按日期排序（最新的在下面）
+    // Sort by date (latest below)
     const sortedGroups = Object.entries(groups).map(([date, msgs]) => ({
       date,
       messages: msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
     }));
     
-    // 对分组进行排序
+    //Sort the groups
     return sortedGroups.sort((a, b) => {
       const dateA = a.messages[0] ? new Date(a.messages[0].timestamp) : new Date(0);
       const dateB = b.messages[0] ? new Date(b.messages[0].timestamp) : new Date(0);
@@ -433,43 +428,43 @@ class AIChatService {
       const date = new Date(timestamp);
       const now = new Date();
       
-      // 获取今天的开始时间（00:00:00）
+      // Get today's start time（00:00:00）
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       
-      // 计算天数差
+      // Calculate the difference in days
       const daysDiff = Math.floor((today.getTime() - messageDate.getTime()) / (1000 * 60 * 60 * 24));
       
-      // 今天
+      // today
       if (daysDiff === 0) {
         return `Today ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       }
       
-      // 昨天
+      // yesterday
       if (daysDiff === 1) {
         return `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       }
       
-      // 本周内（2-6天前）
+      // within this week
       if (daysDiff >= 2 && daysDiff <= 6) {
         const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
         return `${dayName} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
       }
       
-      // 更早的日期，显示完整日期
+      // more earlier
       return date.toLocaleDateString('en-US', { 
         month: 'short', 
         day: 'numeric',
         year: 'numeric'
       }) + ` ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     } catch (error) {
-      console.error('时间戳格式化错误:', error);
+      console.error('Timestamp formatting error:', error);
       return '';
     }
   }
 
   /**
-   * 处理建议点击 - 直接发送预设消息
+   * Processing suggestion: Click to send preset message directly
    */
   async handleSuggestionClick(suggestion: string): Promise<ChatResponse> {
     let message = '';
@@ -495,5 +490,4 @@ class AIChatService {
   }
 }
 
-// 导出单例实例
 export const aiChatService = new AIChatService();

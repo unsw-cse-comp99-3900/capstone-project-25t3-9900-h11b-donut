@@ -1,21 +1,21 @@
-// AI问题生成器服务
-// 用于连接前端与AI问题生成器API
+//AI Problem Generator Service
+//Used to connect the front-end with the AI problem generator API
 
 import api from './api';
 
-// TypeScript接口定义
+// TypeScript interface definition
 export interface GenerateRequest {
   course_code: string;
   topic: string;
   question_count: number;
   question_types: ('multiple-choice' | 'short_answer')[];
   difficulty: 'easy' | 'medium' | 'hard';
-  sample_questions?: number[]; // 示例题目ID列表
+  sample_questions?: number[]; 
 }
 
 export interface GeneratedQuestion {
   id: number;
-  question_type: 'mcq' | 'short';  // 后端使用的类型
+  question_type: 'mcq' | 'short'; 
   question_data: {
     question: string;
     type: 'mcq' | 'short';
@@ -40,7 +40,7 @@ export interface SubmitAnswersRequest {
   session_id: string;
   student_id: number;
   answers: {
-    question_db_id: number;  // 后端期望 question_db_id
+    question_db_id: number;  
     answer: string;
     time_spent: number;
   }[];
@@ -80,11 +80,11 @@ export interface ApiResponse<T = any> {
   error?: string;
 }
 
-// AI问题生成器服务类
+//AI Problem Generator Service Class
 class AIQuestionService {
-  private baseUrl = '/ai';  // 去掉 /api 前缀，因为 api.ts 会自动添加
+  private baseUrl = '/ai';  // Remove the/pai prefix, as api.ts will automatically add it
 
-  // AI生成题目 (核心功能)
+  // AI generated questions (core function)
   async generateQuestions(data: GenerateRequest): Promise<ApiResponse<GenerateResponse>> {
     try {
       const response = await api.post(`${this.baseUrl}/questions/generate`, data);
@@ -98,16 +98,15 @@ class AIQuestionService {
     }
   }
 
-  // 提交答案并获取AI评分
+  // Submit answers and receive AI ratings
   async submitAnswers(data: SubmitAnswersRequest): Promise<ApiResponse<GradingResponse>> {
     try {
-      console.log('🚀 [aiQuestionService] 提交答案请求:', data);
+      console.log('🚀 [aiQuestionService] Submit answer request:', data);
       const response = await api.post(`${this.baseUrl}/answers/submit`, data);
-      console.log('✅ [aiQuestionService] 提交答案响应:', response);
-      // api.post 已经返回 ApiResponse 格式，直接返回即可
+      console.log('✅ [aiQuestionService] Submit answer response:', response);
       return response as ApiResponse<GradingResponse>;
     } catch (error: any) {
-      console.error('❌ [aiQuestionService] 提交答案失败:', {
+      console.error('❌ [aiQuestionService] fail to submit:', {
         error: error.response?.data || error.message,
         status: error.response?.status,
         url: `${this.baseUrl}/answers/submit`
@@ -120,7 +119,7 @@ class AIQuestionService {
     }
   }
 
-  // 获取学生答题历史
+  // Obtain student answer history
   async getStudentResults(params?: {
     student_id?: number;
     session_id?: string;
@@ -139,13 +138,13 @@ class AIQuestionService {
     }
   }
 
-  // 根据薄弱项生成练习题目的便捷方法
+  // A convenient method for generating exercise questions based on weak points
   async generatePracticeQuestions(
     courseCode: string,
     weakTopics: string[],
     questionCount: number = 5
   ): Promise<ApiResponse<GenerateResponse>> {
-    // 为每个薄弱项生成题目
+    // Generate questions for each weak point
     const requests: GenerateRequest[] = weakTopics.map(topic => ({
       course_code: courseCode,
       topic: topic,
@@ -155,7 +154,7 @@ class AIQuestionService {
     }));
 
     try {
-      // 目前先处理第一个topic，后续可以扩展为多个topic的合并
+      // At present, we will handle the first topic first, and it can be expanded to merge multiple topics in the future
       const response = await this.generateQuestions(requests[0]);
       return response;
     } catch (error: any) {
@@ -168,8 +167,7 @@ class AIQuestionService {
   }
 }
 
-// 创建服务实例
+// Create service instance
 export const aiQuestionService = new AIQuestionService();
 
-// 导出默认实例
 export default aiQuestionService;
