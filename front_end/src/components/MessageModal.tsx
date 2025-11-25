@@ -98,7 +98,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
     return '❗';
   }
 
-  // weekly bonus / bonus / bonus_xxx
+  //  bonus / bonus / bonus_xxx
   if (type.includes('bonus')) {
     return '🏆';
   }
@@ -165,8 +165,8 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
     if (m.type === 'nightly_notice') {
       return `Yesterday's plan was not completed. Rescheduling is recommended.`;
     }
-    if (m.type === 'weekly_bonus') {
-      return `Nice work! All done on time this week – 0.1 bonus added.`;
+    if (m.type === 'bonus') {
+      return `Nice work! 0.1 bonus added.`;
     }
     if (m.type === 'system_notification') {
       return m.title || m.preview || 'System notification';

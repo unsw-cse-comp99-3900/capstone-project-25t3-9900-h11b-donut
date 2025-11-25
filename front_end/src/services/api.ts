@@ -979,10 +979,10 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
   //       isRead: true
   //     },
       
-  //     // Weekly Bonuses - 模拟数据
+  //     //  Bonuses - 模拟数据
   //     {
   //       id: '5',
-  //       type: 'weekly_bonus',
+  //       type: 'bonus',
   //       title: 'Weekly Achievement',
   //       preview: 'Great job! You completed all tasks on time this week',
   //       timestamp: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3天前
@@ -990,7 +990,7 @@ async getCourseTasks(courseCode: string): Promise<ApiTask[]> {
   //     },
   //     {
   //       id: '6',
-  //       type: 'weekly_bonus',
+  //       type: 'bonus',
   //       title: 'Bonus Points Awarded',
   //       preview: 'You earned 0.01 bonus points for perfect weekly completion',
   //       timestamp: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7天前

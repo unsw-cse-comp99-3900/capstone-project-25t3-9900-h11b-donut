@@ -243,7 +243,7 @@ def add_bonus_api(request):
         from reminder.models import Notification
         n = Notification.objects.create(
             student_id=student.student_id,
-            message_type="weekly_bonus",
+            message_type="bonus",
             title="Bonus Earned!",
             preview=f"You received a bonus of {delta}",
             content=f"Your bonus increased to {new_bonus}",

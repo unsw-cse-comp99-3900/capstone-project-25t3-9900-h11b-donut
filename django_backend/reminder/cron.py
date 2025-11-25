@@ -135,13 +135,12 @@ def check_due_tasks():
                 count += 1
                 print(f"  [MATCH {hours}h] Task {task.id} -> {local_deadline}")
 
-                # 发提醒（这里逻辑你可以先保留不动）
-                # 发提醒（带详细调试）
                 enrolled = StudentEnrollment.objects.filter(course_code=task.course_code)
                 print(f"    >>> enrolled students = {enrolled.count()}", flush=True)
 
                 for e in enrolled:
-                    msg_type = f"due_{hours}h"
+                    # msg_type = f"due_{hours}h"
+                    msg_type = f"due_{hours}h_{now.strftime('%Y%m%d%H%M%S')}"
                     print(f"      >>> Preparing notification for {e.student_id}, type={msg_type}", flush=True)
 
                     try:
@@ -158,10 +157,13 @@ def check_due_tasks():
                             }
                         )
                         print(f"        >>> Notification {'CREATED' if created else 'SKIPPED (EXISTED)'} id={n.id}", flush=True)
+                
+                        
+
 
                     except Exception as ex:
                         print(f"        !!! ERROR while creating notification for {e.student_id}: {ex}", flush=True)
-
+                break
 
         print(f"[CHECK]{hours}h-window tasks = {count}")
 
