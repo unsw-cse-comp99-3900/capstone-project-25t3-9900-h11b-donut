@@ -2042,7 +2042,7 @@ Respond as their AI Learning Coach. Use the student's actual course, task, and p
             )
             
             if created:
-                print(f"[DEBUG] 创建了新的Django User: {user.username} for StudentAccount: {account.student_id}")
+                print(f"[DEBUG] create new Django User: {user.username} for StudentAccount: {account.student_id}")
             else:
                 # 确保现有User的email与StudentAccount同步
                 if account.email and user.email != account.email:

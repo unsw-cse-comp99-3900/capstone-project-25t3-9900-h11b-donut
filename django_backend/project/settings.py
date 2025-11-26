@@ -13,11 +13,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from django.urls import path, include 
 from dotenv import load_dotenv
-load_dotenv()
 import os
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 
-
+DB_MODE = os.getenv("DB_MODE", "sqlite") 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 MEDIA_URL = "/media/"
@@ -97,21 +98,47 @@ WSGI_APPLICATION = "project.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("DB_DATABASE", "test"),
-        "USER": os.getenv("DB_USERNAME", "dfQsmvb7nbPzbba.root"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "YLzhPk7wg8uqSefQ"),
-        "HOST": os.getenv("DB_HOST", "gateway01.ap-northeast-1.prod.aws.tidbcloud.com"),
-        "PORT": os.getenv("DB_PORT", "4000"),
-        "OPTIONS": {
-            "charset": "utf8mb4",
-            "init_command": "SET sql_mode='STRICT_ALL_TABLES'",
-            "ssl": {"ssl_mode": "VERIFY_IDENTITY"},  # TiDB Cloud need ssl connection
-        },
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.mysql",
+#         "NAME": os.getenv("DB_DATABASE", "test"),
+#         "USER": os.getenv("DB_USERNAME", "dfQsmvb7nbPzbba.root"),
+#         "PASSWORD": os.getenv("DB_PASSWORD", "YLzhPk7wg8uqSefQ"),
+#         "HOST": os.getenv("DB_HOST", "gateway01.ap-northeast-1.prod.aws.tidbcloud.com"),
+#         "PORT": os.getenv("DB_PORT", "4000"),
+#         "OPTIONS": {
+#             "charset": "utf8mb4",
+#             "init_command": "SET sql_mode='STRICT_ALL_TABLES'",
+#             "ssl": {"ssl_mode": "VERIFY_IDENTITY"},  # TiDB Cloud need ssl connection
+#         },
+#     }
+# }
+
+if DB_MODE == "mysql":
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": os.getenv("DB_DATABASE"),
+            "USER": os.getenv("DB_USERNAME"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST"),
+            "PORT": os.getenv("DB_PORT", "4000"),
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "init_command": "SET sql_mode='STRICT_ALL_TABLES'",
+                "ssl": {"ssl_mode": "VERIFY_IDENTITY"},
+            },
+        }
     }
-}
+else:
+    # Default behavior for teachers → SQLite
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
