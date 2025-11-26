@@ -216,7 +216,6 @@ capstone-project-25t3-9900-h11b-donut/
 │  ├─ tsconfig.app.json                               # TypeScript config for application code
 │  ├─ tsconfig.node.json                              # TypeScript config for Node.js scripts
 │  ├─ vite.config.ts                                  # Vite build tool configuration
-│  ├─ README.md                                       # Frontend-specific documentation
 │  └─ test.html                                       # Frontend testing HTML page
 │
 ├─ django_backend/                                    # Django REST API backend service
@@ -307,12 +306,6 @@ capstone-project-25t3-9900-h11b-donut/
 │  │  ├─ urls.py                                      # AI question generator URL routing
 │  │  ├─ admin.py                                     # Django admin for question management
 │  │  ├─ apps.py                                      # App configuration
-│  │  ├─ test_api.py                                  # API integration tests
-│  │  ├─ README.md                                    # Question generator documentation
-│  │  ├─ API_DOCUMENTATION.md                         # Detailed API documentation
-│  │  ├─ SETUP_GUIDE.md                               # Setup instructions
-│  │  ├─ HOW_TO_TEST.md                               # Testing guide
-│  │  ├─ TEST_README.md                               # Test suite documentation
 │  │  ├─ management/                                  # Django management commands
 │  │  └─ migrations/                                  # Database schema migrations
 │  ├─ reminder/                                       # Notification and reminder system
