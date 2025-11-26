@@ -19,13 +19,13 @@ import os
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-#放头像
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-#放task
+
 TASK_ROOT = BASE_DIR / "task"
 TASK_URL = "/task/"
-#放material
+
 MAT_ROOT = BASE_DIR / "material"
 MAT_URL = "/material/"
 # Quick-start development settings - unsuitable for production
