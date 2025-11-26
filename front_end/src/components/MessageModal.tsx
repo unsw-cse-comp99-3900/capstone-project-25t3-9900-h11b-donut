@@ -108,7 +108,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
     return '🔔';
   }
 
-  // 默认
+  // Default
   return '📧';
 };
 
@@ -350,7 +350,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
           gap: 10px;
           color: #172239;
           letter-spacing: -0.02em;
-          /* 居中标题：绝对定位到头部容器中心 */
+          /* Center title: Absolute positioning to the center of the header container */
           position: absolute;
           left: 50%;
           transform: translateX(-50%);
@@ -416,7 +416,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
           background: rgba(255, 168, 122, 0.6);
         }
 
-        /* 消息分类筛选器行样式 */
+        /* Message category filter row style */
         .message-filter-row {
           display: flex;
           align-items: center;
@@ -503,7 +503,7 @@ export function MessageModal({ isOpen, onClose, onUnreadCountChange }: MessageMo
           transform: translateY(-1px);
         }
 
-        /* 筛选为空状态 */
+        /* Empty filter state */
         .empty-filter-state {
           padding: 80px 40px;
           text-align: center;

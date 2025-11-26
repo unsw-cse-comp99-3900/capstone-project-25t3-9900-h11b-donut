@@ -49,7 +49,7 @@ class AIChatService:
     def get_user_study_plan(self, account: StudentAccount) -> Optional[Dict]:
         """get user's current plan"""
         try:
-            # 创建临时User对象用于查询
+            # Create a temporary User object for querying
             user, _ = User.objects.get_or_create(
                 username=account.student_id,
                 defaults={'email': account.email or f'{account.student_id}@temp.com'}
@@ -193,7 +193,7 @@ class AIChatService:
             return []
     
     def process_message(self, account: StudentAccount, message: str) -> Dict[str, Any]:
-        """处理用户消息并生成AI回复"""
+        """Process user messages and generate AI responses"""
         try:
             # Process user messages and generate AI replies
             conversation = self.get_or_create_conversation(account)

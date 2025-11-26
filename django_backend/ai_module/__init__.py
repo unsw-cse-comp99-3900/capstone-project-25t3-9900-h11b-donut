@@ -1,1 +1,1 @@
-# 标记为 Python 包；可留空
+# Mark as Python package; can be left empty

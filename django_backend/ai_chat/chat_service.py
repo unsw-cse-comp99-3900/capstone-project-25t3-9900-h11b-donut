@@ -56,8 +56,8 @@ class AIChatService:
         }
     
     def get_or_create_conversation(self, account: StudentAccount) -> ChatConversation:
-        """获取或创建用户的对话会话"""
-        # 创建或获取一个临时User对象用于兼容现有模型
+        """Obtain or create the user's conversation session"""
+        # Create or obtain a temporary User object to be compatible with the existing model
         user, _ = User.objects.get_or_create(  # type: ignore
             username=account.student_id,
             defaults={'email': account.email or f'{account.student_id}@temp.com'}
@@ -71,13 +71,13 @@ class AIChatService:
         return conversation
     
     def should_send_greeting(self, account: StudentAccount) -> bool:
-        """检查是否应该发送问候消息（现在由前端基于会话管理）"""
-        # 由于问候逻辑现在完全由前端管理，这个方法可以返回固定值
-        # 或者可以完全移除这个方法，让前端直接决定
-        return False  # 前端现在基于会话状态决定是否发送问候
+        """Check whether a greeting message should be sent (currently handled by the front end based on session management)"""
+        # Since the greeting logic is now entirely managed by the front end, this method can return a fixed value
+        # Or, this method can be completely removed and let the front end make the decision directly.
+        return False  # The front end now decides whether to send a greeting based on the session state.
     
     def detect_intent(self, message: str) -> str:
-        """检测用户消息的意图"""
+        """Detect the intent of the user's message"""
         message_lower = message.lower()
         
         for intent, patterns in self.intent_patterns.items():
@@ -88,7 +88,7 @@ class AIChatService:
         return 'general'
     
     def is_practice_request(self, message: str) -> bool:
-        """检测是否是练习请求"""
+        """Detect whether it is a practice request"""
         practice_keywords = [
             'practice', 'weak topic', 'difficult topic', 'need help with', 
             'don\'t understand', 'struggling with', 'weak in', 'find difficult',
@@ -98,11 +98,11 @@ class AIChatService:
         return any(keyword in message_lower for keyword in practice_keywords)
     
     def is_in_practice_flow(self, conversation_history: list[dict[str, Any]]) -> bool:
-        """检查是否处于练习流程中"""
+        """Check if it is in the practice process"""
         if not conversation_history:
             return False
         
-        # 查找最近的AI消息
+        # Search for the latest AI news
         last_ai_message = None
         for msg in conversation_history:
             if msg['type'] == 'ai':
@@ -114,7 +114,7 @@ class AIChatService:
         
         content = last_ai_message['content']
         
-        # 检查是否包含练习流程的标识文本
+        # Check if there is a textual identifier indicating the practice process included.
         practice_flow_indicators = [
             'which course would you like to practise?',
             'which topic would you like to focus on?',
@@ -129,17 +129,17 @@ class AIChatService:
         return any(indicator in content.lower() for indicator in practice_flow_indicators)
     
     def get_student_courses(self, account: StudentAccount) -> list[str]:
-        """获取学生注册的课程列表"""
+        """Obtain the list of courses registered by the students"""
         try:
             from courses.models import StudentEnrollment
             enrollments = StudentEnrollment.objects.filter(student_id=account.student_id)
             return [enrollment.course_code for enrollment in enrollments]
         except Exception as e:
-            print(f"[DEBUG] 获取学生课程失败: {e}")
+            print(f"[DEBUG] Failed to obtain student course information: {e}")
             return []
     
     def get_course_topics(self, course_code: str) -> list[str]:
-        """获取课程的题目主题列表"""
+        """Obtain the list of topic titles for the courses"""
         try:
             from courses.models import QuestionKeyword, QuestionKeywordMap
             topics = QuestionKeyword.objects.filter(
@@ -147,34 +147,34 @@ class AIChatService:
             ).values_list('name', flat=True).distinct()
             return list(topics)
         except Exception as e:
-            print(f"[DEBUG] 获取课程主题失败: {e}")
+            print(f"[DEBUG] Failed to obtain the course topic: {e}")
             return []
     
     def validate_course_input(self, user_input: str, available_courses: list[str]) -> tuple[bool, str]:
-        """验证用户输入的课程是否有效"""
+        """Verify whether the course input by the user is valid"""
         user_input_clean = user_input.strip().upper()
         
-        # 精确匹配
+        # Exact Match
         if user_input_clean in available_courses:
             return True, user_input_clean
         
-        # 模糊匹配（去除空格后比较）
+        # Fuzzy matching (comparing after removing spaces)
         user_input_no_space = user_input_clean.replace(' ', '')
         for course in available_courses:
             if course.replace(' ', '') == user_input_no_space:
                 return True, course
         
-        # 部分匹配（如果输入了课程代码的一部分）
+        # Partial match (if only part of the course code is entered)
         for course in available_courses:
             if user_input_clean in course or course in user_input_clean:
                 return True, course
         
         return False, None
     
-    # ==================== 学习计划问答状态管理方法 ====================
+    # ==================== Learning plan question-answer status management method ====================
     
     def get_current_mode(self, user_id: str, get_sub_state: bool = False) -> str:
-        """获取用户当前的模式"""
+        """Obtain the current mode of the user"""
         from .models import StudyPlanQnAState
         
         try:
@@ -183,12 +183,12 @@ class AIChatService:
                 return state.sub_state
             return state.current_mode
         except StudyPlanQnAState.DoesNotExist:
-            # 如果没有状态记录，返回默认模式
+            # If there is no status record, return to the default mode.
             StudyPlanQnAState.objects.create(student_id=user_id, current_mode='general_chat', sub_state=None)
             return 'general_chat' if not get_sub_state else None
     
     def set_current_mode(self, user_id: str, mode: str, sub_state: str = None):
-        """设置用户当前的模式和子状态"""
+        """Set the current mode and sub-state of the user"""
         from .models import StudyPlanQnAState
         
         state, created = StudyPlanQnAState.objects.update_or_create(
@@ -204,10 +204,10 @@ class AIChatService:
             state.sub_state = sub_state
             state.save()
         
-        print(f"[DEBUG] 设置模式: user={user_id}, mode={mode}, sub_state={sub_state}")
+        print(f"[DEBUG] set mode: user={user_id}, mode={mode}, sub_state={sub_state}")
     
     def clear_mode(self, user_id: str):
-        """清除模式，回到general_chat"""
+        """Clear mode, return to general_chat"""
         from .models import StudyPlanQnAState
         
         try:
@@ -215,12 +215,12 @@ class AIChatService:
             state.current_mode = 'general_chat'
             state.sub_state = None
             state.save()
-            print(f"[DEBUG] 清除模式: user={user_id}")
+            print(f"[DEBUG] clear mode: user={user_id}")
         except StudyPlanQnAState.DoesNotExist:
             pass
     
     def is_explain_plan_request(self, message: str) -> bool:
-        """检测是否是解释学习计划的请求"""
+        """Detect whether it is a request for an explanation of the learning plan"""
         explain_patterns = [
             r'explain.*plan',
             r'please.*explain.*plan',
@@ -238,7 +238,7 @@ class AIChatService:
         return False
     
     def is_stop_request(self, message: str) -> bool:
-        """检测是否是停止当前模式的请求"""
+        """Detect whether it is a request to stop the current mode"""
         stop_patterns = [
             r'\bstop\b',
             r'\bexit\b', 
@@ -252,7 +252,7 @@ class AIChatService:
         return False
     
     def is_why_plan_request(self, message: str) -> bool:
-        """检测是否是询问计划整体原因的请求"""
+        """Detect whether it is a request to inquire about the overall reason of the plan"""
         why_patterns = [
             r'why.*plan',
             r'plan.*why',
@@ -267,8 +267,8 @@ class AIChatService:
         return False
     
     def parse_explain_task_part_request(self, message: str) -> tuple[Optional[int], Optional[str]]:
-        """解析解释具体Task/Part的请求"""
-        # 先尝试匹配标准格式 "Explain Task X – Part Y"
+        """Request for detailed explanation of a specific Task/Part"""
+        # First, attempt to match the standard format "Explain Task X – Part Y"
         pattern = r'explain\s+task\s+(\d+)\s*[-–]\s*part\s+([A-Za-z])'
         match = re.search(pattern, message.lower())
         
@@ -277,14 +277,14 @@ class AIChatService:
             part_letter = match.group(2).upper()
             return task_num, part_letter
         
-        # 如果标准格式不匹配，尝试从用户的计划中查找匹配的part标签
-        # 这种情况下需要获取用户的计划数据
-        # 这里返回None，在handle_study_plan_qna_mode中处理更复杂的匹配
+        # If the standard format does not match, try to find a matching 'part' tag from the user's plan.
+        # In this situation, it is necessary to obtain the user's plan data.
+        # Here, return None. More complex matching is handled in the handle_study_plan_qna_mode.
         
         return None, None
     
     def find_part_by_label(self, message: str, plan_data: dict[str, Any]) -> Optional[tuple[int, str]]:
-        """通过标签在计划中查找对应的任务和部分"""
+        """Search for the corresponding tasks and sections in the plan by using the labels."""
         message_lower = message.lower()
         
         aiSummary = plan_data.get('aiSummary', {})
@@ -296,7 +296,7 @@ class AIChatService:
                 label = part.get('label', '').lower()
                 detail = part.get('detail', '').lower()
                 
-                # 检查消息中是否包含part的label或detail
+                # Check whether the message contains the "part" label or detail.
                 if label and label in message_lower:
                     part_letter = chr(65 + part_idx)  # A, B, C, ...
                     return task_idx, part_letter
@@ -307,11 +307,11 @@ class AIChatService:
         return None
     
     def get_current_plan_for_user(self, account: StudentAccount) -> Optional[dict[str, Any]]:
-        """获取用户的当前学习计划"""
+        """Obtain the user's current study plan"""
         return self.get_user_study_plan(account)
     
     def generate_explain_plan_welcome(self) -> str:
-        """生成进入explain my plan模式的欢迎消息"""
+        """Generate a welcome message that enters the "explain my plan" mode."""
         return """<div>
     <div style="font-weight: 700; margin-bottom: 8px;">
         Of course, I'd be happy to explain your study plan. 😊
@@ -327,23 +327,23 @@ class AIChatService:
         </div>
         <ul style="padding-left: 18px; margin: 0 0 12px 0; font-style: italic;">
             <li>"Why did you give me this plan?"</li>
-            <li>"Explain Task 1 – Part A."</li>
-            <li>"Explain Task 1 – Part B."</li>
+            <li>"Explain Task 1 - Part A."</li>
+            <li>"Explain Task 1 - Part B."</li>
         </ul>
         If you want to go back to normal chat at any time, just type "stop".
     </div>
 </div>"""
     
     def generate_why_plan_explanation(self, plan_data: dict[str, Any]) -> str:
-        """生成为什么是这样安排计划的解释"""
-        # 🔑 从aiSummary中获取任务信息
+        """Explain why this particular plan was devised in this way"""
+        # Retrieve task information from aiSummary
         ai_summary = plan_data.get('aiSummary', {})
         tasks = ai_summary.get('tasks', [])
         
-        # 构建解释内容
+        # Constructing explanatory content
         explanation_parts = []
         
-        # 标题
+        # Title
         explanation_parts.append("""<div>
     <div style="font-weight: 700; margin-bottom: 8px;">
         Great question! 🌟
@@ -352,7 +352,7 @@ class AIChatService:
         Here's why your study plan was designed this way:
     </div>""")
         
-        # 如果有任务,显示每个任务的解释
+        # If there are tasks, display the explanations for each task.
         if tasks:
             explanation_parts.append("""<div style="margin-bottom: 16px;">""")
             
@@ -365,13 +365,13 @@ class AIChatService:
                 mins = total_minutes % 60
                 time_str = f"{hours}h {mins}m" if mins > 0 else f"{hours}h"
                 
-                # 任务卡片
+                # Task Card
                 explanation_parts.append(f"""
     <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; border-left: 3px solid #4CAF50;">
         <div style="font-weight: 600; margin-bottom: 6px;">📚 {task_title}</div>
         <div style="font-size: 0.9em; color: #666; margin-bottom: 8px;">{parts_count} parts • {time_str} total</div>""")
                 
-                # 🔑 显示AI的解释
+                # Display the explanation of AI
                 if task_explanation:
                     explanation_parts.append(f"""
         <div style="line-height: 1.5;">
@@ -384,20 +384,20 @@ class AIChatService:
             
             explanation_parts.append("""</div>""")
         else:
-            # 如果没有任务数据,显示通用说明
+            # If there is no task data, display the general instructions.
             overall_reason = plan_data.get('overall_reason', 'This plan was designed to help you complete your assignments efficiently while balancing your workload.')
             explanation_parts.append(f"""
     <div style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 12px; line-height: 1.6;">
         {overall_reason}
     </div>""")
         
-        # 提示用户可以继续提问
+        # Prompt the user to continue asking questions
         explanation_parts.append("""
     <div style="line-height: 1.6;">
         If you'd like more details, you can ask about a specific task or part, for example:
         <ul style="padding-left: 18px; margin: 8px 0; font-style: italic;">
-            <li>"Explain Task 1 – Part A."</li>
-            <li>"Explain Task 1 – Part B."</li>
+            <li>"Explain Task 1 - Part A."</li>
+            <li>"Explain Task 1 - Part B."</li>
         </ul>
         Or type "stop" if you want to go back to normal chat.
     </div>
@@ -406,9 +406,9 @@ class AIChatService:
         return ''.join(explanation_parts)
     
     def generate_task_part_explanation(self, plan_data: dict[str, Any], task_index: int, part_letter: str) -> str:
-        """生成具体Task/Part的解释"""
+        """Generate the explanation for the specific Task/Part"""
         try:
-            # 从计划数据中找到对应的task和part
+            # Find the corresponding task and part from the planning data.
             ai_summary = plan_data.get('aiSummary', {})
             tasks = ai_summary.get('tasks', [])
             
@@ -418,14 +418,14 @@ class AIChatService:
             task = tasks[task_index - 1]
             parts = task.get('parts', [])
             
-            # 将字母转换为索引 (A=0, B=1, etc.)
+            # Convert letters to indices (A=0, B=1, etc.)
             part_index = ord(part_letter) - ord('A')
             
             if part_index < 0 or part_index >= len(parts):
                 return self.generate_task_part_not_found(plan_data)
             
             part = parts[part_index]
-            part_label = part.get('label', f'Task {task_index} – Part {part_letter}')
+            part_label = part.get('label', f'Task {task_index} - Part {part_letter}')
             part_detail = part.get('detail', f'This part focuses on key concepts needed for {task.get("taskTitle", "this assignment")}.')
             part_why_in_plan = part.get('why_in_plan', 'This part builds foundational skills for the assignment.')
             
@@ -458,16 +458,16 @@ class AIChatService:
 </div>"""
             
         except Exception as e:
-            print(f"[DEBUG] 生成task/part解释时出错: {e}")
+            print(f"[DEBUG] Error occurred during the generation of task/part explanations: {e}")
             return self.generate_task_part_not_found(plan_data)
     
     def generate_task_part_not_found(self, plan_data: dict[str, Any]) -> str:
-        """生成找不到对应Task/Part的fallback消息"""
+        """Generate a fallback message indicating that the corresponding Task/Part could not be found."""
         try:
             ai_summary = plan_data.get('aiSummary', {})
             tasks = ai_summary.get('tasks', [])
             
-            # 构建任务列表
+            # Create a task list
             task_list = []
             for i, task in enumerate(tasks, 1):
                 task_name = task.get('taskTitle', f'Task {i}')
@@ -476,9 +476,9 @@ class AIChatService:
                 
                 for j, part in enumerate(parts):
                     part_label = part.get('label', f'Part {chr(65 + j)}')
-                    part_list.append(f'Part {chr(65 + j)} – {part_label}')
+                    part_list.append(f'Part {chr(65 + j)} - {part_label}')
                 
-                task_list.append(f"{i}) Task {i} – {task_name}\n   " + "\n   ".join(f"• {part}" for part in part_list))
+                task_list.append(f"{i}) Task {i} - {task_name}\n   " + "\n   ".join(f"• {part}" for part in part_list))
             
             tasks_text = "\n".join(task_list)
             
@@ -498,15 +498,15 @@ class AIChatService:
     <div style="line-height: 1.6;">
         Please ask again using this format, for example:
         <ul style="padding-left: 18px; margin: 8px 0; font-style: italic;">
-            <li>"Explain Task 1 – Part A."</li>
-            <li>"Explain Task 1 – Part B."</li>
+            <li>"Explain Task 1 - Part A."</li>
+            <li>"Explain Task 1 - Part B."</li>
         </ul>
         Or type "stop" if you want to go back to normal chat.
     </div>
 </div>"""
     
     def generate_no_plan_error(self) -> str:
-        """生成没有学习计划的错误消息"""
+        """Generate an error message indicating the absence of a study plan"""
         return """<div>
     <div style="font-weight: 700; margin-bottom: 8px;">
         I don't see an active study plan for you yet. 📋
@@ -524,7 +524,7 @@ class AIChatService:
 </div>"""
     
     def generate_mode_exit_message(self) -> str:
-        """生成退出模式的确认消息"""
+        """Generate a confirmation message for the exit mode"""
         return """<div>
     <div style="font-weight: 700; margin-bottom: 8px;">
         No problem, we can switch back to normal chat. 😊
@@ -535,42 +535,42 @@ class AIChatService:
 </div>"""
     
     def handle_study_plan_qna_mode(self, account: StudentAccount, message: str) -> Optional[str]:
-        """处理学习计划问答模式下的用户输入"""
+        """Handle user input in the question-and-answer mode of the study plan"""
         user_id = account.student_id
         current_sub_state = self.get_current_mode(user_id, get_sub_state=True)
-        print(f"[DEBUG] handle_study_plan_qna_mode 被调用: user={user_id}, sub_state={current_sub_state}, message={message}")
+        print(f"[DEBUG] handle_study_plan_qna_mode is called: user={user_id}, sub_state={current_sub_state}, message={message}")
         
-        # 🔑 优先检查是否是练习请求 - 如果是,退出explain模式并返回None让主流程处理
+        # First, check if it is a request for practice - if so, exit the explain mode and return None to allow the main process to handle it.
         if self.is_practice_request(message):
-            print(f"[DEBUG] 在explain模式中检测到练习请求,退出explain模式")
+            print(f"[DEBUG] In the explain mode, a practice request was detected. Exit the explain mode.")
             self.clear_mode(user_id)
-            return None  # 返回None让process_message重新处理这个消息
+            return None  # Return None to allow process_message to reprocess this message
         
-        # 检查是否是停止请求
+        # Check if it is a stop request
         if self.is_stop_request(message):
             self.clear_mode(user_id)
             return self.generate_mode_exit_message()
         
-        # 获取用户的计划数据（很多地方都需要）
+        # Obtain the user's plan data (required in many places)
         plan_data = self.get_current_plan_for_user(account)
         if not plan_data:
             self.clear_mode(user_id)
             return self.generate_no_plan_error()
         
-        # 检查是否是询问整体原因
+        # Check to see if it is an inquiry about the overall cause
         if self.is_why_plan_request(message):
-            # 🔑 更新状态为active
+            # The status has been updated to "active".
             self.set_current_mode(user_id, 'study_plan_qna', 'active')
             return self.generate_why_plan_explanation(plan_data)
         
-        # 检查是否是询问具体Task/Part（标准格式）
+        # Check if it is an inquiry about a specific Task/Part (in the standard format)
         task_num, part_letter = self.parse_explain_task_part_request(message)
         if task_num and part_letter:
-            # 🔑 更新状态为active
+            # The status has been updated to "active".
             self.set_current_mode(user_id, 'study_plan_qna', 'active')
             return self.generate_task_part_explanation(plan_data, task_num, part_letter)
         
-        # 先检查是否是通用的解释请求，避免误匹配到具体Part
+        # First, check if it is a general request for an explanation. Avoid matching it to a specific Part by mistake.
         explain_patterns = [
             r'\bexplain\b.*\bplan\b',
             r'\bplan\b.*\bexplain\b',
@@ -580,19 +580,19 @@ class AIChatService:
         message_lower = message.lower()
         for pattern in explain_patterns:
             if re.search(pattern, message_lower):
-                # 这是通用的解释请求，返回欢迎消息
+                # This is a general request for explanation, and a welcome message will be returned.
                 self.set_current_mode(user_id, 'study_plan_qna', 'active')
                 return self.generate_explain_plan_welcome()
         
-        # 尝试通过标签查找匹配的部分（只在明确提到具体内容时）
+        # Try to find the matching part by using the tags (only when the specific content is explicitly mentioned)
         part_result = self.find_part_by_label(message, plan_data)
         if part_result:
             task_num, part_letter = part_result
-            # 🔑 更新状态为active
+            # The status has been updated to "active".
             self.set_current_mode(user_id, 'study_plan_qna', 'active')
             return self.generate_task_part_explanation(plan_data, task_num, part_letter)
         
-        # 如果都不匹配，返回友好提示
+        # If none of them match, return a friendly message.
         self.set_current_mode(user_id, 'study_plan_qna', 'active')
         return """<div>
     <div style="font-weight: 700; margin-bottom: 8px;">
@@ -602,17 +602,17 @@ class AIChatService:
         In this mode, you can ask me:
         <ul style="padding-left: 18px; margin: 8px 0;">
             <li>"Why did you give me this plan?" - to learn about the overall plan reasoning</li>
-            <li>"Explain Task 1 – Part A." - to get details about a specific task part</li>
+            <li>"Explain Task 1 - Part A." - to get details about a specific task part</li>
             <li>You can also mention specific part names like "HTML Fundamentals"</li>
         </ul>
         Or type "stop" to go back to normal chat.
     </div>
 </div>"""
 
-    # ==================== 练习状态管理方法 ====================
+    # ==================== Practicing state management methods ====================
     
     def set_practice_setup_mode(self, user_id: str, step: str, course: str = None, topic: str = None, num_questions: int = None, difficulty: str = None):
-        """设置练习设置模式"""
+        """Set practice mode"""
         from .models import PracticeSetupState
         
         state, created = PracticeSetupState.objects.update_or_create(
@@ -634,10 +634,10 @@ class AIChatService:
             state.difficulty = difficulty
             state.save()
         
-        print(f"[DEBUG] 设置练习模式: user={user_id}, step={step}, course={course}, topic={topic}, num={num_questions}, diff={difficulty}")
+        print(f"[DEBUG] Set the practice mode: user={user_id}, step={step}, course={course}, topic={topic}, num={num_questions}, diff={difficulty}")
     
     def get_practice_setup_state(self, user_id: str) -> Optional[dict[str, Any]]:
-        """获取练习设置状态"""
+        """Obtain the status of the practice settings"""
         from .models import PracticeSetupState
         
         try:
@@ -653,32 +653,32 @@ class AIChatService:
             return None
     
     def clear_practice_setup_mode(self, user_id: str):
-        """清除练习设置模式"""
+        """Clear practice setting mode"""
         from .models import PracticeSetupState
         
         try:
             state = PracticeSetupState.objects.get(student_id=user_id)
             state.delete()
-            print(f"[DEBUG] 清除练习模式: user={user_id}")
+            print(f"[DEBUG] Clear the practice mode: user={user_id}")
         except PracticeSetupState.DoesNotExist:
             pass
     
     def is_in_practice_setup_mode(self, user_id: str) -> bool:
-        """检查是否在练习设置模式中"""
+        """Check if it is in the practice setting mode"""
         from .models import PracticeSetupState
         
         return PracticeSetupState.objects.filter(student_id=user_id).exists()
     
     def handle_practice_setup_mode(self, account: StudentAccount, message: str) -> Optional[str]:
-        """处理练习设置模式下的用户输入"""
+        """Handle user input in the practice setup mode"""
         user_id = account.student_id
-        print(f"[DEBUG] handle_practice_setup_mode 被调用: user={user_id}, message={message}")
+        print(f"[DEBUG] handle_practice_setup_mode is called: user={user_id}, message={message}")
         state = self.get_practice_setup_state(user_id)
         
         if not state:
             return None
         
-        # 检查是否输入了stop - 退出practice模式
+        # Check if "stop" has been entered - to exit the "practice" mode
         if message.strip().lower() == 'stop':
             self.clear_practice_setup_mode(user_id)
             return """
@@ -693,15 +693,15 @@ class AIChatService:
             """
         
         step = state['step']
-        print(f"[DEBUG] 当前步骤: {step}")
+        print(f"[DEBUG] current step: {step}")
         available_courses = self.get_student_courses(account)
         
         if step == 'course':
-            # 处理课程选择
+            # Handling course selection
             is_valid, validated_course = self.validate_course_input(message, available_courses)
             
             if is_valid:
-                # 课程有效，进入主题选择步骤
+                # The course is effective. Proceed to the topic selection step.
                 topics = self.get_course_topics(validated_course)
                 if topics:
                     self.set_practice_setup_mode(user_id, 'topic', validated_course)
@@ -725,7 +725,7 @@ class AIChatService:
                     </div>
                     """
                 else:
-                    # 没有找到主题，清除模式并返回错误
+                    # No topics found, clear mode and return error
                     self.clear_practice_setup_mode(user_id)
                     return f"""
                     <div>
@@ -741,7 +741,7 @@ class AIChatService:
                     </div>
                     """
             else:
-                # 课程无效，显示错误并重新提示
+                # Course invalid, show error and re-prompt
                 return f"""
                 <div>
                     <div style="font-weight: 700; margin-bottom: 8px;">
@@ -763,15 +763,15 @@ class AIChatService:
                 """
         
         elif step == 'topic':
-            # 处理主题选择
+            # Selecting the topic for processing
             course = state['course']
             topics = self.get_course_topics(course)
-            print(f"[DEBUG] 主题验证: course={course}, available_topics={topics}, user_input={message}")
+            print(f"[DEBUG] Topic verification: course={course}, available_topics={topics}, user_input={message}")
             is_valid, validated_topic = self.validate_topic_input(message, topics)
-            print(f"[DEBUG] 主题验证结果: is_valid={is_valid}, validated_topic={validated_topic}")
+            print(f"[DEBUG] Topic verification Result: is_valid={is_valid}, validated_topic={validated_topic}")
             
             if is_valid:
-                # 主题有效，进入题目数量选择步骤
+                # The topic is valid. Proceed to the step of selecting the number of questions.
                 self.set_practice_setup_mode(user_id, 'num_questions', course, validated_topic)
                 return """
                 <div>
@@ -790,7 +790,7 @@ class AIChatService:
                 </div>
                 """
             else:
-                # 主题无效，显示错误并重新提示
+                # Topic invalid, show error and re-prompt
                 return f"""
                 <div>
                     <div style="font-weight: 700; margin-bottom: 8px;">
@@ -812,13 +812,13 @@ class AIChatService:
                 """
         
         elif step == 'num_questions':
-            # 处理题目数量选择
+            # Handle number of questions selection
             try:
                 num = int(message.strip())
                 if num < 1 or num > 50:
                     raise ValueError("Number out of range")
                 
-                # 数量有效，进入难度选择步骤
+                # Number valid, proceed to difficulty selection step
                 course = state['course']
                 topic = state['topic']
                 self.set_practice_setup_mode(user_id, 'difficulty', course, topic, num)
@@ -862,17 +862,17 @@ class AIChatService:
                 """
         
         elif step == 'difficulty':
-            # 处理难度选择
+            # Difficulty level selection for processing
             difficulty_input = message.strip().lower()
             valid_difficulties = ['easy', 'medium', 'hard']
             
             if difficulty_input in valid_difficulties:
-                # 难度有效，生成练习
+                # The difficulty level is appropriate. Generate the practice exercises.
                 course = state['course']
                 topic = state['topic']
                 num_questions = state['num_questions']
                 
-                self.clear_practice_setup_mode(user_id)  # 清除设置模式
+                self.clear_practice_setup_mode(user_id)  # Clear the settings mode
                 return self.generate_practice_for_topic(course, topic, num_questions, difficulty_input)
             else:
                 return """
@@ -890,7 +890,7 @@ class AIChatService:
                 """
         
         elif step == 'generating':
-            # 已经在生成阶段，清除模式
+            # Already in generating phase, clear mode
             self.clear_practice_setup_mode(user_id)
             return None
         
@@ -903,23 +903,23 @@ class AIChatService:
 
     
     def extract_course_and_topic_from_message(self, message: str, available_courses: list[str]) -> tuple[str, str]:
-        """从消息中提取课程和主题信息"""
-        # 提取课程
+        """Extract course and topic information from message"""
+        # Extract course
         course = None
         for course_code in available_courses:
             if course_code.lower() in message.lower():
                 course = course_code
                 break
         
-        # 提取主题（使用现有的薄弱项提取逻辑）
+        # Extract topic (use existing weak topic extraction logic)
         topic = self.extract_weak_topic(message)
         
         return course, topic
     
     def get_user_study_plan(self, account: StudentAccount) -> Optional[dict[str, Any]]:
-        """获取用户的当前学习计划"""
+        """Get user's current study plan"""
         try:
-            # 创建临时User对象用于查询
+            # Create temporary User object for query
             user, _ = User.objects.get_or_create(  # type: ignore
                 username=account.student_id,
                 defaults={'email': account.email or f'{account.student_id}@temp.com'}
@@ -930,44 +930,44 @@ class AIChatService:
             return None
     
     def generate_plan_explanation(self, account: StudentAccount) -> str:
-        """生成学习计划解释"""
+        """Generate study plan explanation"""
         plan_data = self.get_user_study_plan(account)
         
         if not plan_data:
             return """<div><div style="font-weight: 700; margin-bottom: 8px;">I don't see an active study plan for you yet. 📋</div><div style="line-height: 1.6;">To get a personalized explanation, please generate your study plan first from the "My Plan" section.<br /><br />Once you have a plan, I can explain:<ul style="padding-left: 18px; margin: 8px 0;"><li>Why tasks are scheduled in a specific order</li><li>How deadlines and workload are balanced</li><li>Tips for following your personalized schedule</li></ul></div></div>"""
         
-        # 提取计划信息
+        # Extract plan information
         ai_summary = plan_data.get('aiSummary', {})
         tasks = ai_summary.get('tasks', [])
         
-        # 构建解释内容 - 使用更紧凑的格式
+        # Build explanation content - use more compact format
         explanation_parts = []
         
-        # 总体说明
+        # Overall description
         explanation_parts.append("""<div><div style="font-weight: 700; margin-bottom: 8px;">Hi! Here's a detailed explanation of your personalized learning plan. ✨</div>""")
         
-        # 计划创建逻辑
+        # Plan creation logic
         explanation_parts.append("""<div style="font-weight: 600; margin-bottom: 4px;">How your plan was created:</div><ul style="padding-left: 18px; margin: 0;"><li><strong>Course analysis:</strong> AI analyzed all your course requirements and deadlines</li><li><strong>Task breakdown:</strong> Each assignment was intelligently split into manageable parts</li><li><strong>Time allocation:</strong> Hours distributed based on task complexity and your preferences</li><li><strong>Schedule optimization:</strong> Tasks arranged to avoid conflicts and maintain steady progress</li></ul>""")
         
-        # 任务详情
+        # Task details
         if tasks:
             explanation_parts.append(f"""<div style="font-weight: 600; margin: 8px 0 4px;">Your plan includes {len(tasks)} main tasks:</div><ul style="padding-left: 18px; margin: 0;">""")
             
-            for idx, task in enumerate(tasks, 1):  # 显示所有任务并添加索引
+            for idx, task in enumerate(tasks, 1):  # Display all tasks and add index
                 task_title = task.get('taskTitle', 'Unknown Task')
-                task_explanation = task.get('explanation', '')  # 🔑 获取AI的解释
+                task_explanation = task.get('explanation', '')  # 🔑 Get AI's explanation
                 parts_count = len(task.get('parts', []))
                 total_minutes = task.get('totalMinutes', 0)
                 hours = total_minutes // 60
                 mins = total_minutes % 60
                 
-                # 格式化时间显示
+                # Format time display
                 time_str = f"{hours}h {mins}m" if mins > 0 else f"{hours}h"
                 
-                # 任务卡片开始
+                # Task card start
                 explanation_parts.append(f"""<li style="margin-bottom: 12px;"><strong>{task_title}:</strong> {parts_count} parts, {time_str} total""")
                 
-                # 🔑 显示AI的解释 - 这是关键!
+                # 🔑 Display AI's explanation - this is key!
                 if task_explanation:
                     explanation_parts.append(f"""<br/><div style="margin-top: 6px; padding: 8px; background: #e8f5e9; border-radius: 4px; font-size: 0.95em; line-height: 1.5;"><strong>📋 Why this breakdown:</strong><br/>{task_explanation}</div>""")
                 
@@ -975,24 +975,24 @@ class AIChatService:
             
             explanation_parts.append("</ul>")
         
-        # 使用提示
+        # usage tips
         explanation_parts.append("""<div style="margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 6px;"><div style="font-weight: 600; margin-bottom: 4px;">💡 Pro Tips:</div><div>• Your plan automatically adapts if you miss a day<br/>• Each task is broken into focused work sessions<br/>• Ask me about specific parts for detailed guidance!</div></div></div>""")
         
         return ''.join(explanation_parts)
     
     def generate_task_help(self, message: str, account: StudentAccount) -> str:
-        """生成任务帮助回复"""
+        """Generate task help response"""
         plan_data = self.get_user_study_plan(account)
         
-        # 尝试从消息中提取任务和部分信息
+        # Try to extract task and part information from message
         part_match = re.search(r'part\s*(\d+)', message.lower())
         part_number = part_match.group(1) if part_match else "2"
         
-        # 如果有计划数据，尝试找到相关任务
+        # If there is plan data, try to find relevant task
         if plan_data and plan_data.get('aiSummary', {}).get('tasks'):
             tasks = plan_data['aiSummary']['tasks']
             if tasks:
-                # 使用第一个任务作为示例
+                # Use first task as example
                 task = tasks[0]
                 task_title = task.get('taskTitle', 'Your Assignment')
                 parts = task.get('parts', [])
@@ -1030,7 +1030,7 @@ class AIChatService:
                     </div>
                     """
         
-        # 默认回复
+        # Default reply
         return f"""
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">
@@ -1052,24 +1052,24 @@ class AIChatService:
         """
     
     def validate_topic_input(self, user_input: str, available_topics: list[str]) -> tuple[bool, str]:
-        """验证用户输入的主题是否有效"""
+        """Verify whether the inputted topic by the user is valid"""
         user_input_clean = user_input.strip().lower()
         
-        # 精确匹配（忽略大小写）
+        # Exact match (case insensitive)
         for topic in available_topics:
             if topic.lower() == user_input_clean:
                 return True, topic
         
-        # 包含匹配
+        # Including matching
         for topic in available_topics:
             if user_input_clean in topic.lower() or topic.lower() in user_input_clean:
                 return True, topic
         
-        # 关键词匹配
+        # Keyword matching
         user_words = user_input_clean.split()
         for topic in available_topics:
             topic_words = topic.lower().split()
-            # 如果用户输入的词汇中有超过一半匹配主题词汇，则认为匹配
+            # If more than half of the words input by the user match the topic words, then a match is considered.
             matches = sum(1 for word in user_words if word in topic_words)
             if matches >= min(2, len(user_words), len(topic_words)):
                 return True, topic
@@ -1077,7 +1077,7 @@ class AIChatService:
         return False, None
     
     def generate_encouragement(self) -> str:
-        """生成鼓励回复"""
+        """Generate encouraging response"""
         encouragements = [
             """
             <div>
@@ -1118,18 +1118,18 @@ class AIChatService:
         return random.choice(encouragements)
     
     def extract_weak_topic(self, message: str) -> str:
-        """从消息中提取薄弱项主题"""
+        """Extract the weak points from the message"""
         import re
         
-        # 尝试多种模式匹配具体主题
+        # Try various modes to match specific topics
         topic_patterns = [
             r'(?:weak.*in|struggling.*with|difficulty.*with|薄弱.*在|困难.*在|不擅长|不太会|搞不懂)\s*([a-zA-Z\s]+(?:data\s+structures|algorithms|programming|python|java|javascript|loops|functions|variables|arrays|lists|dictionaries|recursion|sorting|searching|classes|objects|inheritance|polymorphism|database|sql|web\s+development|html|css|react|vue|angular|node\.js|express|django|flask|machine\s+learning|artificial\s+intelligence|neural\s+networks|deep\s+learning|statistics|probability|linear\s+algebra|calculus|discrete\s+math|computer\s+science|software\s+engineering|algorithms|complexity|big\s+o|time\s+complexity|space\s+complexity|dynamic\s+programming|greedy|divide\s+and\s+conquer|backtracking|graph|tree|linked\s+list|stack|queue|hash\s+table|binary\s+tree|bst|heap|priority\s+queue|sorting\s+algorithms|search\s+algorithms|binary\s+search|linear\s+search|bubble\s+sort|quick\s+sort|merge\s+sort|insertion\s+sort|selection\s+sort|heap\s+sort|counting\s+sort|radix\s+sort|bucket\s+sort|mining|classification|clustering|unsupervised|supervised|regression|decision|tree|kmeans|pca|apriori))',
             r'(?:topic|主题|方面|领域)\s*[:：]?\s*([a-zA-Z\s]+(?:data\s+structures|algorithms|programming|python|java|javascript|loops|functions|variables|arrays|lists|dictionaries|recursion|sorting|searching|classes|objects|inheritance|polymorphism|database|sql|web\s+development|html|css|react|vue|angular|node\.js|express|django|flask|machine\s+learning|artificial\s+intelligence|neural\s+networks|deep\s+learning|statistics|probability|linear\s+algebra|calculus|discrete\s+math|computer\s+science|software\s+engineering|algorithms|complexity|big\s+o|time\s+complexity|space\s+complexity|dynamic\s+programming|greedy|divide\s+and\s+conquer|backtracking|graph|tree|linked\s+list|stack|queue|hash\s+table|binary\s+tree|bst|heap|priority\s+queue|sorting\s+algorithms|search\s+algorithms|binary\s+search|linear\s+search|bubble\s+sort|quick\s+sort|merge\s+sort|insertion\s+sort|selection\s+sort|heap\s+sort|counting\s+sort|radix\s+sort|bucket\s+sort|mining|classification|clustering|unsupervised|supervised|regression|decision|tree|kmeans|pca|apriori))',
             r'(?:help.*with|help.*me.*with|需要.*帮助|帮我.*?)([a-zA-Z\s]+(?:data\s+structures|algorithms|programming|python|java|javascript|loops|functions|variables|arrays|lists|dictionaries|recursion|sorting|searching|classes|objects|inheritance|polymorphism|database|sql|web\s+development|html|css|react|vue|angular|node\.js|express|django|flask|machine\s+learning|artificial\s+intelligence|neural\s+networks|deep\s+learning|statistics|probability|linear\s+algebra|calculus|discrete\s+math|computer\s+science|software\s+engineering|algorithms|complexity|big\s+o|time\s+complexity|space\s+complexity|dynamic\s+programming|greedy|divide\s+and\s+conquer|backtracking|graph|tree|linked\s+list|stack|queue|hash\s+table|binary\s+tree|bst|heap|priority\s+queue|sorting\s+algorithms|search\s+algorithms|binary\s+search|linear\s+search|bubble\s+sort|quick\s+sort|merge\s+sort|insertion\s+sort|selection\s+sort|heap\s+sort|counting\s+sort|radix\s+sort|bucket\s+sort|mining|classification|clustering|unsupervised|supervised|regression|decision|tree|kmeans|pca|apriori))',
             r'(?:find.*difficult|find.*challenging|find.*hard)\s+([a-zA-Z\s]+(?:data\s+structures|algorithms|programming|python|java|javascript|loops|functions|variables|arrays|lists|dictionaries|recursion|sorting|searching|classes|objects|inheritance|polymorphism|database|sql|web\s+development|html|css|react|vue|angular|node\.js|express|django|flask|machine\s+learning|artificial\s+intelligence|neural\s+networks|deep\s+learning|statistics|probability|linear\s+algebra|calculus|discrete\s+math|computer\s+science|software\s+engineering|algorithms|complexity|big\s+o|time\s+complexity|space\s+complexity|dynamic\s+programming|greedy|divide\s+and\s+conquer|backtracking|graph|tree|linked\s+list|stack|queue|hash\s+table|binary\s+tree|bst|heap|priority\s+queue|sorting\s+algorithms|search\s+algorithms|binary\s+search|linear\s+search|bubble\s+sort|quick\s+sort|merge\s+sort|insertion\s+sort|selection\s+sort|heap\s+sort|counting\s+sort|radix\s+sort|bucket\s+sort|mining|classification|clustering|unsupervised|supervised|regression|decision|tree|kmeans|pca|apriori))',
-            # 新增模式：直接匹配topic名称（用于对话式选择）
+            # New mode: Directly match the topic name (for conversational selection)
             r'(?:want.*practice|need.*help|practice|help)\s+(?:with\s+)?([a-zA-Z\s]+(?:data\s+structures|algorithms|programming|python|java|javascript|loops|functions|variables|arrays|lists|dictionaries|recursion|sorting|searching|classes|objects|inheritance|polymorphism|database|sql|web\s+development|html|css|react|vue|angular|node\.js|express|django|flask|machine\s+learning|artificial\s+intelligence|neural\s+networks|deep\s+learning|statistics|probability|linear\s+algebra|calculus|discrete\s+math|computer\s+science|software\s+engineering|algorithms|complexity|big\s+o|time\s+complexity|space\s+complexity|dynamic\s+programming|greedy|divide\s+and\s+conquer|backtracking|graph|tree|linked\s+list|stack|queue|hash\s+table|binary\s+tree|bst|heap|priority\s+queue|sorting\s+algorithms|search\s+algorithms|binary\s+search|linear\s+search|bubble\s+sort|quick\s+sort|merge\s+sort|insertion\s+sort|selection\s+sort|heap\s+sort|counting\s+sort|radix\s+sort|bucket\s+sort|mining|classification|clustering|unsupervised|supervised|regression|decision|tree|kmeans|pca|apriori))',
-            # 匹配单独的topic名称
+            # Match the individual topic names
             r'^([a-zA-Z\s]+(?:data\s+structures|algorithms|programming|python|java|javascript|loops|functions|variables|arrays|lists|dictionaries|recursion|sorting|searching|classes|objects|inheritance|polymorphism|database|sql|web\s+development|html|css|react|vue|angular|node\.js|express|django|flask|machine\s+learning|artificial\s+intelligence|neural\s+networks|deep\s+learning|statistics|probability|linear\s+algebra|calculus|discrete\s+math|computer\s+science|software\s+engineering|algorithms|complexity|big\s+o|time\s+complexity|space\s+complexity|dynamic\s+programming|greedy|divide\s+and\s+conquer|backtracking|graph|tree|linked\s+list|stack|queue|hash\s+table|binary\s+tree|bst|heap|priority\s+queue|sorting\s+algorithms|search\s+algorithms|binary\s+search|linear\s+search|bubble\s+sort|quick\s+sort|merge\s+sort|insertion\s+sort|selection\s+sort|heap\s+sort|counting\s+sort|radix\s+sort|bucket\s+sort|mining|classification|clustering|unsupervised|supervised|regression|decision|tree|kmeans|pca|apriori))$'
         ]
         
@@ -1141,36 +1141,36 @@ class AIChatService:
         return None
     
     def extract_topic_from_response(self, message: str, available_topics: list[str]) -> str:
-        """从用户回复中提取topic名称"""
+        """Extract the topic name from the user responses"""
         import re
         
         message_lower = message.lower().strip()
         
-        # 首先尝试精确匹配
+        # First, attempt an exact match
         for topic in available_topics:
             if topic.lower() in message_lower:
                 return topic
         
-        # 尝试模糊匹配
+        # Try fuzzy matching
         for topic in available_topics:
             topic_words = topic.lower().split()
             for word in topic_words:
-                if len(word) > 3 and word in message_lower:  # 匹配长度大于3的单词
+                if len(word) > 3 and word in message_lower:  # Match words with a length greater than 3
                     return topic
         
         return None
     
     def extract_course_from_message(self, message: str) -> str:
-        """从消息中提取课程代码"""
+        """Extract the course code from the message"""
         import re
         
-        # 课程代码模式 - 扩展模式以匹配更多表达方式
+        # Course code format - Extended mode to accommodate more expressions
         course_patterns = [
             r'(?:course|课程)\s*([A-Z]{4}\d{4})',
             r'([A-Z]{4}\d{4})\s*(?:course|课程)?',
             r'(?:in|for|about)\s+([A-Z]{4}\d{4})',
             r'(?:help.*with|practice|study|learn|need.*help)\s+([A-Z]{4}\d{4})',
-            r'([A-Z]{4}\d{4})(?:\s+|$)',  # 匹配独立的课程代码
+            r'([A-Z]{4}\d{4})(?:\s+|$)',  # Match the independent course codes
         ]
         
         for pattern in course_patterns:
@@ -1181,12 +1181,12 @@ class AIChatService:
         return None
     
     def generate_course_topic_selection(self, course_code: str) -> str:
-        """生成课程topic选择界面 - 对话形式，支持任何课程"""
+        """Generate course topic selection interface - in a conversational format, applicable to any course"""
         try:
             from courses.models import Question, QuestionKeyword
             from django.db.models import Count
             
-            # 获取该课程的所有关键词和题目数量
+            # Obtain all the keywords and the number of questions for this course
             course_keywords = QuestionKeyword.objects.filter(
                 questionkeywordmap__question__course_code=course_code
             ).annotate(
@@ -1213,14 +1213,14 @@ class AIChatService:
                 </div>
                 """
             
-            # 构建topic列表 - 对话形式
+            # Constructing a topic list - in a conversational format
             topic_list = ""
             for i, keyword in enumerate(course_keywords, 1):
                 topic_name = keyword.name
                 question_count = keyword.question_count
                 topic_list += f"{i}. {topic_name.title()} ({question_count} questions)\n"
             
-            # 获取第一个topic作为示例
+            # Obtain the first topic as an example
             first_topic = course_keywords.first().name if course_keywords.first() else "algorithms"
             
             return f"""
@@ -1242,11 +1242,11 @@ class AIChatService:
             return self.generate_practice_response()
     
     def is_topic_specific(self, topic: str) -> bool:
-        """检查主题是否足够具体"""
+        """Check whether the topic is specific enough"""
         if not topic or len(topic) < 3:
             return False
         
-        # 检查是否包含技术关键词
+        # Check if it contains technical keywords
         technical_keywords = [
             'data', 'algorithm', 'program', 'python', 'java', 'javascript', 'loop', 'function', 
             'variable', 'array', 'list', 'dictionary', 'recursion', 'sort', 'search', 'class', 
@@ -1262,14 +1262,14 @@ class AIChatService:
         
         has_technical_keyword = any(keyword in topic.lower() for keyword in technical_keywords)
         
-        # 排除过于模糊的表述
+        # Eliminate overly vague expressions
         vague_terms = ['everything', 'anything', 'something', 'stuff', 'things', 'all', 'general']
         is_vague = any(term in topic.lower() for term in vague_terms)
         
         return has_technical_keyword and not is_vague
     
     def generate_practice_response(self, topic: str = None) -> str:
-        """生成练习建议回复"""
+        """Generate practice suggestion reply"""
         if topic:
             topic_display = topic.title()
             return f"""
@@ -1305,7 +1305,7 @@ class AIChatService:
             """
     
     def generate_clarification_response(self) -> str:
-        """生成澄清请求回复"""
+        """Generate a reply to the clarification request"""
         return """
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">
@@ -1331,24 +1331,24 @@ class AIChatService:
         """
     
     def validate_topic_input(self, user_input: str, available_topics: list[str]) -> tuple[bool, str]:
-        """验证用户输入的主题是否有效"""
+        """Verify whether the inputted topic by the user is valid"""
         user_input_clean = user_input.strip().lower()
         
-        # 精确匹配（忽略大小写）
+        # Exact match (case insensitive)
         for topic in available_topics:
             if topic.lower() == user_input_clean:
                 return True, topic
         
-        # 包含匹配
+        # Including matching
         for topic in available_topics:
             if user_input_clean in topic.lower() or topic.lower() in user_input_clean:
                 return True, topic
         
-        # 关键词匹配
+        # Keyword matching
         user_words = user_input_clean.split()
         for topic in available_topics:
             topic_words = topic.lower().split()
-            # 如果用户输入的词汇中有超过一半匹配主题词汇，则认为匹配
+            # If more than half of the words input by the user match the topic words, then a match is considered.
             matches = sum(1 for word in user_words if word in topic_words)
             if matches >= min(2, len(user_words), len(topic_words)):
                 return True, topic
@@ -1356,7 +1356,7 @@ class AIChatService:
         return False, None
     
     def generate_greeting_response(self) -> str:
-        """生成问候回复"""
+        """Generate a greeting reply"""
         return """
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">
@@ -1372,24 +1372,24 @@ class AIChatService:
         """
     
     def validate_topic_input(self, user_input: str, available_topics: list[str]) -> tuple[bool, str]:
-        """验证用户输入的主题是否有效"""
+        """Verify whether the inputted topic by the user is valid"""
         user_input_clean = user_input.strip().lower()
         
-        # 精确匹配（忽略大小写）
+        # Exact match (case insensitive)
         for topic in available_topics:
             if topic.lower() == user_input_clean:
                 return True, topic
         
-        # 包含匹配
+        # Including matching
         for topic in available_topics:
             if user_input_clean in topic.lower() or topic.lower() in user_input_clean:
                 return True, topic
         
-        # 关键词匹配
+        # Keyword matching
         user_words = user_input_clean.split()
         for topic in available_topics:
             topic_words = topic.lower().split()
-            # 如果用户输入的词汇中有超过一半匹配主题词汇，则认为匹配
+            # If more than half of the words input by the user match the topic words, then a match is considered.
             matches = sum(1 for word in user_words if word in topic_words)
             if matches >= min(2, len(user_words), len(topic_words)):
                 return True, topic
@@ -1397,7 +1397,7 @@ class AIChatService:
         return False, None
     
     def generate_general_response(self) -> str:
-        """生成通用回复"""
+        """Generate a general response"""
         return """
         <div>
             <div style="font-weight: 700; margin-bottom: 8px;">
@@ -1418,24 +1418,24 @@ class AIChatService:
         """
     
     def validate_topic_input(self, user_input: str, available_topics: list[str]) -> tuple[bool, str]:
-        """验证用户输入的主题是否有效"""
+        """Verify whether the inputted topic by the user is valid"""
         user_input_clean = user_input.strip().lower()
         
-        # 精确匹配（忽略大小写）
+        # Exact match (case insensitive)
         for topic in available_topics:
             if topic.lower() == user_input_clean:
                 return True, topic
         
-        # 包含匹配
+        # Including matching
         for topic in available_topics:
             if user_input_clean in topic.lower() or topic.lower() in user_input_clean:
                 return True, topic
         
-        # 关键词匹配
+        # Keyword matching
         user_words = user_input_clean.split()
         for topic in available_topics:
             topic_words = topic.lower().split()
-            # 如果用户输入的词汇中有超过一半匹配主题词汇，则认为匹配
+            # If more than half of the words input by the user match the topic words, then a match is considered.
             matches = sum(1 for word in user_words if word in topic_words)
             if matches >= min(2, len(user_words), len(topic_words)):
                 return True, topic
@@ -1443,9 +1443,9 @@ class AIChatService:
         return False, None
     
     def generate_ai_response(self, message: str, account: StudentAccount, conversation_history: Optional[list[dict[str, Any]]] = None) -> str:
-        """使用Gemini AI生成智能回复"""
+        """Use Gemini AI to generate intelligent responses"""
         if not use_gemini:
-            # 如果没有AI，回退到基于规则的回复
+            # If there were no AI, we would revert to rule-based responses.
             intent = self.detect_intent(message)
             if intent == 'explain_plan':
                 return self.generate_plan_explanation(account)
@@ -1454,12 +1454,12 @@ class AIChatService:
             elif intent == 'encouragement':
                 return self.generate_encouragement()
             elif intent == 'practice':
-                # 检查是否提到了具体课程
+                # Check if specific courses are mentioned
                 course_code = self.extract_course_from_message(message)
                 if course_code:
                     return self.generate_course_topic_selection(course_code)
                 else:
-                    # 检查是否有明确的薄弱项主题
+                    # Check for the presence of clearly defined weak points or themes
                     topic = self.extract_weak_topic(message)
                     if topic and self.is_topic_specific(topic):
                         return self.generate_practice_response(topic)
@@ -1471,18 +1471,18 @@ class AIChatService:
                 return self.generate_general_response()
         
         try:
-            # 导入必要的模型
+            # Import the necessary models
             from courses.models import StudentEnrollment, CourseCatalog, CourseTask
             from task_progress.models import TaskProgress
             from .models import RecentPracticeSession
             
-            # 获取用户选课信息
+            # Obtain the user's course selection information
             courses_context = ""
             try:
                 enrollments = StudentEnrollment.objects.filter(student_id=account.student_id)  # type: ignore
                 if enrollments.exists():
                     courses_list = []
-                    for enrollment in enrollments[:5]:  # 最多5门课程
+                    for enrollment in enrollments[:5]:  # At most 5 courses
                         try:
                             course = CourseCatalog.objects.get(code=enrollment.course_code)  # type: ignore
                             courses_list.append(f"{course.code}: {course.title}")
@@ -1491,16 +1491,16 @@ class AIChatService:
                     if courses_list:
                         courses_context = f"\n\nEnrolled courses ({len(courses_list)}):\n- " + "\n- ".join(courses_list)
             except Exception as e:
-                print(f"[DEBUG] 获取选课信息失败: {e}")
+                print(f"[DEBUG] Failed to obtain course selection information: {e}")
             
-            # 获取用户任务进度信息
+            # Obtain the user's task progress information
             tasks_context = ""
             try:
-                # 获取所有任务进度
+                # Obtain the progress of all tasks
                 task_progresses = TaskProgress.objects.filter(student_id=account.student_id).order_by('-updated_at')[:10]  # type: ignore
                 if task_progresses.exists():
                     tasks_info = []
-                    for tp in task_progresses[:5]:  # 最多显示5个最近更新的任务
+                    for tp in task_progresses[:5]:  # Show at most 5 recently updated tasks
                         try:
                             task = CourseTask.objects.get(id=tp.task_id)  # type: ignore
                             status = "✓ Complete" if tp.progress >= 100 else f"⏳ {tp.progress}% done"
@@ -1510,9 +1510,9 @@ class AIChatService:
                     if tasks_info:
                         tasks_context = f"\n\nRecent task progress:\n- " + "\n- ".join(tasks_info)
             except Exception as e:
-                print(f"[DEBUG] 获取任务进度失败: {e}")
+                print(f"[DEBUG] Failed to obtain the task progress: {e}")
             
-            # 获取最近的练习测试结果
+            # Obtain the latest practice test results
             practice_context = ""
             try:
                 recent_session = RecentPracticeSession.get_latest_session(account.student_id)  # type: ignore
@@ -1523,19 +1523,19 @@ class AIChatService:
                     practice_context += f"\n- Score: {recent_session.total_score}/{recent_session.max_score} ({recent_session.percentage:.1f}%)"
                     practice_context += f"\n- Questions: {recent_session.questions_count}"
                     
-                    # 添加所有题目的详细信息（不限制数量）
+                    # Add detailed information for all the questions (no limit on the number)
                     test_data = recent_session.test_data
                     if test_data and 'questions' in test_data:
                         wrong_questions = [q for q in test_data['questions'] if not q.get('is_correct', True)]
                         if wrong_questions:
                             practice_context += f"\n- Wrong answers: {len(wrong_questions)} question(s)"
                             practice_context += "\n\nDetailed test results (ALL questions for student reference):"
-                            # 显示所有题目，不截断内容
+                            # Display all questions without truncating the content
                             for idx, q in enumerate(test_data['questions'], 1):
                                 status = "✓" if q.get('is_correct', False) else "✗"
                                 practice_context += f"\n  Q{idx} [{status}]: {q.get('question_text', 'N/A')}"
                                 
-                                # 如果是选择题，显示选项
+                                #If it is a multiple-choice question, display the options.
                                 if q.get('question_type') == 'mcq' and q.get('options'):
                                     practice_context += f"\n      Options: {', '.join(q.get('options', []))}"
                                 
@@ -1546,9 +1546,9 @@ class AIChatService:
                                     if q.get('feedback'):
                                         practice_context += f"\n      Feedback: {q.get('feedback', '')}"
             except Exception as e:
-                print(f"[DEBUG] 获取练习测试结果失败: {e}")
+                print(f"[DEBUG] Failed to obtain the practice test results: {e}")
             
-            # 获取用户的学习计划信息
+            # Obtain the user's learning plan information
             plan_data = self.get_user_study_plan(account)
             plan_context = ""
             if plan_data:
@@ -1556,22 +1556,22 @@ class AIChatService:
                 tasks = ai_summary.get('tasks', [])
                 if tasks:
                     plan_context = f"\n\nAI-generated study plan includes {len(tasks)} tasks: "
-                    for task in tasks[:3]:  # 只包含前3个任务
+                    for task in tasks[:3]:  # Only the first three tasks are included.
                         task_title = task.get('taskTitle', 'Unknown Task')
                         parts_count = len(task.get('parts', []))
                         plan_context += f"\n- {task_title} ({parts_count} parts)"
             
-            # 构建对话历史上下文 - 增加到20条
+            # Build the context of the conversation history - increase to 20 items
             history_context = ""
             if conversation_history:
-                recent_messages = conversation_history[-20:]  # 最近20条消息 (从6条增加)
+                recent_messages = conversation_history[-20:]  # The latest 20 pieces of news (an increase from 6)
                 history_context = "\n\nRecent conversation:\n"
                 for msg in recent_messages:
                     role = "Student" if msg['type'] == 'user' else "Coach"
-                    content = msg['content'][:200]  # 限制长度
+                    content = msg['content'][:200]  # Limit the length.
                     history_context += f"{role}: {content}\n"
             
-            # 构建AI提示
+            # Build AI prompts
             system_prompt = f"""You are an AI Learning Coach helping university students with their studies. You are supportive, encouraging, and provide practical advice.
 
 Your role:
@@ -1616,7 +1616,7 @@ Student context:
 Current student message: {message}
 
 Respond as their AI Learning Coach. Use the student's actual course, task, and practice test information to provide personalized, relevant advice. Keep responses concise unless student asks for detailed explanation of a specific question. Do not use "Test Student" - address them naturally or by their actual name."""
-            # 调用Gemini AI
+            # Call Gemini AI
             response = _model.generate_content(system_prompt)
             
             if response and response.candidates and len(response.candidates) > 0:
@@ -1628,33 +1628,33 @@ Respond as their AI Learning Coach. Use the student's actual course, task, and p
                             ai_text += part.text
                     
                     if ai_text.strip():
-                        # 清理AI回复中的HTML标签和markdown格式
+                        # Remove HTML tags and Markdown formatting from AI responses
                         cleaned_text = self.clean_ai_response(ai_text)
                         return cleaned_text
             
-            # 如果AI回复失败，回退到基于规则的回复
+            # If the AI reply fails, revert to the rule-based reply.
             return self.generate_general_response()
             
         except Exception as e:
-            print(f"[DEBUG] AI回复生成失败: {e}")
-            # 回退到基于规则的回复
+            print(f"[DEBUG] AI reply generation failed: {e}")
+            # Return to rule-based responses
             return self.generate_general_response()
     
     def process_message(self, account: StudentAccount, message: str) -> dict[str, Any]:
-        """处理用户消息并生成AI回复"""
+        """Process user messages and generate AI responses"""
         try:
-            # 获取或创建对话会话
+            # Obtain or create a conversation session
             conversation = self.get_or_create_conversation(account)
             
-            # 获取对话历史用于上下文 - 增加到30条以提供更多上下文
+            # Retrieve conversation history for context - Increase to 30 entries to provide more context
             conversation_history = self.get_conversation_history(account, limit=30)
             
-            # 检查是否是欢迎消息（自动发送的初始化消息）
+            # Check if it is a welcome message (an automatically sent initialization message)
             if message.lower().strip() == 'welcome':
-                # 对于欢迎消息，不保存用户消息，只返回AI的欢迎回复
+                # For the welcome message, no user messages are saved; only the AI's welcome response is returned.
                 ai_response = self.generate_welcome_response()
                 
-                # 保存AI回复
+                # Save the AI response
                 ai_message = ChatMessage.objects.create(  # type: ignore
                     conversation=conversation,
                     message_type='ai',
@@ -1674,17 +1674,17 @@ Respond as their AI Learning Coach. Use the student's actual course, task, and p
                     }
                 }
             
-            # 对于用户的真实消息，正常处理
-            # 保存用户消息
-            print(f"[DEBUG] 保存用户消息到数据库: user={account.student_id}, message={message}")
+            # For the users' genuine messages, they will be processed normally.
+            # Save user messages
+            print(f"[DEBUG] Save user messages to the database: user={account.student_id}, message={message}")
             user_message = ChatMessage.objects.create(  # type: ignore
                 conversation=conversation,
                 message_type='user',
                 content=message
             )
-            print(f"[DEBUG] 用户消息已保存，ID: {user_message.id}")
+            print(f"[DEBUG] The user message has been saved, ID: {user_message.id}")
             
-            # 更新对话的最后活动时间
+            # Update the final activity time of the conversation
             from django.utils import timezone
             conversation.last_activity_at = timezone.now()
             conversation.save()
@@ -2232,7 +2232,7 @@ Respond as their AI Learning Coach. Use the student's actual course, task, and p
             return 'waiting_for_topic'
         elif 'here are some topics available for this course:' in content.lower():
             return 'waiting_for_topic_selection'
-        elif 'i\'m now generating a practice set for' in content.lower():
+        elif 'i'm now generating a practice set for' in content.lower():
             return 'practice_ready'
         
         return 'start'

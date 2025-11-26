@@ -379,7 +379,7 @@ def submit_answers(request):
             )
             print(f"[DEBUG] The test results have been saved toRecentPracticeSession: {student_id} - {session_id}")
         except Exception as e:
-            print(f"[WARNING] save to RecentPracticeSession失败: {e}")
+            print(f"[WARNING] Failed to save to RecentPracticeSession: {e}")
             # Does not affect the main process, continue to return the rating results
         
         # Add questiond_db_id for each result

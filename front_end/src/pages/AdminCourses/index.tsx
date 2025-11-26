@@ -369,9 +369,9 @@ const css = `
   --ac-text: #172239;
   --ac-card-bg:#FFFFFF;
   --ac-shadow: 0 8px 24px rgba(0,0,0,0.04);
-  --ac-primary: #BB87AC; /* 管理员紫色主题 */
-  --ac-primary-light: rgba(187, 135, 172, 0.49); /* 半透明紫色 */
-  --ac-create-btn: #2673DD; /* 创建按钮蓝色 */
+  --ac-primary: #BB87AC; /* Administrator - Purple Theme */
+  --ac-primary-light: rgba(187, 135, 172, 0.49); /* Translucent purple */
+  --ac-create-btn: #2673DD; /* Create button - blue */
 }
 
 .admin-courses-layout{
@@ -393,7 +393,7 @@ const css = `
   height: 100%;
 }
 
-/* 侧栏-用户卡 */
+/* Sidebar - User Card */
 .ac-profile-card{
   display:flex;align-items:center;gap:12px;
   padding:16px;border:1px solid var(--ac-border);border-radius:20px;background:var(--ac-card-bg);box-shadow:var(--ac-shadow);
@@ -407,7 +407,7 @@ const css = `
 .ac-profile-card .chevron{margin-left:auto;background:#fff;border:1px solid var(--ac-border);border-radius:999px;width:36px;height:36px;display:grid;place-items:center;cursor:pointer;transition:background-color 0.2s}
 .ac-profile-card .chevron:hover{background:var(--ac-primary-light)}
 
-/* 侧栏-导航 */
+/* Side Bar - Navigation */
 .ac-nav{
   display:flex;flex-direction:column;gap:12px;
   padding:16px;border:1px solid var(--ac-border);border-radius:20px;background:#fff;box-shadow:var(--ac-shadow);
@@ -418,7 +418,7 @@ const css = `
 .ac-nav .item.active{background:var(--ac-primary);color:#172239;font-weight:600;border-radius:20px}
 .ac-nav .nav-icon{width:20px;height:20px}
 
-/* 侧栏-插图 */
+/* Side bar - Illustration */
 .ac-illustration{
   margin-top: auto;
   margin-bottom: 20px;
@@ -433,7 +433,7 @@ const css = `
   margin-top: auto;
 }
 
-/* 主内容区域 */
+/* Main content area */
 .ac-main{
   display:flex;
   flex-direction:column;
@@ -441,7 +441,7 @@ const css = `
   overflow:hidden;
 }
 
-/* 顶部标题区域 */
+/* Top title area */
 .ac-header{
   display:flex;
   align-items:center;
@@ -461,7 +461,7 @@ const css = `
   gap:20px;
 }
 
-/* 搜索框 */
+/* Search box */
 .search-container{
   display:flex;
   align-items:center;
@@ -488,9 +488,9 @@ const css = `
   color:var(--ac-muted);
 }
 
-/* 创建课程按钮 */
+/* Create Course Button */
 .create-course-btn{
-  background: rgba(187, 135, 172, 0.9); /* BB87AC紫色，90%透明度 */
+  background: rgba(187, 135, 172, 0.9); /* BB87AC color is purple, with 90% transparency. */
   color:white;
   border:none;
   border-radius:12px;
@@ -507,17 +507,17 @@ const css = `
 }
 
 .create-course-btn:hover{
-  background: rgba(187, 135, 172, 1); /* 悬停时完全不透明 */
+  background: rgba(187, 135, 172, 1); /* Fully opaque during hovering */
 }
 
-/* 内容区域 */
+/* Content Area */
 .ac-content{
   flex:1;
   display:flex;
   flex-direction:column;
 }
 
-/* 空状态 */
+/* Empty state */
 .empty-state{
   flex:1;
   display:flex;
@@ -536,7 +536,7 @@ const css = `
   margin:0;
 }
 
-/* 课程网格 */
+/* Course Grid */
 .courses-grid{
   display:grid;
   grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));
@@ -544,7 +544,7 @@ const css = `
   padding:20px 0;
 }
 
-/* 课程卡片 */
+/* Course Card */
 .course-card{
   border:1px solid var(--ac-border);
   border-radius:32px;
@@ -553,7 +553,7 @@ const css = `
   display:flex;
   flex-direction:column;
   overflow: hidden;
-  min-height: 320px; /* 固定最小高度，确保卡片大小一致 */
+  min-height: 320px; /* Fix the minimum height and ensure that the card sizes are consistent. */
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -569,7 +569,7 @@ const css = `
   border-top-left-radius: 32px;
   border-top-right-radius: 32px;
   display: flex;
-  align-items: flex-start; /* 图片从顶部开始显示 */
+  align-items: flex-start; /* The picture is displayed starting from the top. */
   justify-content: center;
   overflow: hidden;
 }
@@ -577,8 +577,8 @@ const css = `
 .course-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover; /* 图片拉伸填充整个区域 */
-  object-position: top; /* 图片顶部对齐，只显示上半部分 */
+  object-fit: cover; /* The image is stretched to fill the entire area. */
+  object-position: top; /* Align the top of the picture and only display the upper half. */
 }
 
 .course-info{
@@ -652,7 +652,7 @@ const css = `
   background: #FF5252;
 }
 
-/* 响应式设计 */
+/* Responsive design */
 @media (max-width: 1024px) {
   .admin-courses-layout{
     grid-template-columns:1fr;
@@ -704,7 +704,7 @@ const css = `
   }
 }
 
-/* 创建课程弹窗样式 - 采用preference弹窗设计，紫色主题 */
+/* Create course pop-up style - Adopt the preference pop-up design with a purple theme*/
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -723,7 +723,7 @@ const css = `
   max-width: 92vw;
   background: #fff;
   border-radius: 20px;
-  border: 2px solid #BB87AC; /* 紫色边框，类似preference弹窗 */
+  border: 2px solid #BB87AC; /* Purple border, similar to the preference pop-up window */
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.12);
   padding: 28px;
   z-index: 1010;
@@ -769,7 +769,7 @@ const css = `
 }
 
 .modal-close:hover {
-  background: #BB87AC; /* 紫色背景 */
+  background: #BB87AC; /* Purple background */
   border-color: #BB87AC;
   color: white;
 }
@@ -812,7 +812,7 @@ const css = `
 
 .form-input:focus, .form-textarea:focus {
   outline: none;
-  border-color: #BB87AC; /* 紫色焦点边框 */
+  border-color: #BB87AC; /* Purple focus border */
 }
 
 .form-textarea {

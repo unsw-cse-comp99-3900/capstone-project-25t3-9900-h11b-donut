@@ -160,7 +160,7 @@ def overdue_report_day(request):
 
 
     student_id = payload.get("student_id")
-    date_str = payload.get("date")  # 期望: YYYY-MM-DD
+    date_str = payload.get("date")  # YYYY-MM-DD
     overdue_tasks = payload.get("overdue_tasks", [])  # [{course_code, task_id}, ...]
     is_whole_day_overdue = payload.get("is_whole_day_overdue", False)
 

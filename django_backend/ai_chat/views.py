@@ -140,20 +140,20 @@ class ChatView(View):
             limit = int(request.GET.get('limit', 50))
             days = request.GET.get('days')
             
-            # 如果指定了天数，直接使用
+            # If days are specified, use them directly
             if days:
                 history = self.chat_service.get_conversation_history(request.account, limit, int(days))
             else:
-                # 如果没有指定天数，先获取最近5天的消息数量
+                # If days are not specified, first get the number of messages from the last 5 days
                 recent_messages = self.chat_service.get_conversation_history(request.account, 200, 5)
                 
-                # 如果最近5天的消息数量超过100条，则只加载最近3天的消息
+                # If the number of messages in the last 5 days exceeds 100, only load messages from the last 3 days
                 if len(recent_messages) > 100:
                     history = self.chat_service.get_conversation_history(request.account, limit, 3)
-                    print(f"[DEBUG] 消息数量较多 ({len(recent_messages)}条)，加载最近3天的历史")
+                    print(f"[DEBUG] High message count ({len(recent_messages)} messages), loading last 3 days of history")
                 else:
                     history = self.chat_service.get_conversation_history(request.account, limit, 5)
-                    print(f"[DEBUG] 消息数量适中 ({len(recent_messages)}条)，加载最近5天的历史")
+                    print(f"[DEBUG] Moderate message count ({len(recent_messages)} messages), loading last 5 days of history")
             
             return JsonResponse({
                 'success': True,
@@ -168,18 +168,18 @@ class ChatView(View):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class StudyPlanView(View):
-    """学习计划存储API视图"""
+    """Study plan storage API view"""
     
     def __init__(self):
         super().__init__()
         self.chat_service = AIChatService()
     
     def post(self, request):
-        """保存学习计划数据"""
+        """Save study plan data"""
         try:
-            # 检查认证，使用真实的用户账户
+            # Check authentication, use real user account
             if not hasattr(request, 'account'):
-                # 从请求参数获取用户ID
+                # Get user ID from request parameters
                 user_id = request.GET.get('user_id')
                 if not user_id:
                     return JsonResponse({
@@ -187,9 +187,9 @@ class StudyPlanView(View):
                         'error': 'User ID is required'
                     }, status=400)
                 
-                print(f"[DEBUG] 保存学习计划: user_id={user_id}")
+                print(f"[DEBUG] Saving study plan: user_id={user_id}")
                 
-                # 创建或获取对应的学生账户
+                # Create or get corresponding student account
                 from stu_accounts.models import StudentAccount
                 account, created = StudentAccount.objects.get_or_create(
                     student_id=user_id,
@@ -200,9 +200,9 @@ class StudyPlanView(View):
                     }
                 )
                 if created:
-                    print(f"[DEBUG] 创建新用户账户: {user_id}")
+                    print(f"[DEBUG] Created new user account: {user_id}")
                 else:
-                    print(f"[DEBUG] 使用现有用户账户: {user_id}")
+                    print(f"[DEBUG] Using existing user account: {user_id}")
                 
                 request.account = account
             
@@ -234,11 +234,11 @@ class StudyPlanView(View):
             }, status=500)
     
     def get(self, request):
-        """获取当前学习计划"""
+        """Get current study plan"""
         try:
-            # 检查认证，使用真实的用户账户
+            # Check authentication, use real user account
             if not hasattr(request, 'account'):
-                # 从请求参数获取用户ID
+                # Get user ID from request parameters
                 user_id = request.GET.get('user_id')
                 if not user_id:
                     return JsonResponse({
@@ -246,9 +246,9 @@ class StudyPlanView(View):
                         'error': 'User ID is required'
                     }, status=400)
                 
-                print(f"[DEBUG] 获取学习计划: user_id={user_id}")
+                print(f"[DEBUG] Getting study plan: user_id={user_id}")
                 
-                # 创建或获取对应的学生账户
+                # Create or get corresponding student account
                 from stu_accounts.models import StudentAccount
                 account, created = StudentAccount.objects.get_or_create(
                     student_id=user_id,
@@ -259,9 +259,9 @@ class StudyPlanView(View):
                     }
                 )
                 if created:
-                    print(f"[DEBUG] 创建新用户账户: {user_id}")
+                    print(f"[DEBUG] Created new user account: {user_id}")
                 else:
-                    print(f"[DEBUG] 使用现有用户账户: {user_id}")
+                    print(f"[DEBUG] Using existing user account: {user_id}")
                 
                 request.account = account
             
@@ -280,15 +280,15 @@ class StudyPlanView(View):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CleanupView(View):
-    """数据清理API视图"""
+    """Data cleanup API view"""
     
     def post(self, request):
-        """清理旧的对话记录和计划数据"""
+        """Clean up old conversation records and plan data"""
         try:
-            # 清理7天前的对话记录
+            # Clean up conversation records older than 7 days
             ChatManager.cleanup_old_conversations()
             
-            # 清理7天前的学习计划
+            # Clean up study plans older than 7 days
             UserStudyPlan.cleanup_old_plans()
             
             return JsonResponse({
@@ -304,18 +304,18 @@ class CleanupView(View):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class GreetingCheckView(View):
-    """检查是否需要发送问候消息的API"""
+    """API to check if greeting message needs to be sent"""
     
     def __init__(self):
         super().__init__()
         self.chat_service = AIChatService()
     
     def get(self, request):
-        """检查是否需要发送问候消息"""
+        """Check if greeting message needs to be sent"""
         try:
-            # 检查认证或创建临时账户用于测试
+            # Check authentication or create temporary account for testing
             if not hasattr(request, 'account'):
-                # 临时解决方案：创建或获取测试账户
+                # Temporary solution: create or get test account
                 from stu_accounts.models import StudentAccount
                 test_account, created = StudentAccount.objects.get_or_create(
                     student_id='test_student',
@@ -342,10 +342,10 @@ class GreetingCheckView(View):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class HealthCheckView(View):
-    """健康检查API"""
+    """Health check API"""
     
     def get(self, request):
-        """检查AI对话服务状态"""
+        """Check AI chat service status"""
         return JsonResponse({
             'success': True,
             'status': 'healthy',
@@ -354,21 +354,21 @@ class HealthCheckView(View):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class GeneratePracticeView(View):
-    """练习生成API"""
+    """Practice generation API"""
     
     def __init__(self):
         super().__init__()
         self.chat_service = AIChatService()
     
     def post(self, request):
-        """生成练习题目"""
+        """Generate practice questions"""
         try:
             data = json.loads(request.body)
             course = data.get('course', '').strip()
             topic = data.get('topic', '').strip()
             user_id = data.get('user_id', '').strip()
-            num_questions = data.get('num_questions', 5)  # 默认5题
-            difficulty = data.get('difficulty', 'medium').lower()  # 默认medium
+            num_questions = data.get('num_questions', 5)  # Default 5 questions
+            difficulty = data.get('difficulty', 'medium').lower()  # Default medium
             
             if not course or not topic or not user_id:
                 return JsonResponse({
@@ -376,7 +376,7 @@ class GeneratePracticeView(View):
                     'error': 'Course, topic, and user_id are required'
                 }, status=400)
             
-            # 验证题目数量
+            # Validate number of questions
             try:
                 num_questions = int(num_questions)
                 if num_questions < 1 or num_questions > 50:
@@ -384,11 +384,11 @@ class GeneratePracticeView(View):
             except (ValueError, TypeError):
                 num_questions = 5
             
-            # 验证难度
+            # Validate difficulty
             if difficulty not in ['easy', 'medium', 'hard']:
                 difficulty = 'medium'
             
-            # 获取用户账户
+            # Get user account
             from stu_accounts.models import StudentAccount
             try:
                 account = StudentAccount.objects.get(student_id=user_id)
@@ -398,40 +398,40 @@ class GeneratePracticeView(View):
                     'error': 'User not found'
                 }, status=404)
             
-            # 🔥 直接调用生成器逻辑,避免HTTP调用超时
+            # 🔥 Call generator logic directly to avoid HTTP call timeout
             from ai_question_generator.generator import QuestionGenerator
             from courses.models import Question, QuestionChoice, QuestionKeyword, QuestionKeywordMap
             import uuid
             
-            print(f"[DEBUG] 开始生成练习题: course={course}, topic={topic}, num={num_questions}, difficulty={difficulty}")
+            print(f"[DEBUG] Starting practice question generation: course={course}, topic={topic}, num={num_questions}, difficulty={difficulty}")
             
-            # 获取示例题目
+            # Get sample questions
             topic_lower = topic.lower()
             
-            # 方法1: 通过关键词查找
+            # Method 1: Find by keyword
             keyword_maps = QuestionKeywordMap.objects.filter(
                 keyword__name__icontains=topic_lower
             ).select_related('question')
             
             sample_questions_objs = [km.question for km in keyword_maps if km.question.course_code == course]
             
-            # 方法2: 如果没找到,尝试直接匹配课程
+            # Method 2: If not found, try direct course matching
             if not sample_questions_objs:
                 sample_questions_objs = list(Question.objects.filter(
                     course_code=course,
                     is_active=True
                 )[:5])
             
-            print(f"[DEBUG] 找到 {len(sample_questions_objs)} 个示例题目")
+            print(f"[DEBUG] Found {len(sample_questions_objs)} sample questions")
             
-            # 转换为字典格式
+            # Convert to dictionary format
             sample_questions = []
             for q in sample_questions_objs[:5]:
                 q_dict = {
                     'type': q.qtype,
                     'question': q.text,
                     'topic': topic,
-                    'difficulty': difficulty,  # 使用用户选择的难度
+                    'difficulty': difficulty,  # Use user-selected difficulty
                     'score': 10
                 }
                 
@@ -444,7 +444,7 @@ class GeneratePracticeView(View):
                     q_dict['explanation'] = q.description or ''
                 else:
                     q_dict['sample_answer'] = q.short_answer or ''
-                    # 从keywords_json字段获取关键词
+                    # Get keywords from keywords_json field
                     if q.keywords_json:
                         q_dict['grading_points'] = q.keywords_json if isinstance(q.keywords_json, list) else []
                     else:
@@ -452,30 +452,30 @@ class GeneratePracticeView(View):
                 
                 sample_questions.append(q_dict)
             
-            # 根据题目数量计算选择题和简答题的比例 (60% MCQ, 40% Short Answer)
+            # Calculate MCQ and short answer ratio based on number of questions (60% MCQ, 40% Short Answer)
             mcq_count = int(num_questions * 0.6)
             short_answer_count = num_questions - mcq_count
             
-            # 调用AI生成器
+            # Call AI generator
             try:
                 generator = QuestionGenerator()
                 generated_questions = generator.generate_questions(
                     topic=topic,
-                    difficulty=difficulty,  # 使用用户选择的难度
+                    difficulty=difficulty,  # Use user-selected difficulty
                     sample_questions=sample_questions,
-                    count=num_questions,  # 使用用户选择的数量
+                    count=num_questions,  # Use user-selected count
                     mcq_count=mcq_count,
                     short_answer_count=short_answer_count
                 )
                 
-                print(f"[DEBUG] 生成了 {len(generated_questions)} 个题目")
+                print(f"[DEBUG] Generated {len(generated_questions)} questions")
                 
-                # 保存到数据库
+                # Save to database
                 from ai_question_generator.models import GeneratedQuestion
                 session_id = str(uuid.uuid4())
                 
                 for idx, q in enumerate(generated_questions, 1):
-                    # 构建question_data JSON
+                    # Build question_data JSON
                     question_data = {
                         'question': q.get('question'),
                         'score': q.get('score', 10)
@@ -502,7 +502,7 @@ class GeneratePracticeView(View):
                         question_data=question_data
                     )
                 
-                # 🔥 保存练习就绪消息到聊天历史
+                # 🔥 Save practice ready message to chat history
                 conversation = self.chat_service.get_or_create_conversation(account)
                 practice_message_content = f"I've generated {len(generated_questions)} {difficulty} questions for {course} – {topic}. Ready to practice?"
                 
@@ -521,7 +521,7 @@ class GeneratePracticeView(View):
                         }
                     }
                 )
-                print(f"[DEBUG] 已保存练习就绪消息到聊天历史")
+                print(f"[DEBUG] Practice ready message saved to chat history")
                 
                 return JsonResponse({
                     'success': True,
@@ -532,7 +532,7 @@ class GeneratePracticeView(View):
                 })
                 
             except Exception as gen_error:
-                print(f"[DEBUG] 生成题目失败: {gen_error}")
+                print(f"[DEBUG] Failed to generate questions: {gen_error}")
                 import traceback
                 traceback.print_exc()
                 return JsonResponse({

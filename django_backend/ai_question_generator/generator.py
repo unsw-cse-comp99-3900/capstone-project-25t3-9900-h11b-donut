@@ -1,6 +1,6 @@
 """
-AI Question Generator - 使用 Gemini AI 生成题目
-Django集成版本 - 仅包含核心生成逻辑，所有数据通过API传输
+AI Question Generator - Uses Gemini AI to generate questions
+Django integrated version - Contains only core generation logic, all data transmitted via API
 """
 import os
 import json

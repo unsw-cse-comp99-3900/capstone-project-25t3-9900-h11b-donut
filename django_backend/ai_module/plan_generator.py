@@ -171,7 +171,7 @@ Due: {due_date}
             return _intelligent_fallback_split(task_title, estimated_minutes)
         except Exception as e:
             print(f"[DEBUG] Gemini faile (retry {attempt + 1}/{max_retries}): {type(e).__name__} - {e}")
-            print(f"[DEBUG] ❌ fail to decode content，use fall back data")
+            print(f"[DEBUG] ❌ fail to decode content, use fall back data")
             return _intelligent_fallback_split(task_title, estimated_minutes)
     
     return _intelligent_fallback_split(task_title, estimated_minutes)
@@ -252,7 +252,7 @@ def _estimate_minutes(est_hours_meta, summary, detail_text: Optional[str]) -> in
 
 def _to_task_with_parts(meta: Dict[str, Any]) -> Tuple[TaskWithParts, Dict[str, Any]]:
     """
-    返回 (TaskWithParts, aiTaskInfo)
+    Return (TaskWithParts, aiTaskInfo)
     aiTaskInfo = {
       "taskId":..., "totalMinutes":..., "explanation": "...",
       "parts":[{"partId","order","title","minutes","notes","percent"}]

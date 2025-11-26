@@ -50,7 +50,7 @@ export function DownloadButton({
     setDownloadProgress(0);
     
     try {
-      // 模拟下载进度
+      // Simulate download progress
       const interval = setInterval(() => {
         setDownloadProgress(prev => {
           if (prev >= 95) {
@@ -64,14 +64,14 @@ export function DownloadButton({
       if (onDownload) {
         await onDownload(materialId);
       } else {
-        // 默认下载逻辑
+        // Default download logic
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
       clearInterval(interval);
       setDownloadProgress(100);
       
-      // 下载完成动画
+      // Download complete animation
       setTimeout(() => {
         setIsDownloading(false);
         setDownloadProgress(0);
@@ -115,13 +115,13 @@ export function DownloadButton({
             </div>
             <span className="download-text">
               {downloadProgress === 100 ? '✅' : '⏳'} 
-              {downloadProgress === 100 ? '完成' : `${downloadProgress}%`}
+              {downloadProgress === 100 ? 'Complete' : `${downloadProgress}%`}
             </span>
           </>
         ) : (
           <>
             <span className="download-icon">⬇️</span>
-            <span className="download-text">下载</span>
+            <span className="download-text">Download</span>
           </>
         )}
       </button>

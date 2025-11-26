@@ -2,7 +2,7 @@ from datetime import date, timedelta, datetime
 from typing import List, Dict, Optional, Tuple, Any
 from .types import TaskWithParts, Preferences
 def _normalize_avoid_days(raw) -> set[int]:
-    """支持字符串和整数混合输入"""
+    """Support mixed string and integer input"""
     name2idx = {"Mon":0, "Tue":1, "Wed":2, "Thu":3, "Fri":4, "Sat":5, "Sun":6}
     out: set[int] = set()
     for x in (raw or []):
@@ -19,7 +19,7 @@ def iso_to_date(s: str) -> date:
     return datetime.fromisoformat(s).date()
 
 def week_monday(d: date) -> date:
-    return d - timedelta(days=d.weekday())  # 周一
+    return d - timedelta(days=d.weekday())  # Monday
 
 def compute_part_percentages(task: TaskWithParts) -> List[Dict[str, Any]]:
     total = sum(max(0, int(p.minutes)) for p in task.parts) or 1

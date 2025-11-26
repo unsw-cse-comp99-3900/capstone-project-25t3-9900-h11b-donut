@@ -1,4 +1,4 @@
-// AI对话服务 - 处理与后端AI对话API的交互
+// AI Chat Service - Handle interaction with backend AI chat API
 export interface ChatMessage {
   id: number;
   type: 'user' | 'ai' | 'system';

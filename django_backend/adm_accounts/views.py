@@ -161,6 +161,6 @@ def logout_admin(request: HttpRequest):
     if request.method != "POST":
         return JsonResponse({"success": False, "message": "Method Not Allowed", "data": None}, status=405)
     
-    # 清空 session
+    # clear session
     request.session.flush()
     return JsonResponse({"success": True, "message": "Logged out successfully", "data": None})

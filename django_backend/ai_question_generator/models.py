@@ -10,7 +10,7 @@ class GeneratedQuestion(models.Model):
     )
     
     id = models.AutoField(primary_key=True)
-    session_id = models.CharField(max_length=64, db_index=True)  # 生成会话ID
+    session_id = models.CharField(max_length=64, db_index=True)  # Generation session ID
     course_code = models.CharField(max_length=16, db_index=True)
     topic = models.CharField(max_length=255)
     difficulty = models.CharField(max_length=10)

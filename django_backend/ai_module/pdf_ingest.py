@@ -130,5 +130,5 @@ def _extract_with_fitz(pdf_path: str) -> Optional[str]:
         result = "\n\n".join(t for t in texts if t)
         return result if result.strip() else None
     except Exception as e:
-        print(f'[PDF_INGEST] PyMuPDF失败: {e}')
+        print(f'[PDF_INGEST] PyMuPDF failed: {e}')
         return None

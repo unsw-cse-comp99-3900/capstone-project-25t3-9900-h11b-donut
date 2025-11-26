@@ -147,7 +147,7 @@ def create_course(request):
     description = (description or "").strip()
 
     if not admin_id or not code or not title:
-        return JsonResponse({"success": False, "message": "missing parameters：admin_id / code / title"}, status=400)
+        return JsonResponse({"success": False, "message": "missing parameters: admin_id / code / title"}, status=400)
 
     try:
         with transaction.atomic():
@@ -282,7 +282,7 @@ def delete_course(request):
 
     except Exception as e:
         print("[delete_course] error:", e)
-        return JsonResponse({"success": False, "message": f"fail to delete：{e}"}, status=500)
+        return JsonResponse({"success": False, "message": f"fail to delete: {e}"}, status=500)
 @csrf_exempt
 def course_tasks(request, course_id):
     

@@ -162,7 +162,7 @@ class ApiService {
 
       // If squeezed offline, give a prompt
       if (code === 'KICKED') {
-        try { alert('你的账号在另一处登录，你已下线'); } catch {}
+        try { alert('Your account has been logged in elsewhere, you have been logged out'); } catch {}
       }
 
 
