@@ -32,8 +32,7 @@ from django.utils.timezone import make_aware
 
 def parse_sydney_datetime(dt_str: str):
     """
-    使用 Python zoneinfo 解析悉尼时间，避免 pytz 的 DST/minute bug。
-    支持:
+    
       YYYY-MM-DD
       YYYY-MM-DD HH:MM
       YYYY-MM-DD HH:MM:SS
@@ -43,12 +42,12 @@ def parse_sydney_datetime(dt_str: str):
     if not dt_str:
         return None
 
-    # 统一 T 为空格
+ 
     dt_str = dt_str.replace("T", " ").strip()
 
     dt_naive = None
 
-    # 依次尝试格式
+
     for fmt in ("%Y-%m-%d %H:%M:%S",
                 "%Y-%m-%d %H:%M",
                 "%Y-%m-%d"):
@@ -61,10 +60,10 @@ def parse_sydney_datetime(dt_str: str):
     if dt_naive is None:
         return None
 
-    # ⭐ 使用 zoneinfo，避免 pytz 的 +10:05（已损坏）问题
+
     sydney = ZoneInfo("Australia/Sydney")
 
-    # ⭐ 直接 make_aware，稳定且准确
+
     return make_aware(dt_naive, timezone=sydney)
 # >>>>>>> 2c33235 (backend  cron job, front end  hooks)
 

@@ -1,0 +1,51 @@
+[
+  {
+    "test": "Mock: Gemini API Success",
+    "success": true,
+    "message": "Successfully mocked Gemini API: Generated 1 AI-enhanced tasks",
+    "duration": "0.00s",
+    "timestamp": "2025-11-26 09:02:31"
+  },
+  {
+    "test": "Mock: Gemini API Unavailable",
+    "success": true,
+    "message": "Successfully tested Gemini unavailable scenario - demonstrates fallback concept",
+    "duration": "7.31s",
+    "timestamp": "2025-11-26 09:02:39"
+  },
+  {
+    "test": "Mock: Gemini API Exception",
+    "success": true,
+    "message": "Successfully demonstrated graceful degradation: Fallback generated 1 tasks",
+    "duration": "0.00s",
+    "timestamp": "2025-11-26 09:02:39"
+  },
+  {
+    "test": "Mock: Empty Tasks Data",
+    "success": true,
+    "message": "Empty input handled gracefully",
+    "duration": "0.00s",
+    "timestamp": "2025-11-26 09:02:40"
+  },
+  {
+    "test": "Mock: Invalid Preferences",
+    "success": true,
+    "message": "Invalid input handled with defaults",
+    "duration": "5.31s",
+    "timestamp": "2025-11-26 09:02:46"
+  },
+  {
+    "test": "Mock: HTTP API Success",
+    "success": true,
+    "message": "HTTP API success: Generated 2 tasks via API",
+    "duration": "0.00s",
+    "timestamp": "2025-11-26 09:02:46"
+  },
+  {
+    "test": "Mock: HTTP API Error",
+    "success": true,
+    "message": "HTTP API error handling: Correctly returned 500 with error message",
+    "duration": "0.00s",
+    "timestamp": "2025-11-26 09:02:47"
+  }
+]
