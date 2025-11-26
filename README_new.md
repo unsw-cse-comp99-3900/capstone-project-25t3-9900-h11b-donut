@@ -477,3 +477,75 @@
    - 创建/编辑课程
    - 学生进度查看
    - 任务管理
+
+
+
+## Setup & Run
+
+### Backend (Local)
+
+```bash
+cd django_backend
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate      # (macOS/Linux)
+# or
+venv\Scripts\activate          # (Windows)
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment variables
+# Create .env file and add:
+# GEMINI_API_KEY=your-gemini-api-key
+# DB_ENGINE=django.db.backends.sqlite3  # or mysql
+# DB_NAME=db.sqlite3
+# SECRET_KEY=your-secret-key
+
+# Run database migrations
+python manage.py makemigrations
+python manage.py migrate
+
+# Create superuser (optional)
+python manage.py createsuperuser
+
+# Start development server
+python manage.py runserver
+```
+🔗 http://localhost:5000
+
+### Frontend (Local)
+
+```bash
+cd front_end
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+🔗 http://localhost:5173
+
+### Docker (Backend + Frontend)
+
+
+
+## Testing
+### Backend
+## Backend
+Our backend includes comprehensive unit and integration tests to ensure system reliability and correctness.
+
+## Test Coverage
+Unit tests verify:
+Authentication & Authorization: Student and admin login/register flows, token validation
+Course Management: Course CRUD operations, enrollment logic, task retrieval
+Study Plan Operations: Plan generation, storage, retrieval, and weekly plan management
+AI Integration: Plan generation API calls, chat message handling, question generation workflows
+Task Progress Tracking: Progress update logic, completion percentage calculations
+Running Backend Tests
+
+### Frontend
