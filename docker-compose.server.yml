@@ -9,9 +9,7 @@ services:
     container_name: donut-backend
     working_dir: /app
 
-
     network_mode: "host"
-
 
     env_file:
       - ./django_backend/.env
@@ -23,7 +21,8 @@ services:
       http_proxy: "http://127.0.0.1:8888"
       https_proxy: "http://127.0.0.1:8888"
       NO_PROXY: "localhost,127.0.0.1"
-
+    volumes:
+      - ./django_backend:/app/django_backend
     restart: unless-stopped
 
 
