@@ -51,7 +51,7 @@
 ## 项目结构
 
 ```
-capstone-project-25t3-9900-h11b-donut/
+原版capstone-project-25t3-9900-h11b-donut/
 ├── front_end/                 # 前端项目
 │   ├── src/
 │   │   ├── pages/            # 页面组件
@@ -83,7 +83,7 @@ capstone-project-25t3-9900-h11b-donut/
 ```
 
 ```
-capstone-project-25t3-9900-h11b-donut/
+更新版capstone-project-25t3-9900-h11b-donut/
 │
 ├─ front_end/                                         # React + TypeScript frontend application
 │  ├─ public/                                         # Static public assets
