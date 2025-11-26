@@ -92,7 +92,7 @@ Unit tests ensure that:
 
 These tests collectively ensure that the course, enrollment, and task-management subsystem behaves predictably under both normal and exceptional scenarios. They verify that invalid configurations are rejected, duplicate or inconsistent states are prevented, and that data integrity is consistently maintained during operations such as task creation, enrollment attempts, and full course removal.
 
-# 2. Alignment With Project Testing Guidelines
+# 2. Project Testing Coverage
 
 | Guideline                      | Our Coverage                                                                 |
 |-------------------------------|-------------------------------------------------------------------------------|
@@ -112,6 +112,8 @@ The backend test suite fully aligns with project testing expectations and covers
 # 3. How to Run Test
 
 ```bash
+pip install -r requirements.txt
+
 cd django_backend
 
 cd test
@@ -122,7 +124,17 @@ python manage.py test test.test.test_auth
 
 python test_plan_api_with_mocks.py #mock data stores in mock_test_results.json
 
-python test_ai_unified.py # test all the functionalities related to AI 
+python test_ai_unified.py # test results also stores in mock_test_results.json
+
+# When running the unified testing script, some test cases will appear as failed.
+# This is expected because the script uses sample data that exists only in our team’s database.
+# Testers do not have access to the team’s production database and will instead be running on SQLite, where these records naturally do not exist. Therefore, certain database-related tests will fail—this is normal.
+
+# Additionally, if the final HTTP/API test shows an error, please ensure that the backend server is running.
+
+# Open a new terminal and start the backend manually:
+# cd .. 
+# python manage.py runserver
 
 ```
 

@@ -1,0 +1,98 @@
+[
+  {
+    "test": "Database Connection",
+    "success": true,
+    "message": "User exists, 13 chats, 654 questions",
+    "duration": "0.00s",
+    "category": "database",
+    "timestamp": "2025-11-26 14:00:11"
+  },
+  {
+    "test": "AI Question Generation",
+    "success": true,
+    "message": "Generated 5 questions",
+    "duration": "13.14s",
+    "category": "ai_core",
+    "timestamp": "2025-11-26 14:00:25"
+  },
+  {
+    "test": "Chat Service - Hello",
+    "success": true,
+    "message": "Response generated (intent: normal_chat)",
+    "duration": "0.00s",
+    "category": "chat",
+    "timestamp": "2025-11-26 14:00:25"
+  },
+  {
+    "test": "Chat Service - explain my plan",
+    "success": true,
+    "message": "Response generated (intent: explain_plan_trigger)",
+    "duration": "0.00s",
+    "category": "chat",
+    "timestamp": "2025-11-26 14:00:25"
+  },
+  {
+    "test": "Chat Service - I want to practice",
+    "success": true,
+    "message": "Response generated (intent: practice_trigger)",
+    "duration": "0.00s",
+    "category": "chat",
+    "timestamp": "2025-11-26 14:00:25"
+  },
+  {
+    "test": "Gemini API",
+    "success": true,
+    "message": "Response: Web development is the process of creating and mai...",
+    "duration": "2.42s",
+    "category": "api",
+    "timestamp": "2025-11-26 14:00:28"
+  },
+  {
+    "test": "Plan Generation - Basic Functionality",
+    "success": false,
+    "message": "Generated plan missing 'tasks' field",
+    "duration": "9.44s",
+    "category": "fallback",
+    "timestamp": "2025-11-26 14:00:37"
+  },
+  {
+    "test": "Data Validation",
+    "success": true,
+    "message": "Passed 10/12 validation tests",
+    "duration": "0.00s",
+    "category": "validation",
+    "timestamp": "2025-11-26 14:00:37"
+  },
+  {
+    "test": "Business Logic",
+    "success": true,
+    "message": "Passed 4/3 logic tests",
+    "duration": "0.00s",
+    "category": "business",
+    "timestamp": "2025-11-26 14:00:37"
+  },
+  {
+    "test": "Error Handling",
+    "success": true,
+    "message": "Passed 5/3 error handling tests",
+    "duration": "3.02s",
+    "category": "error_handling",
+    "timestamp": "2025-11-26 14:00:40"
+  },
+  {
+    "test": "Concurrent Access",
+    "success": true,
+    "message": "Passed 2/2 concurrent access tests",
+    "duration": "0.90s",
+    "category": "concurrent",
+    "timestamp": "2025-11-26 14:00:41"
+  },
+  {
+    "test": "Backend Health Check",
+    "success": false,
+    "message": "Not accessible: Unknown",
+    "duration": "0.00s",
+    "category": "http",
+    "timestamp": "2025-11-26 14:00:43"
+  }
+]
