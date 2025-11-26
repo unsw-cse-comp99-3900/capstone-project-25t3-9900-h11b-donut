@@ -10,7 +10,7 @@ __pycache__/
 
 
 venv/
-*.env
+django_backend/.env
 
 
 db.sqlite3
